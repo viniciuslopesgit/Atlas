@@ -9,7 +9,7 @@ using System.Reflection;
 
 namespace Atlas.ViewModels;
 
-public enum NavigationPage { Dashboard, EC2, S3, IAM, Billing, CloudWatch, GuardDuty, Settings }
+public enum NavigationPage { Dashboard, EC2, S3, IAM, Billing, CloudWatch, GuardDuty, Settings, Contact }
 
 public partial class MainViewModel : ObservableObject
 {
@@ -27,6 +27,7 @@ public partial class MainViewModel : ObservableObject
     public CloudWatchViewModel  CloudWatchVM   { get; }
     public GuardDutyViewModel   GuardDutyVM    { get; }
     public SettingsViewModel    SettingsVM     { get; }
+    public ContactViewModel     ContactVM      { get; }
 
     /// <summary>License activation card shown inside the in-window upgrade overlay.</summary>
     public LicenseViewModel License { get; }
@@ -132,7 +133,8 @@ public partial class MainViewModel : ObservableObject
         BillingViewModel billingVM,
         CloudWatchViewModel cloudWatchVM,
         GuardDutyViewModel guardDutyVM,
-        SettingsViewModel settingsVM)
+        SettingsViewModel settingsVM,
+        ContactViewModel contactVM)
     {
         _theme = theme;
         _accounts = accountService;
@@ -150,6 +152,7 @@ public partial class MainViewModel : ObservableObject
         CloudWatchVM = cloudWatchVM;
         GuardDutyVM  = guardDutyVM;
         SettingsVM   = settingsVM;
+        ContactVM    = contactVM;
 
         // Free by default — the app is fully usable without a key. Pro unlocks gated features.
         _isPro = _license.IsPro;
@@ -306,6 +309,7 @@ public partial class MainViewModel : ObservableObject
             NavigationPage.CloudWatch  => CloudWatchVM,
             NavigationPage.GuardDuty   => GuardDutyVM,
             NavigationPage.Settings    => SettingsVM,
+            NavigationPage.Contact     => ContactVM,
             _                          => DashboardVM
         };
 
@@ -383,6 +387,10 @@ public partial class MainViewModel : ObservableObject
             new() { Title = "Go to Settings",        Category = "Navigate", Icon = "",
                     Keywords = ["settings", "config", "accounts", "preferences", "keys"],
                     Execute = () => NavigateTo(NavigationPage.Settings) },
+            new() { Title = "Contact & Feedback",    Category = "Navigate", Icon = "",
+                    Subtitle = "Report a bug or send a suggestion",
+                    Keywords = ["contact", "feedback", "bug", "report", "suggestion", "help"],
+                    Execute = () => NavigateTo(NavigationPage.Contact) },
 
             // ── Appearance ──────────────────────────────────────────────
             new() { Title = "Toggle Theme",          Category = "Appearance", Icon = "",

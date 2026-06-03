@@ -85,6 +85,7 @@ public partial class App : Application
         services.AddSingleton<CloudWatchViewModel>();
         services.AddSingleton<GuardDutyViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<ContactViewModel>();
         services.AddSingleton<MainViewModel>();
 
         // ── Views ─────────────────────────────────────────────────

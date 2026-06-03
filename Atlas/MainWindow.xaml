@@ -29,6 +29,7 @@
         <DataTemplate DataType="{x:Type vm:BillingViewModel}"><views:BillingView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:CloudWatchViewModel}"><views:CloudWatchView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:GuardDutyViewModel}"><views:GuardDutyView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ContactViewModel}"><views:ContactView/></DataTemplate>
 
         <!-- Splitter thumb: invisible hit area, subtle hover line -->
         <Style x:Key="SidebarSplitter" TargetType="GridSplitter">
@@ -96,6 +97,44 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal"
                             VerticalAlignment="Center" Margin="0,0,8,0"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
+
+                    <!-- Feedback / Bug Report button -->
+                    <Button Command="{Binding NavigateToCommand}"
+                            CommandParameter="{x:Static vm:NavigationPage.Contact}"
+                            Cursor="Hand" BorderThickness="0" Height="34" Margin="0,0,8,0"
+                            ToolTip="Report a bug or send feedback"
+                            FocusVisualStyle="{x:Null}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bg" CornerRadius="7"
+                                        Background="Transparent"
+                                        Padding="10,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock x:Name="BugIcon"
+                                                   Text="&#xEBE8;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="BugLabel"
+                                                   Text="Report Bug"
+                                                   FontSize="12.5"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                        <Setter TargetName="BugIcon" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                        <Setter TargetName="BugLabel" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
 
                     <!-- Update available notification -->
                     <Button Command="{Binding ApplyUpdateCommand}"
@@ -644,6 +683,22 @@
                         <TextBlock Grid.Column="0" Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
                                    FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" Text="Settings" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </Grid>
+                </RadioButton>
+
+                <!-- Contact & Feedback -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Contact}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.Contact}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xED15;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Feedback" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </RadioButton>
 

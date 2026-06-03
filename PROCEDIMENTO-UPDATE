@@ -3,11 +3,11 @@
 
 2. 
 git add .
-git commit -m "Download button link URL"
+git commit -m "Google Analytics"
 git push origin main
 
-git tag 0.0.20
-git push origin 0.0.20
+git tag 0.0.21
+git push origin 0.0.21
 
 
 4. Atualize o link de download do site
