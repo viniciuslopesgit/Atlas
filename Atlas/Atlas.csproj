@@ -9,7 +9,7 @@
     <AssemblyName>Atlas</AssemblyName>
     <RootNamespace>Atlas</RootNamespace>
     <Platforms>x64</Platforms>
-    <Version>0.0.7</Version>
+    <Version>0.0.19</Version>
     <StartupObject>Atlas.Program</StartupObject>
   </PropertyGroup>
 

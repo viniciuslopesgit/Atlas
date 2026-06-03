@@ -3,11 +3,11 @@
 
 2. 
 git add .
-git commit -m "Add workflow website push"
+git commit -m "Download button link URL"
 git push origin main
 
-git tag 0.0.17
-git push origin 0.0.17
+git tag 0.0.19
+git push origin 0.0.19
 
 
 4. Atualize o link de download do site

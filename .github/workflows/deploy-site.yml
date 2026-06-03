@@ -16,6 +16,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Inject latest version into website
+        run: |
+          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.1")
+          sed -i "s/{{VERSION}}/$LATEST/g" cloud-atlas.io/index.html
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3

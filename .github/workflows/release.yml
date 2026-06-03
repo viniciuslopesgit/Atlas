@@ -66,3 +66,18 @@ jobs:
             --token ${{ secrets.RELEASES_TOKEN }} `
             --outputDir releases/ `
             --publish
+
+      - name: Inject version into website
+        shell: bash
+        run: |
+          sed -i 's/{{VERSION}}/${{ steps.version.outputs.VERSION }}/g' cloud-atlas.io/index.html
+
+      - name: Deploy site to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: cloud-atlas.io
+          production-branch: main
+          production-deploy: true
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
