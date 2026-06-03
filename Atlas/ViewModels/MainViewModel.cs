@@ -18,6 +18,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ILicenseService _license;
     private readonly IUpgradeService _upgrade;
     private readonly IUpdateService _updates;
+    private readonly IAnalyticsService _analytics;
 
     public DashboardViewModel    DashboardVM    { get; }
     public Ec2ViewModel         Ec2VM          { get; }
@@ -124,6 +125,7 @@ public partial class MainViewModel : ObservableObject
         ILicenseService licenseService,
         IUpgradeService upgradeService,
         IUpdateService updateService,
+        IAnalyticsService analyticsService,
         LicenseViewModel licenseVM,
         CommandPaletteViewModel paletteVM,
         DashboardViewModel dashboardVM,
@@ -141,6 +143,7 @@ public partial class MainViewModel : ObservableObject
         _license = licenseService;
         _upgrade = upgradeService;
         _updates = updateService;
+        _analytics = analyticsService;
 
         License = licenseVM;
         Palette = paletteVM;
@@ -299,6 +302,7 @@ public partial class MainViewModel : ObservableObject
         if (CurrentPage == page && CurrentViewModel != null) return;
 
         CurrentPage = page;
+        _analytics.TrackPageView(PageDisplayName(page));
         CurrentViewModel = page switch
         {
             NavigationPage.Dashboard   => DashboardVM,

@@ -50,6 +50,7 @@ public partial class App : Application
         services.AddSingleton<AwsClientFactory>();
 
         // ── Domain Services ───────────────────────────────────────
+        services.AddSingleton<IAnalyticsService, AnalyticsService>();
         services.AddSingleton<IAccountService, AccountService>();
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IAwsSessionFactory, AwsSessionFactory>();
@@ -116,6 +117,8 @@ public partial class App : Application
                 try { await licenseService.RefreshAsync(); }
                 catch (Exception ex) { FileLogger.Warning($"Startup license revalidation failed: {ex.Message}"); }
             }
+
+            _host.Services.GetRequiredService<IAnalyticsService>().TrackAppStart();
 
             var mainWindow = _host.Services.GetRequiredService<MainWindow>();
             mainWindow.Show();
