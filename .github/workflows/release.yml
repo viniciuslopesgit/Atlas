@@ -70,7 +70,7 @@ jobs:
       - name: Inject version into website
         shell: bash
         run: |
-          sed -i 's/{{VERSION}}/${{ steps.version.outputs.VERSION }}/g' cloud-atlas.io/index.html
+          sed -i "s/__VERSION__/${{ steps.version.outputs.VERSION }}/g" cloud-atlas.io/index.html
 
       - name: Deploy site to Netlify
         uses: nwtgck/actions-netlify@v3

@@ -6,8 +6,8 @@ git add .
 git commit -m "Download button link URL"
 git push origin main
 
-git tag 0.0.19
-git push origin 0.0.19
+git tag 0.0.20
+git push origin 0.0.20
 
 
 4. Atualize o link de download do site
