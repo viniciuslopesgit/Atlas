@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1270">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1270px; height: 760px; overflow: hidden;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #07090f;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 60% at 20% 50%, rgba(255,153,0,0.06) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 50% at 80% 30%, rgba(30,60,160,0.14) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 40% at 60% 80%, rgba(99,179,237,0.05) 0%, transparent 60%);
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .wrapper {
+    position: relative;
+    width: 1150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 44px;
+  }
+
+  /* Hero text */
+  .hero {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,153,0,0.1);
+    border: 1px solid rgba(255,153,0,0.2);
+    border-radius: 100px;
+    padding: 5px 16px;
+    font-size: 12px;
+    color: #ff9900;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .hero h2 {
+    font-size: 44px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+  .hero h2 span { color: #ff9900; }
+  .hero p {
+    font-size: 17px;
+    color: rgba(255,255,255,0.45);
+    max-width: 560px;
+    line-height: 1.6;
+  }
+
+  /* Feature grid */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    width: 100%;
+  }
+
+  .feat {
+    background: linear-gradient(140deg, #111827 0%, #0c1220 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 24px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .feat::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Accent top border per feature */
+  .feat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    border-radius: 16px 16px 0 0;
+  }
+  .feat.c-orange::before { background: linear-gradient(90deg, #ff9900 0%, transparent 70%); }
+  .feat.c-blue::before   { background: linear-gradient(90deg, #60a5fa 0%, transparent 70%); }
+  .feat.c-green::before  { background: linear-gradient(90deg, #34d399 0%, transparent 70%); }
+  .feat.c-red::before    { background: linear-gradient(90deg, #f87171 0%, transparent 70%); }
+  .feat.c-purple::before { background: linear-gradient(90deg, #a78bfa 0%, transparent 70%); }
+  .feat.c-teal::before   { background: linear-gradient(90deg, #2dd4bf 0%, transparent 70%); }
+
+  .feat-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .feat.c-orange .feat-icon { background: rgba(255,153,0,0.12); }
+  .feat.c-blue   .feat-icon { background: rgba(96,165,250,0.12); }
+  .feat.c-green  .feat-icon { background: rgba(52,211,153,0.12); }
+  .feat.c-red    .feat-icon { background: rgba(248,113,113,0.12); }
+  .feat.c-purple .feat-icon { background: rgba(167,139,250,0.12); }
+  .feat.c-teal   .feat-icon { background: rgba(45,212,191,0.12); }
+
+  .feat-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.92);
+  }
+  .feat-desc {
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+  }
+
+  /* Mini pill list inside card */
+  .feat-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .fpill {
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 10.5px;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* Bottom strip */
+  .bottom-strip {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding: 16px 28px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 100px;
+  }
+  .strip-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+    font-weight: 500;
+  }
+  .strip-icon { font-size: 16px; }
+  .strip-sep {
+    width: 1px; height: 20px;
+    background: rgba(255,255,255,0.1);
+  }
+  .strip-brand {
+    margin-left: auto;
+    font-size: 16px;
+    font-weight: 900;
+    color: #ff9900;
+    display: flex; align-items: center; gap: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="grid"></div>
+
+<div class="wrapper">
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">✦ Everything you need</div>
+    <h2>One app for your entire <span>AWS stack</span></h2>
+    <p>Stop juggling the AWS console across 10 tabs. Atlas brings every service into a single, fast, native Windows desktop app.</p>
+  </div>
+
+  <!-- Feature grid -->
+  <div class="feature-grid">
+
+    <div class="feat c-orange">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">EC2 Management</div>
+      <div class="feat-desc">View, start, stop, and monitor all your instances. Filter by state, region, or type in seconds.</div>
+      <div class="feat-pills">
+        <div class="fpill">Multi-region</div>
+        <div class="fpill">State filters</div>
+        <div class="fpill">Live KPIs</div>
+      </div>
+    </div>
+
+    <div class="feat c-blue">
+      <div class="feat-icon">🪣</div>
+      <div class="feat-title">S3 Buckets</div>
+      <div class="feat-desc">Browse all your buckets across regions. View object counts, sizes, and versioning settings at a glance.</div>
+      <div class="feat-pills">
+        <div class="fpill">All regions</div>
+        <div class="fpill">Versioning</div>
+        <div class="fpill">Object count</div>
+      </div>
+    </div>
+
+    <div class="feat c-green">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">CloudWatch Alarms</div>
+      <div class="feat-desc">Real-time alarm monitoring with state filtering — ALARM, OK, and INSUFFICIENT_DATA — plus threshold visualization.</div>
+      <div class="feat-pills">
+        <div class="fpill">State chips</div>
+        <div class="fpill">Thresholds</div>
+        <div class="fpill">Search</div>
+      </div>
+    </div>
+
+    <div class="feat c-red">
+      <div class="feat-icon">🔐</div>
+      <div class="feat-title">IAM Users & Roles</div>
+      <div class="feat-desc">Audit your IAM users, roles, and policies without memorizing CLI syntax. Security at a glance.</div>
+      <div class="feat-pills">
+        <div class="fpill">Users</div>
+        <div class="fpill">Roles</div>
+        <div class="fpill">Policies</div>
+      </div>
+    </div>
+
+    <div class="feat c-purple">
+      <div class="feat-icon">🛡</div>
+      <div class="feat-title">GuardDuty Findings</div>
+      <div class="feat-desc">Spot security threats immediately. Filter by severity — HIGH, MEDIUM, LOW — with full finding details.</div>
+      <div class="feat-pills">
+        <div class="fpill">Severity filter</div>
+        <div class="fpill">Full details</div>
+        <div class="fpill">Live sync</div>
+      </div>
+    </div>
+
+    <div class="feat c-teal">
+      <div class="feat-icon">💰</div>
+      <div class="feat-title">Billing Overview</div>
+      <div class="feat-desc">Track your AWS spend without leaving the app. See month-to-date costs and service breakdowns.</div>
+      <div class="feat-pills">
+        <div class="fpill">MTD cost</div>
+        <div class="fpill">Forecast</div>
+        <div class="fpill">By service</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom strip -->
+  <div class="bottom-strip">
+    <div class="strip-item"><span class="strip-icon">🪟</span> Native Windows app</div>
+    <div class="strip-sep"></div>
+    <div class="strip-item"><span class="strip-icon">🔑</span> Your AWS credentials, local only</div>
+    <div class="strip-sep"></div>
+    <div class="strip-item"><span class="strip-icon">⚡</span> Built with .NET 9 + WPF</div>
+    <div class="strip-sep"></div>
+    <div class="strip-item"><span class="strip-icon">🌍</span> Multi-region support</div>
+    <div class="strip-brand">⬡ Atlas</div>
+  </div>
+</div>
+</body>
+</html>

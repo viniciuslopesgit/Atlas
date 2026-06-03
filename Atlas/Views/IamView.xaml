@@ -1,0 +1,1570 @@
+﻿<UserControl x:Class="Atlas.Views.IamView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Atlas.ViewModels">
+
+    <Grid Background="{DynamicResource BackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="32,28,32,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Text="Identity and Access Management" FontSize="24" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0">
+                    <Run Text="{Binding CurrentCount, Mode=OneWay}"/>
+                    <Run Text="{Binding CurrentTabLabel, Mode=OneWay}"/>
+                </TextBlock>
+            </StackPanel>
+
+            <Button Grid.Column="1" Command="{Binding CreateUserCommand}"
+                    VerticalAlignment="Center" Padding="14,7" Cursor="Hand"
+                    Visibility="{Binding IsUsersTab, Converter={StaticResource BoolToVisible}}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{DynamicResource AccentBrush}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                                <TextBlock Text="Create user" FontSize="12" FontWeight="Medium"
+                                           Foreground="White" Margin="7,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </Grid>
+
+        <!-- Tab bar -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="32,0,32,14">
+            <RadioButton Style="{StaticResource IamTabButton}"
+                         IsChecked="{Binding IsUsersTab, Mode=OneWay}"
+                         Command="{Binding SwitchTabCommand}"
+                         CommandParameter="{x:Static vm:IamTab.Users}"
+                         Content="IAM Users"/>
+            <RadioButton Style="{StaticResource IamTabButton}"
+                         IsChecked="{Binding IsRolesTab, Mode=OneWay}"
+                         Command="{Binding SwitchTabCommand}"
+                         CommandParameter="{x:Static vm:IamTab.Roles}"
+                         Content="Roles" Margin="2,0,0,0"/>
+            <RadioButton Style="{StaticResource IamTabButton}"
+                         IsChecked="{Binding IsGroupsTab, Mode=OneWay}"
+                         Command="{Binding SwitchTabCommand}"
+                         CommandParameter="{x:Static vm:IamTab.Groups}"
+                         Content="User groups" Margin="2,0,0,0"/>
+            <RadioButton Style="{StaticResource IamTabButton}"
+                         IsChecked="{Binding IsPoliciesTab, Mode=OneWay}"
+                         Command="{Binding SwitchTabCommand}"
+                         CommandParameter="{x:Static vm:IamTab.Policies}"
+                         Content="Policies" Margin="2,0,0,0"/>
+        </StackPanel>
+
+        <!-- Search toolbar -->
+        <Grid Grid.Row="2" Margin="32,0,32,10">
+            <Grid>
+                <TextBox x:Name="SearchBox"
+                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="13,0,11,0" Height="34"/>
+                <Viewbox Width="13" Height="13" HorizontalAlignment="Left"
+                         Margin="11,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center">
+                    <Canvas Width="16" Height="16">
+                        <Ellipse Canvas.Left="1" Canvas.Top="1" Width="10" Height="10"
+                                 Stroke="{DynamicResource TextMutedBrush}" StrokeThickness="1.6"
+                                 Fill="Transparent"/>
+                        <Line X1="10" Y1="10" X2="15" Y2="15"
+                              Stroke="{DynamicResource TextMutedBrush}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Canvas>
+                </Viewbox>
+                <TextBlock Text="Search…" Margin="30,0,0,0"
+                           VerticalAlignment="Center" IsHitTestVisible="False"
+                           Foreground="{DynamicResource TextMutedBrush}" FontSize="13">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Grid>
+
+        <!-- Error -->
+        <Border Grid.Row="3" Margin="32,0,32,10" Padding="14,9" CornerRadius="8"
+                Background="#22F87171" BorderBrush="#44F87171" BorderThickness="1"
+                Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}">
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}" FontSize="13"/>
+        </Border>
+
+        <!-- Content area -->
+        <Grid x:Name="ContentGrid" Grid.Row="4" Margin="32,0,32,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="200"/>
+                <ColumnDefinition x:Name="SplitterColumn" Width="0"/>
+                <ColumnDefinition x:Name="DetailColumn"   Width="0"/>
+            </Grid.ColumnDefinitions>
+
+            <GridSplitter Grid.Column="1"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Columns"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Background="Transparent"
+                          Cursor="SizeWE">
+                <GridSplitter.Template>
+                    <ControlTemplate TargetType="GridSplitter">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </GridSplitter.Template>
+            </GridSplitter>
+
+            <!-- ══════ USERS TAB ══════ -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding IsUsersTab, Converter={StaticResource BoolToVisible}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.RowSpan="2" Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                            Panel.ZIndex="5" CornerRadius="12"
+                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisible}}">
+                        <TextBlock Text="Loading users…" FontSize="14"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <DataGrid x:Name="UsersGrid" Grid.Row="0"
+                              ItemsSource="{Binding UsersView}"
+                              SelectionMode="Extended" SelectionUnit="FullRow"
+                              HeadersVisibility="Column" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False"
+                              SelectionChanged="UsersGrid_SelectionChanged"
+                              HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="46" MinWidth="46" CanUserResize="False" CanUserSort="False">
+                                <DataGridTemplateColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding DataContext.AreAllUsersSelected, RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="SelectAllUsers_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.HeaderTemplate>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="RowCheckBox_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Username"      Binding="{Binding UserName}"               Width="*"   MinWidth="140"/>
+                            <DataGridTextColumn Header="User ID"       Binding="{Binding UserId}"                 Width="160" MinWidth="130"/>
+                            <DataGridTextColumn Header="Groups"        Binding="{Binding GroupsDisplay}"          Width="160" MinWidth="100"/>
+                            <DataGridTextColumn Header="Access keys"   Binding="{Binding AccessKeyCount}"         Width="90"  MinWidth="80"/>
+                            <DataGridTextColumn Header="Password used" Binding="{Binding PasswordLastUsedDisplay}" Width="150" MinWidth="130"/>
+                            <DataGridTextColumn Header="Created"       Binding="{Binding CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="110" MinWidth="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,12,12" Padding="16,10"
+                            Visibility="{Binding HasUserSelection, Converter={StaticResource BoolToVisible}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}">
+                                <Run Text="{Binding SelectedUserCount, Mode=OneWay}"/>
+                                <Run Text="selected"/>
+                            </TextBlock>
+                            <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                    Command="{Binding DeleteSelectedCommand}"
+                                    Foreground="{DynamicResource DangerBrush}" Padding="8,4" Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Delete" FontSize="12" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3" Style="{StaticResource GhostButton}"
+                                    Click="UsersGrid_ClearSelection"
+                                    Foreground="{DynamicResource TextMutedBrush}" Padding="8,4">
+                                <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ══════ ROLES TAB ══════ -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding IsRolesTab, Converter={StaticResource BoolToVisible}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.RowSpan="2" Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                            Panel.ZIndex="5" CornerRadius="12"
+                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisible}}">
+                        <TextBlock Text="Loading roles…" FontSize="14"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <DataGrid x:Name="RolesGrid" Grid.Row="0"
+                              ItemsSource="{Binding RolesView}"
+                              SelectionMode="Extended" SelectionUnit="FullRow"
+                              HeadersVisibility="Column" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False"
+                              SelectionChanged="RolesGrid_SelectionChanged"
+                              HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="46" MinWidth="46" CanUserResize="False" CanUserSort="False">
+                                <DataGridTemplateColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding DataContext.AreAllRolesSelected, RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="SelectAllRoles_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.HeaderTemplate>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="RowCheckBox_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Role name"        Binding="{Binding RoleName}"          Width="*"   MinWidth="160"/>
+                            <DataGridTextColumn Header="Role ID"          Binding="{Binding RoleId}"            Width="160" MinWidth="130"/>
+                            <DataGridTextColumn Header="Trusted entities" Binding="{Binding TrustedEntities}"   Width="200" MinWidth="140"/>
+                            <DataGridTextColumn Header="Max session"      Binding="{Binding MaxSessionDisplay}" Width="100" MinWidth="80"/>
+                            <DataGridTextColumn Header="Created"          Binding="{Binding CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="110" MinWidth="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,12,12" Padding="16,10"
+                            Visibility="{Binding HasRoleSelection, Converter={StaticResource BoolToVisible}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}">
+                                <Run Text="{Binding SelectedRoleCount, Mode=OneWay}"/>
+                                <Run Text="selected"/>
+                            </TextBlock>
+                            <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                    Command="{Binding DeleteSelectedCommand}"
+                                    Foreground="{DynamicResource DangerBrush}" Padding="8,4" Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Delete" FontSize="12" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3" Style="{StaticResource GhostButton}"
+                                    Click="RolesGrid_ClearSelection"
+                                    Foreground="{DynamicResource TextMutedBrush}" Padding="8,4">
+                                <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ══════ GROUPS TAB ══════ -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding IsGroupsTab, Converter={StaticResource BoolToVisible}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.RowSpan="2" Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                            Panel.ZIndex="5" CornerRadius="12"
+                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisible}}">
+                        <TextBlock Text="Loading groups…" FontSize="14"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <DataGrid x:Name="GroupsGrid" Grid.Row="0"
+                              ItemsSource="{Binding GroupsView}"
+                              SelectionMode="Extended" SelectionUnit="FullRow"
+                              HeadersVisibility="Column" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False"
+                              SelectionChanged="GroupsGrid_SelectionChanged"
+                              HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="46" MinWidth="46" CanUserResize="False" CanUserSort="False">
+                                <DataGridTemplateColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding DataContext.AreAllGroupsSelected, RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="SelectAllGroups_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.HeaderTemplate>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="RowCheckBox_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Group name" Binding="{Binding GroupName}" Width="*"   MinWidth="160"/>
+                            <DataGridTextColumn Header="Group ID"   Binding="{Binding GroupId}"   Width="160" MinWidth="130"/>
+                            <DataGridTextColumn Header="Users"      Binding="{Binding UserCount}" Width="80"  MinWidth="60"/>
+                            <DataGridTextColumn Header="Policies"   Binding="{Binding AttachedPoliciesDisplay}" Width="220" MinWidth="140"/>
+                            <DataGridTextColumn Header="Created"    Binding="{Binding CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="110" MinWidth="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,12,12" Padding="16,10"
+                            Visibility="{Binding HasGroupSelection, Converter={StaticResource BoolToVisible}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}">
+                                <Run Text="{Binding SelectedGroupCount, Mode=OneWay}"/>
+                                <Run Text="selected"/>
+                            </TextBlock>
+                            <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                    Command="{Binding DeleteSelectedCommand}"
+                                    Foreground="{DynamicResource DangerBrush}" Padding="8,4" Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Delete" FontSize="12" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3" Style="{StaticResource GhostButton}"
+                                    Click="GroupsGrid_ClearSelection"
+                                    Foreground="{DynamicResource TextMutedBrush}" Padding="8,4">
+                                <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ══════ POLICIES TAB ══════ -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding IsPoliciesTab, Converter={StaticResource BoolToVisible}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.RowSpan="2" Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                            Panel.ZIndex="5" CornerRadius="12"
+                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisible}}">
+                        <TextBlock Text="Loading policies…" FontSize="14"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <DataGrid x:Name="PoliciesGrid" Grid.Row="0"
+                              ItemsSource="{Binding PoliciesView}"
+                              SelectionMode="Extended" SelectionUnit="FullRow"
+                              HeadersVisibility="Column" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False"
+                              SelectionChanged="PoliciesGrid_SelectionChanged"
+                              HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="46" MinWidth="46" CanUserResize="False" CanUserSort="False">
+                                <DataGridTemplateColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding DataContext.AreAllPoliciesSelected, RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="SelectAllPolicies_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.HeaderTemplate>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"
+                                                  IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=OneWay}"
+                                                  PreviewMouseLeftButtonDown="RowCheckBox_PreviewMouseDown"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Policy name"  Binding="{Binding PolicyName}"       Width="*"   MinWidth="180"/>
+                            <DataGridTextColumn Header="Policy ID"    Binding="{Binding PolicyId}"         Width="160" MinWidth="130"/>
+                            <DataGridTextColumn Header="Attachments"  Binding="{Binding AttachmentCount}"  Width="100" MinWidth="80"/>
+                            <DataGridTextColumn Header="Version"      Binding="{Binding DefaultVersionId}" Width="80"  MinWidth="60"/>
+                            <DataGridTextColumn Header="Updated"      Binding="{Binding UpdateDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="110" MinWidth="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,12,12" Padding="16,10"
+                            Visibility="{Binding HasPolicySelection, Converter={StaticResource BoolToVisible}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}">
+                                <Run Text="{Binding SelectedPolicyCount, Mode=OneWay}"/>
+                                <Run Text="selected"/>
+                            </TextBlock>
+                            <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                    Command="{Binding DeleteSelectedCommand}"
+                                    Foreground="{DynamicResource DangerBrush}" Padding="8,4" Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Delete" FontSize="12" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3" Style="{StaticResource GhostButton}"
+                                    Click="PoliciesGrid_ClearSelection"
+                                    Foreground="{DynamicResource TextMutedBrush}" Padding="8,4">
+                                <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ══════ DETAIL PANEL ══════ -->
+
+            <!-- User detail — AWS-console-style tabbed view -->
+            <Border Grid.Column="2" Margin="0"
+                    Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding SelectedUser, Converter={StaticResource NullToCollapsed}}">
+                <Grid>
+                    <!-- Enrichment overlay -->
+                    <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.92"
+                            Panel.ZIndex="10" CornerRadius="12"
+                            Visibility="{Binding IsEnriching, Converter={StaticResource BoolToVisible}}">
+                        <TextBlock Text="Loading details…" FontSize="13"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><!-- header -->
+                            <RowDefinition Height="Auto"/><!-- summary card -->
+                            <RowDefinition Height="Auto"/><!-- tab bar -->
+                            <RowDefinition Height="*"/>  <!-- tab content -->
+                        </Grid.RowDefinitions>
+
+                        <!-- ── Header ── -->
+                        <Border Grid.Row="0" Padding="16,14,16,12"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding SelectedUser.UserName}" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" MaxWidth="220"/>
+                                    <Border Background="{DynamicResource SidebarActiveBrush}" CornerRadius="4"
+                                            Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="IAM User" FontSize="10" FontWeight="Medium"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Border>
+                                </StackPanel>
+                                <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                        Command="{Binding DeleteSelectedCommand}"
+                                        Foreground="{DynamicResource DangerBrush}" Padding="8,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Delete" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- ── Summary card ── -->
+                        <Border Grid.Row="1" Margin="12,10,12,4"
+                                Background="{DynamicResource BackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="14,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Col 0: ARN + Created -->
+                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                    <TextBlock Text="ARN" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding SelectedUser.Arn}" FontSize="10" FontFamily="Consolas"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                   ToolTip="{Binding SelectedUser.Arn}"/>
+                                        <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                                Command="{Binding CopyToClipboardCommand}"
+                                                CommandParameter="{Binding SelectedUser.Arn}"
+                                                Padding="4,2" ToolTip="Copy ARN">
+                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Button>
+                                    </Grid>
+                                    <TextBlock Text="Created" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,8,0,2"/>
+                                    <TextBlock Text="{Binding SelectedUser.CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}"
+                                               FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </StackPanel>
+
+                                <!-- Col 1: Console access + Last sign-in -->
+                                <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                    <TextBlock Text="Console access" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                    <TextBlock Text="{Binding SelectedUser.PasswordLastUsedDisplay}" FontSize="11"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Last sign-in" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,8,0,2"/>
+                                    <TextBlock Text="{Binding SelectedUser.PasswordLastUsedDisplay}"
+                                               FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </StackPanel>
+
+                                <!-- Col 2: Access keys summary -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Access keys" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                    <ItemsControl ItemsSource="{Binding SelectedUserAccessKeys}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                    <TextBlock Text="{Binding AccessKeyId}" FontSize="10" FontFamily="Consolas"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center"/>
+                                                    <Border CornerRadius="3" Padding="4,1" Margin="4,0,0,0" VerticalAlignment="Center">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="#22F87171"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                        <Setter Property="Background" Value="#2234D399"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding Status}" FontSize="9" FontWeight="SemiBold">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="#F87171"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                            <Setter Property="Foreground" Value="#34D399"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedUserAccessKeys.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                        No access keys
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- ── Detail tab bar ── -->
+                        <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="12,0,12,0">
+
+                                <!-- Permissions tab -->
+                                <Button Command="{Binding SwitchDetailTabCommand}" CommandParameter="Permissions"
+                                        Padding="10,8" Margin="0,0,2,0" Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Permissions">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <TextBlock Text="Permissions" FontSize="12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Permissions">
+                                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+
+                                <!-- Groups tab -->
+                                <Button Command="{Binding SwitchDetailTabCommand}" CommandParameter="Groups"
+                                        Padding="10,8" Margin="0,0,2,0" Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Groups">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <TextBlock Text="Groups" FontSize="12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Groups">
+                                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+
+                                <!-- Tags tab -->
+                                <Button Command="{Binding SwitchDetailTabCommand}" CommandParameter="Tags"
+                                        Padding="10,8" Margin="0,0,2,0" Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Tags">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <TextBlock Text="Tags" FontSize="12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Tags">
+                                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+
+                                <!-- Security credentials tab -->
+                                <Button Command="{Binding SwitchDetailTabCommand}" CommandParameter="Security"
+                                        Padding="10,8" Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Security">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <TextBlock Text="Security credentials" FontSize="12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Security">
+                                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── Tab content ── -->
+                        <Grid Grid.Row="3">
+
+                            <!-- ════ PERMISSIONS TAB ════ -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Permissions">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
+                                <StackPanel Margin="12,10,12,12">
+
+                                    <!-- Header row -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}">
+                                            <Run Text="Permissions policies ("/>
+                                            <Run Text="{Binding SelectedUser.AttachedPolicies.Count, Mode=OneWay}"/>
+                                            <Run Text=")"/>
+                                        </TextBlock>
+                                        <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                                Command="{Binding RemovePolicyCommand}"
+                                                CommandParameter="{Binding SelectedPolicyInDetail}"
+                                                Padding="8,4" Margin="0,0,4,0"
+                                                Foreground="{DynamicResource DangerBrush}">
+                                            <TextBlock Text="Remove" FontSize="11"/>
+                                        </Button>
+                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}" Padding="8,4"
+                                                Foreground="{DynamicResource TextSecondaryBrush}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Add" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Policy list -->
+                                    <ItemsControl ItemsSource="{Binding SelectedUser.AttachedPolicies}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,1" CornerRadius="6" Padding="10,7" Cursor="Hand">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                                                </Trigger>
+                                                                <!-- MultiBinding compares SelectedPolicyInDetail == this item (string) -->
+                                                                <DataTrigger Value="True">
+                                                                    <DataTrigger.Binding>
+                                                                        <MultiBinding Converter="{StaticResource MultiEq}">
+                                                                            <Binding Path="DataContext.SelectedPolicyInDetail" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                                                            <Binding/>
+                                                                        </MultiBinding>
+                                                                    </DataTrigger.Binding>
+                                                                    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Border.InputBindings>
+                                                        <MouseBinding MouseAction="LeftClick"
+                                                                      Command="{Binding DataContext.SelectPolicyInDetailCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                    </Border.InputBindings>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Border Background="{DynamicResource SidebarActiveBrush}" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                                            <TextBlock Text="{Binding}" FontSize="11"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                        </Border>
+                                                        <TextBlock Text="Attached directly" FontSize="10"
+                                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="No policies attached." FontSize="12"
+                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,6,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedUser.AttachedPolicies.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- Add policy by ARN -->
+                                    <Border Margin="0,12,0,0" Background="{DynamicResource BackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="6" Padding="10,8">
+                                        <StackPanel>
+                                            <TextBlock Text="Add by ARN" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Style="{StaticResource InputBorder}" Height="30">
+                                                    <TextBox Style="{x:Null}" Background="Transparent" BorderThickness="0"
+                                                             Text="{Binding AddPolicyArn, UpdateSourceTrigger=PropertyChanged}"
+                                                             Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Padding="8,0"
+                                                             VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                                             CaretBrush="{DynamicResource AccentBrush}"
+                                                             ToolTip="arn:aws:iam::123456789:policy/PolicyName"/>
+                                                </Border>
+                                                <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                                        Command="{Binding AddPolicyCommand}"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Padding="8,4" Margin="4,0,0,0">
+                                                    <TextBlock Text="Add" FontSize="11"/>
+                                                </Button>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- ════ GROUPS TAB ════ -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Groups">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
+                                <StackPanel Margin="12,10,12,12">
+
+                                    <!-- Header row -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}">
+                                            <Run Text="Groups ("/>
+                                            <Run Text="{Binding SelectedUser.Groups.Count, Mode=OneWay}"/>
+                                            <Run Text=")"/>
+                                        </TextBlock>
+                                        <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                                Command="{Binding RemoveFromGroupCommand}"
+                                                CommandParameter="{Binding SelectedGroupInDetail}"
+                                                Padding="8,4" Margin="0,0,4,0"
+                                                Foreground="{DynamicResource DangerBrush}">
+                                            <TextBlock Text="Remove" FontSize="11"/>
+                                        </Button>
+                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}" Padding="8,4"
+                                                Foreground="{DynamicResource TextSecondaryBrush}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Add" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Group list -->
+                                    <ItemsControl ItemsSource="{Binding SelectedUser.Groups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,1" CornerRadius="6" Padding="10,8" Cursor="Hand">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                                                </Trigger>
+                                                                <!-- MultiBinding compares SelectedGroupInDetail == this item (string) -->
+                                                                <DataTrigger Value="True">
+                                                                    <DataTrigger.Binding>
+                                                                        <MultiBinding Converter="{StaticResource MultiEq}">
+                                                                            <Binding Path="DataContext.SelectedGroupInDetail" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                                                            <Binding/>
+                                                                        </MultiBinding>
+                                                                    </DataTrigger.Binding>
+                                                                    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Border.InputBindings>
+                                                        <MouseBinding MouseAction="LeftClick"
+                                                                      Command="{Binding DataContext.SelectGroupInDetailCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                    </Border.InputBindings>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                        <TextBlock Text="{Binding}" FontSize="12"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="Not a member of any group." FontSize="12"
+                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,6,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedUser.Groups.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- Add to group input -->
+                                    <Border Margin="0,12,0,0" Background="{DynamicResource BackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="6" Padding="10,8">
+                                        <StackPanel>
+                                            <TextBlock Text="Add to group" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Style="{StaticResource InputBorder}" Height="30">
+                                                    <TextBox Style="{x:Null}" Background="Transparent" BorderThickness="0"
+                                                             Text="{Binding AddGroupName, UpdateSourceTrigger=PropertyChanged}"
+                                                             Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Padding="8,0"
+                                                             VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                                             CaretBrush="{DynamicResource AccentBrush}"
+                                                             ToolTip="Group name"/>
+                                                </Border>
+                                                <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                                        Command="{Binding AddToGroupCommand}"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Padding="8,4" Margin="4,0,0,0">
+                                                    <TextBlock Text="Add" FontSize="11"/>
+                                                </Button>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- ════ TAGS TAB ════ -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Tags">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
+                                <StackPanel Margin="12,10,12,12">
+
+                                    <!-- Header row -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}">
+                                            <Run Text="Tags ("/>
+                                            <Run Text="{Binding SelectedUserTags.Count, Mode=OneWay}"/>
+                                            <Run Text=")"/>
+                                        </TextBlock>
+                                        <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                                Command="{Binding StartTagEditingCommand}"
+                                                Padding="8,4" Margin="0,0,4,0"
+                                                Foreground="{DynamicResource TextSecondaryBrush}">
+                                            <TextBlock Text="Edit tags" FontSize="11"/>
+                                        </Button>
+                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                                Command="{Binding SaveTagsCommand}"
+                                                Padding="8,4"
+                                                Foreground="{DynamicResource TextSecondaryBrush}"
+                                                Visibility="{Binding IsTagEditing, Converter={StaticResource BoolToVisible}}">
+                                            <TextBlock Text="Save" FontSize="11"/>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Tag table header -->
+                                    <Grid Margin="2,0,2,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Key" FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="Value" FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                                    </Grid>
+
+                                    <!-- Tag rows -->
+                                    <ItemsControl ItemsSource="{Binding SelectedUserTags}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,1" CornerRadius="4" Padding="6,6">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Key}" FontSize="11"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                                                Command="{Binding DataContext.RemoveTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Padding="4,2"
+                                                                Visibility="{Binding DataContext.IsTagEditing, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolToVisible}}">
+                                                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                                       Foreground="{DynamicResource DangerBrush}"/>
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="No tags." FontSize="12"
+                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,6,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedUserTags.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- Add tag form (visible when editing) -->
+                                    <Border Margin="0,12,0,0" Background="{DynamicResource BackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="6" Padding="10,8"
+                                            Visibility="{Binding IsTagEditing, Converter={StaticResource BoolToVisible}}">
+                                        <StackPanel>
+                                            <TextBlock Text="Add tag" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="8"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Style="{StaticResource InputBorder}" Height="30">
+                                                    <TextBox Style="{x:Null}" Background="Transparent" BorderThickness="0"
+                                                             Text="{Binding NewTagKey, UpdateSourceTrigger=PropertyChanged}"
+                                                             Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Padding="8,0"
+                                                             VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                                             CaretBrush="{DynamicResource AccentBrush}"
+                                                             ToolTip="Key"/>
+                                                </Border>
+                                                <Border Grid.Column="2" Style="{StaticResource InputBorder}" Height="30">
+                                                    <TextBox Style="{x:Null}" Background="Transparent" BorderThickness="0"
+                                                             Text="{Binding NewTagValue, UpdateSourceTrigger=PropertyChanged}"
+                                                             Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Padding="8,0"
+                                                             VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                                             CaretBrush="{DynamicResource AccentBrush}"
+                                                             ToolTip="Value"/>
+                                                </Border>
+                                            </Grid>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Style="{StaticResource GhostButton}"
+                                                        Command="{Binding AddTagLocallyCommand}"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Padding="8,4" Margin="0,0,6,0">
+                                                    <TextBlock Text="Add tag" FontSize="11"/>
+                                                </Button>
+                                                <Button Style="{StaticResource GhostButton}"
+                                                        Command="{Binding CancelTagEditingCommand}"
+                                                        Padding="8,4">
+                                                    <TextBlock Text="Cancel" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- ════ SECURITY CREDENTIALS TAB ════ -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailTab}" Value="Security">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
+                                <StackPanel Margin="12,10,12,12">
+
+                                    <!-- Header -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}">
+                                            <Run Text="Access keys ("/>
+                                            <Run Text="{Binding SelectedUserAccessKeys.Count, Mode=OneWay}"/>
+                                            <Run Text="/2)"/>
+                                        </TextBlock>
+                                        <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                                Command="{Binding CreateAccessKeyCommand}"
+                                                Foreground="{DynamicResource TextSecondaryBrush}" Padding="8,4">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Create access key" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Column headers -->
+                                    <Grid Margin="2,0,2,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Access key ID"  FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="Status"         FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="2" Text="Created"        FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="3" Text="Last used"      FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="4" Text="Service/Region" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="5" Text="Actions"        FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    </Grid>
+
+                                    <!-- Key rows -->
+                                    <ItemsControl ItemsSource="{Binding SelectedUserAccessKeys}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,2" CornerRadius="6" Padding="6,8"
+                                                        Background="{DynamicResource BackgroundBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="130"/>
+                                                            <ColumnDefinition Width="60"/>
+                                                            <ColumnDefinition Width="80"/>
+                                                            <ColumnDefinition Width="80"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding AccessKeyId}" FontSize="10" FontFamily="Consolas"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding AccessKeyId}"/>
+                                                        <!-- Status badge -->
+                                                        <Border Grid.Column="1" CornerRadius="4" Padding="5,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="#22F87171"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                            <Setter Property="Background" Value="#2234D399"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding Status}" FontSize="9" FontWeight="SemiBold">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#F87171"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#34D399"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+                                                        <TextBlock Grid.Column="2" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   Text="{Binding CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="3" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   Text="{Binding LastUsedDisplay}"
+                                                                   VerticalAlignment="Center"/>
+                                                        <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding LastUsedService}" FontSize="10"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding LastUsedRegion}" FontSize="10"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                        <!-- Actions -->
+                                                        <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Button Style="{StaticResource GhostButton}"
+                                                                    Command="{Binding DataContext.ToggleAccessKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding AccessKeyId}"
+                                                                    Padding="4,2" Margin="0,0,2,0" ToolTip="Toggle Active/Inactive">
+                                                                <TextBlock FontSize="10" Foreground="{DynamicResource TextMutedBrush}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Text" Value="Activate"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                    <Setter Property="Text" Value="Deactivate"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Button>
+                                                            <Button Style="{StaticResource GhostButton}"
+                                                                    Command="{Binding DataContext.DeleteAccessKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding AccessKeyId}"
+                                                                    Padding="4,2" ToolTip="Delete access key">
+                                                                <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                                           Foreground="{DynamicResource DangerBrush}"/>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="No access keys." FontSize="12"
+                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,6,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedUserAccessKeys.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                </StackPanel>
+                            </ScrollViewer>
+
+                        </Grid><!-- end tab content -->
+                    </Grid><!-- end inner grid -->
+                </Grid><!-- end enrichment grid -->
+            </Border>
+
+            <!-- Role detail -->
+            <Border Grid.Column="2" Margin="0"
+                    Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding SelectedRole, Converter={StaticResource NullToCollapsed}}">
+                <Grid>
+                <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                        Panel.ZIndex="5" CornerRadius="12"
+                        Visibility="{Binding IsEnriching, Converter={StaticResource BoolToVisible}}">
+                    <TextBlock Text="Loading details…" FontSize="13"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                    <StackPanel>
+                        <Border Padding="18,14" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                            <StackPanel>
+                                <TextBlock Text="{Binding SelectedRole.RoleName}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding SelectedRole.RoleId}" FontSize="11" FontFamily="Consolas"
+                                           Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Padding="18,14,18,4">
+                            <StackPanel>
+                                <TextBlock Text="Role details" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                <UniformGrid Columns="2">
+                                    <StackPanel Margin="0,0,12,14">
+                                        <TextBlock Text="Max session" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedRole.MaxSessionDisplay}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,14">
+                                        <TextBlock Text="Created" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedRole.CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                </UniformGrid>
+                                <StackPanel Margin="0,0,0,14">
+                                    <TextBlock Text="Description" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                    <TextBlock Text="{Binding SelectedRole.Description}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,14">
+                                    <TextBlock Text="Trusted entities" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                    <TextBlock Text="{Binding SelectedRole.TrustedEntities}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,14">
+                                    <TextBlock Text="ARN" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                    <TextBlock Text="{Binding SelectedRole.Arn}" FontSize="11" FontFamily="Consolas"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,14">
+                            <StackPanel>
+                                <TextBlock Text="Attached policies" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                <ItemsControl ItemsSource="{Binding SelectedRole.AttachedPolicies}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource SidebarActiveBrush}" CornerRadius="4"
+                                                    Padding="8,4" Margin="0,2">
+                                                <TextBlock Text="{Binding}" FontSize="12"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="No attached policies" FontSize="12"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           Margin="0,4,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedRole.AttachedPolicies.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Group detail -->
+            <Border Grid.Column="2" Margin="0"
+                    Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding SelectedGroup, Converter={StaticResource NullToCollapsed}}">
+                <Grid>
+                <Border Background="{DynamicResource SurfaceBrush}" Opacity="0.85"
+                        Panel.ZIndex="5" CornerRadius="12"
+                        Visibility="{Binding IsEnriching, Converter={StaticResource BoolToVisible}}">
+                    <TextBlock Text="Loading details…" FontSize="13"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                    <StackPanel>
+                        <Border Padding="18,14" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                            <StackPanel>
+                                <TextBlock Text="{Binding SelectedGroup.GroupName}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding SelectedGroup.GroupId}" FontSize="11" FontFamily="Consolas"
+                                           Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Padding="18,14,18,4">
+                            <StackPanel>
+                                <TextBlock Text="Group details" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                <UniformGrid Columns="2">
+                                    <StackPanel Margin="0,0,12,14">
+                                        <TextBlock Text="Users" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedGroup.UserCount}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,14">
+                                        <TextBlock Text="Created" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedGroup.CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                </UniformGrid>
+                                <StackPanel Margin="0,0,0,14">
+                                    <TextBlock Text="ARN" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                    <TextBlock Text="{Binding SelectedGroup.Arn}" FontSize="11" FontFamily="Consolas"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,14">
+                            <StackPanel>
+                                <TextBlock Text="Attached policies" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                <ItemsControl ItemsSource="{Binding SelectedGroup.AttachedPolicies}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource SidebarActiveBrush}" CornerRadius="4"
+                                                    Padding="8,4" Margin="0,2">
+                                                <TextBlock Text="{Binding}" FontSize="12"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="No attached policies" FontSize="12"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           Margin="0,4,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGroup.AttachedPolicies.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Policy detail -->
+            <Border Grid.Column="2" Margin="0"
+                    Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding SelectedPolicy, Converter={StaticResource NullToCollapsed}}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                    <StackPanel>
+                        <Border Padding="18,14" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                            <StackPanel>
+                                <TextBlock Text="{Binding SelectedPolicy.PolicyName}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding SelectedPolicy.PolicyId}" FontSize="11" FontFamily="Consolas"
+                                           Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Padding="18,14,18,4">
+                            <StackPanel>
+                                <TextBlock Text="Policy details" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                <UniformGrid Columns="2">
+                                    <StackPanel Margin="0,0,12,14">
+                                        <TextBlock Text="Attachments" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedPolicy.AttachmentCount}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,14">
+                                        <TextBlock Text="Version" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedPolicy.DefaultVersionId}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,12,14">
+                                        <TextBlock Text="Created" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedPolicy.CreateDate, StringFormat='{}{0:yyyy-MM-dd}'}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,14">
+                                        <TextBlock Text="Updated" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="{Binding SelectedPolicy.UpdateDate, StringFormat='{}{0:yyyy-MM-dd}'}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                </UniformGrid>
+                                <StackPanel Margin="0,0,0,14">
+                                    <TextBlock Text="Description" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                    <TextBlock Text="{Binding SelectedPolicy.Description}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,14">
+                                    <TextBlock Text="ARN" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,3"/>
+                                    <TextBlock Text="{Binding SelectedPolicy.Arn}" FontSize="11" FontFamily="Consolas"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1270">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1270px; height: 760px; overflow: hidden;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0a0e1a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* Gradient background */
+  .bg-gradient {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 60% 40%, #1a2a4a 0%, #0a0e1a 60%);
+  }
+  .bg-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,153,0,0.08) 0%, transparent 70%);
+    top: -100px; right: -100px;
+  }
+  .bg-glow2 {
+    position: absolute;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(20,110,190,0.15) 0%, transparent 70%);
+    bottom: -50px; left: 100px;
+  }
+  .grid-lines {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* Layout */
+  .content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0 80px;
+    gap: 60px;
+  }
+
+  /* Left: Text */
+  .left { flex: 1; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,153,0,0.12);
+    border: 1px solid rgba(255,153,0,0.3);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: #ff9900;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+  }
+  .badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #ff9900;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+
+  h1 {
+    font-size: 58px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+  }
+  h1 span { color: #ff9900; }
+
+  .subtitle {
+    font-size: 20px;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.5;
+    margin-bottom: 36px;
+    max-width: 420px;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .tag {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tag-icon { font-size: 15px; }
+
+  /* Right: App Window */
+  .right {
+    flex: 1.1;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .app-window {
+    width: 560px;
+    background: #111827;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.05),
+      0 40px 80px rgba(0,0,0,0.6),
+      0 0 40px rgba(255,153,0,0.06);
+  }
+
+  /* Title bar */
+  .titlebar {
+    background: #1a2236;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #28c840; }
+  .titlebar-title {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    margin-left: 8px;
+  }
+  .titlebar-logo {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ff9900;
+  }
+
+  /* Sidebar */
+  .app-body { display: flex; height: 420px; }
+  .sidebar {
+    width: 56px;
+    background: #0d1424;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 4px;
+    border-right: 1px solid rgba(255,255,255,0.04);
+  }
+  .nav-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.35);
+  }
+  .nav-icon.active {
+    background: rgba(255,153,0,0.15);
+    color: #ff9900;
+  }
+
+  /* Main content */
+  .main-area { flex: 1; padding: 16px; overflow: hidden; }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 12px;
+  }
+
+  /* KPI cards */
+  .kpi-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .kpi {
+    background: #1a2236;
+    border-radius: 10px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .kpi-label { font-size: 10px; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+  .kpi-value { font-size: 22px; font-weight: 800; }
+  .kpi-value.green { color: #34d399; }
+  .kpi-value.amber { color: #fbbf24; }
+  .kpi-value.red { color: #f87171; }
+  .kpi-change { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+
+  /* Table */
+  .table { width: 100%; border-collapse: collapse; }
+  .table thead th {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .table tbody td {
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.75);
+    padding: 7px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .pill-green { background: rgba(52,211,153,0.12); color: #34d399; }
+  .pill-amber { background: rgba(251,191,36,0.12); color: #fbbf24; }
+  .pill-red   { background: rgba(248,113,113,0.12); color: #f87171; }
+  .pill-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+</style>
+</head>
+<body>
+<div class="bg-gradient"></div>
+<div class="bg-glow"></div>
+<div class="bg-glow2"></div>
+<div class="grid-lines"></div>
+
+<div class="content">
+  <!-- Left text -->
+  <div class="left">
+    <div class="badge"><span class="badge-dot"></span> AWS Management</div>
+    <h1>Your AWS,<br><span>under control</span></h1>
+    <p class="subtitle">A beautiful desktop app for Windows that puts all your AWS resources in one place — no browser tabs, no CLI.</p>
+    <div class="tags">
+      <div class="tag"><span class="tag-icon">⚡</span> EC2 Instances</div>
+      <div class="tag"><span class="tag-icon">🪣</span> S3 Buckets</div>
+      <div class="tag"><span class="tag-icon">📊</span> CloudWatch</div>
+      <div class="tag"><span class="tag-icon">🔐</span> IAM</div>
+      <div class="tag"><span class="tag-icon">🛡</span> GuardDuty</div>
+      <div class="tag"><span class="tag-icon">💰</span> Billing</div>
+    </div>
+  </div>
+
+  <!-- Right: app mock -->
+  <div class="right">
+    <div class="app-window">
+      <div class="titlebar">
+        <div class="dots">
+          <div class="dot dot-r"></div>
+          <div class="dot dot-y"></div>
+          <div class="dot dot-g"></div>
+        </div>
+        <span class="titlebar-title">Atlas — AWS Manager</span>
+        <div class="titlebar-logo">⬡ Atlas</div>
+      </div>
+      <div class="app-body">
+        <div class="sidebar">
+          <div class="nav-icon">🏠</div>
+          <div class="nav-icon active">⚡</div>
+          <div class="nav-icon">🪣</div>
+          <div class="nav-icon">📊</div>
+          <div class="nav-icon">🔐</div>
+          <div class="nav-icon">🛡</div>
+          <div class="nav-icon">💰</div>
+          <div class="nav-icon" style="margin-top:auto">⚙️</div>
+        </div>
+        <div class="main-area">
+          <div class="section-title">EC2 Instances — us-east-1</div>
+          <div class="kpi-row">
+            <div class="kpi">
+              <div class="kpi-label">Running</div>
+              <div class="kpi-value green">12</div>
+              <div class="kpi-change">↑ 2 today</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Stopped</div>
+              <div class="kpi-value amber">4</div>
+              <div class="kpi-change">No change</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Terminated</div>
+              <div class="kpi-value red">1</div>
+              <div class="kpi-change">↓ 1 week</div>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Instance ID</th>
+                <th>Type</th>
+                <th>State</th>
+                <th>Region</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>i-0a1b2c3d4e5f</td>
+                <td>t3.medium</td>
+                <td><span class="status-pill pill-green"><span class="pill-dot"></span>running</span></td>
+                <td>us-east-1</td>
+              </tr>
+              <tr>
+                <td>i-1f2e3d4c5b6a</td>
+                <td>m5.large</td>
+                <td><span class="status-pill pill-green"><span class="pill-dot"></span>running</span></td>
+                <td>us-east-1</td>
+              </tr>
+              <tr>
+                <td>i-9z8y7x6w5v4u</td>
+                <td>t3.micro</td>
+                <td><span class="status-pill pill-amber"><span class="pill-dot"></span>stopped</span></td>
+                <td>eu-west-1</td>
+              </tr>
+              <tr>
+                <td>i-3a4b5c6d7e8f</td>
+                <td>c5.xlarge</td>
+                <td><span class="status-pill pill-green"><span class="pill-dot"></span>running</span></td>
+                <td>us-east-1</td>
+              </tr>
+              <tr>
+                <td>i-7h8i9j0k1l2m</td>
+                <td>t2.small</td>
+                <td><span class="status-pill pill-red"><span class="pill-dot"></span>terminated</span></td>
+                <td>ap-south-1</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

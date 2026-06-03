@@ -1,0 +1,784 @@
+<Window x:Class="Atlas.Views.LaunchInstanceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        Background="{DynamicResource SurfaceBrush}"
+        ResizeMode="NoResize"
+        Width="660" Height="760"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+
+        <!-- ── OS chip ────────────────────────────────────────────── -->
+        <Style x:Key="OsChip" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" CornerRadius="6" Padding="11,6"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                                Background="Transparent">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Bd" Property="Background"  Value="#142563EB"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── AMI variant radio ──────────────────────────────────── -->
+        <Style x:Key="VariantRadio" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                            <Border x:Name="Ring" Width="16" Height="16" CornerRadius="8"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                                    Background="Transparent" Margin="0,1,10,0"
+                                    VerticalAlignment="Top" SnapsToDevicePixels="True">
+                                <Border x:Name="Dot" Width="8" Height="8" CornerRadius="4"
+                                        Background="Transparent"/>
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Top"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Dot"  Property="Background"  Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Form radio ────────────────────────────────────────── -->
+        <Style x:Key="FormRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border x:Name="Ring" Width="16" Height="16" CornerRadius="8"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                                    Background="Transparent" Margin="0,0,10,0" SnapsToDevicePixels="True">
+                                <Border x:Name="Dot" Width="8" Height="8" CornerRadius="4"
+                                        Background="Transparent"/>
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Dot"  Property="Background"  Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Form checkbox ─────────────────────────────────────── -->
+        <Style x:Key="FormCheck" TargetType="CheckBox">
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment"   Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <BulletDecorator Background="Transparent" SnapsToDevicePixels="True">
+                            <BulletDecorator.Bullet>
+                                <Border x:Name="checkBorder" Width="16" Height="16" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                                        Background="Transparent">
+                                    <TextBlock x:Name="checkMark" Text="&#xE73E;"
+                                               FontFamily="Segoe MDL2 Assets" FontSize="9"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="White" Visibility="Collapsed"/>
+                                </Border>
+                            </BulletDecorator.Bullet>
+                            <ContentPresenter Margin="6,0,0,0" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </BulletDecorator>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="checkBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="checkBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="checkMark"   Property="Visibility"  Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="checkBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="checkBorder" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="HintText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,3,0,0"/>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <Style x:Key="SectionDiv" TargetType="Border">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Margin" Value="0,16,0,16"/>
+        </Style>
+
+        <!-- Rule row label style -->
+        <Style x:Key="RuleLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="RuleMeta" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="Margin" Value="0,1,0,0"/>
+        </Style>
+
+    </Window.Resources>
+
+    <Border Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1" CornerRadius="14">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ── Header ─────────────────────────────────────────── -->
+            <Border Grid.Row="0" x:Name="DragHandle" Padding="24,18,20,14"
+                    MouseLeftButtonDown="DragHandle_MouseDown" Cursor="SizeAll"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,14,0">
+                            <Border.Background>
+                                <SolidColorBrush Color="{DynamicResource AccentColor}" Opacity="0.15"/>
+                            </Border.Background>
+                            <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Launch an instance" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock x:Name="TxtRegionBadge" FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <Button Grid.Column="1" Click="Cancel_Click" Style="{StaticResource GhostButton}"
+                            Padding="8" VerticalAlignment="Top">
+                        <TextBlock Text="✕" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ── Scrollable form ────────────────────────────────── -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+                <StackPanel Margin="24,16,24,4">
+
+                    <!-- ═══ 1. Name ══════════════════════════════════ -->
+                    <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/>
+                    <Border Style="{StaticResource InputBorder}" Height="34">
+                        <TextBox x:Name="TxtName" Style="{x:Null}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 FontSize="13" Padding="11,0"
+                                 VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                 CaretBrush="{DynamicResource AccentBrush}"/>
+                    </Border>
+                    <TextBlock Text="A Name tag is added to your instance to identify it."
+                               Style="{StaticResource HintText}"/>
+
+                    <Border Style="{StaticResource SectionDiv}"/>
+
+                    <!-- ═══ 2. AMI ════════════════════════════════════ -->
+                    <TextBlock Text="Application and OS Images (Amazon Machine Image)"
+                               Style="{StaticResource SectionHeader}"/>
+
+                    <!-- OS family chips -->
+                    <WrapPanel Margin="0,0,0,10">
+                        <RadioButton x:Name="RdoAmazonLinux" Style="{StaticResource OsChip}"
+                                     GroupName="OsFamily" IsChecked="True" Tag="0"
+                                     Checked="Os_Changed">
+                            <TextBlock Text="Amazon Linux" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                        <RadioButton x:Name="RdoUbuntu" Style="{StaticResource OsChip}"
+                                     GroupName="OsFamily" Tag="1" Checked="Os_Changed">
+                            <TextBlock Text="Ubuntu" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                        <RadioButton x:Name="RdoWindows" Style="{StaticResource OsChip}"
+                                     GroupName="OsFamily" Tag="2" Checked="Os_Changed">
+                            <TextBlock Text="Windows" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                        <RadioButton x:Name="RdoRedHat" Style="{StaticResource OsChip}"
+                                     GroupName="OsFamily" Tag="3" Checked="Os_Changed">
+                            <TextBlock Text="Red Hat" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                        <RadioButton x:Name="RdoDebian" Style="{StaticResource OsChip}"
+                                     GroupName="OsFamily" Tag="4" Checked="Os_Changed">
+                            <TextBlock Text="Debian" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                        <RadioButton x:Name="RdoSuse" Style="{StaticResource OsChip}"
+                                     GroupName="OsFamily" Tag="5" Checked="Os_Changed">
+                            <TextBlock Text="SUSE Linux" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                        <RadioButton x:Name="RdoMacOs" Style="{StaticResource OsChip}"
+                                     GroupName="OsFamily" Tag="6" Checked="Os_Changed">
+                            <TextBlock Text="macOS" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                    </WrapPanel>
+
+                    <!-- AMI variant list (populated dynamically) -->
+                    <Border CornerRadius="8" Padding="14,10"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                            Margin="0,0,0,10">
+                        <StackPanel x:Name="PnlAmiVariants"/>
+                    </Border>
+
+                    <!-- AMI info card -->
+                    <Border CornerRadius="8" Padding="14,12"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock x:Name="TxtAmiName" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="TxtAmiBadge" FontSize="11"
+                                               Foreground="#22C55E" FontWeight="Medium"
+                                               Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                            VerticalAlignment="Top" Margin="12,0,0,0">
+                                    <TextBlock Text="Architecture:" FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <ComboBox x:Name="CmbArch" Height="28" FontSize="11" Width="140"
+                                              SelectionChanged="CmbArch_SelectionChanged"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock x:Name="TxtAmiId" FontFamily="Consolas" FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="0,8,0,0" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="TxtAmiDesc" FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- macOS Dedicated Host note -->
+                    <Border x:Name="PnlMacOsNote" CornerRadius="8" Padding="12,8" Margin="0,8,0,0"
+                            Background="#1AFBBF24" BorderBrush="#33FBBF24" BorderThickness="1"
+                            Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚠" FontSize="13" Foreground="{DynamicResource WarningBrush}"
+                                       Margin="0,0,8,0" VerticalAlignment="Top"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}">
+                                <Run Text="macOS requires a Dedicated Host" FontWeight="SemiBold"/>
+                                <Run Text=" (mac1.metal for Intel · mac2.metal / mac2-m2.metal for Apple Silicon). Dedicated Hosts have a minimum 24-hour billing period and are not eligible for Free Tier. Select the matching mac instance type below."/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionDiv}"/>
+
+                    <!-- ═══ 3. Instance type ══════════════════════════ -->
+                    <TextBlock Text="Instance type" Style="{StaticResource SectionHeader}"/>
+                    <ComboBox x:Name="CmbInstanceType" Height="34"
+                              SelectionChanged="CmbInstanceType_SelectionChanged"/>
+                    <Border CornerRadius="8" Padding="12,8" Margin="0,8,0,0"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                        <WrapPanel>
+                            <TextBlock x:Name="TxtInstanceFamily" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,16,0"/>
+                            <TextBlock x:Name="TxtInstanceVcpu"   FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,16,0"/>
+                            <TextBlock x:Name="TxtInstanceMem"    FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,16,0"/>
+                            <TextBlock x:Name="TxtInstanceFreeTier" FontSize="11"
+                                       Foreground="#22C55E" FontWeight="Medium"/>
+                        </WrapPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionDiv}"/>
+
+                    <!-- ═══ 4. Key pair ═══════════════════════════════ -->
+                    <TextBlock Text="Key pair (login)" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Key pair name" Style="{StaticResource FieldLabel}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CmbKeyPair" Grid.Column="0" Height="34"
+                                  Margin="0,0,8,0"
+                                  SelectionChanged="CmbKeyPair_SelectionChanged"/>
+                        <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                Click="CreateKeyPair_Click" Padding="12,0" Height="34">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Create new" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <!-- No key pair warning -->
+                    <Border x:Name="PnlNoKeyPairWarn" CornerRadius="8" Padding="12,8" Margin="0,8,0,0"
+                            Background="#1AFBBF24" BorderBrush="#33FBBF24" BorderThickness="1"
+                            Visibility="Collapsed">
+                        <TextBlock TextWrapping="Wrap" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}">
+                            Proceeding without a key pair. You will not be able to connect using SSH unless the AMI provides another access method (e.g. EC2 Instance Connect, SSM Session Manager).
+                        </TextBlock>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionDiv}"/>
+
+                    <!-- ═══ 5. Network settings ═══════════════════════ -->
+                    <TextBlock Text="Network settings" Style="{StaticResource SectionHeader}"/>
+
+                    <!-- VPC -->
+                    <TextBlock Text="VPC" Style="{StaticResource FieldLabel}"/>
+                    <ComboBox x:Name="CmbVpc" Height="34" Margin="0,0,0,12"
+                              SelectionChanged="CmbVpc_SelectionChanged"/>
+
+                    <!-- Subnet -->
+                    <TextBlock Text="Subnet" Style="{StaticResource FieldLabel}"/>
+                    <ComboBox x:Name="CmbSubnet" Height="34" Margin="0,0,0,12"/>
+
+                    <!-- Loading indicator -->
+                    <TextBlock x:Name="TxtNetworkLoading" Text="Loading network resources…"
+                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
+                               Margin="0,0,0,8" Visibility="Collapsed"/>
+                    <TextBlock x:Name="TxtNetworkError" TextWrapping="Wrap"
+                               FontSize="12" Foreground="{DynamicResource DangerBrush}"
+                               Margin="0,0,0,8" Visibility="Collapsed"/>
+
+                    <!-- Auto-assign public IP -->
+                    <TextBlock Text="Auto-assign public IP" Style="{StaticResource FieldLabel}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="RdoPublicIpEnable" Style="{StaticResource FormRadio}"
+                                     GroupName="PublicIp" IsChecked="True" Margin="0,0,16,0">
+                            <TextBlock Text="Enable" FontSize="13"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                        <RadioButton x:Name="RdoPublicIpDisable" Style="{StaticResource FormRadio}"
+                                     GroupName="PublicIp">
+                            <TextBlock Text="Disable" FontSize="13"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </RadioButton>
+                    </StackPanel>
+                    <TextBlock Text="Additional charges apply when outside of free tier allowance."
+                               Style="{StaticResource HintText}" Margin="0,0,0,12"/>
+
+                    <!-- ── Firewall (Security groups) ─────────────── -->
+                    <TextBlock Text="Firewall (security groups)" Style="{StaticResource SectionHeader}"
+                               Margin="0,4,0,8"/>
+                    <TextBlock Text="A security group is a set of firewall rules that control the traffic for your instance."
+                               Style="{StaticResource HintText}" Margin="0,0,0,10"/>
+
+                    <RadioButton x:Name="RdoCreateSg" Style="{StaticResource FormRadio}"
+                                 GroupName="SgMode" IsChecked="True" Checked="SgMode_Changed">
+                        <TextBlock Text="Create security group" FontSize="13"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </RadioButton>
+                    <RadioButton x:Name="RdoSelectSg" Style="{StaticResource FormRadio}"
+                                 GroupName="SgMode" Checked="SgMode_Changed">
+                        <TextBlock Text="Select existing security group" FontSize="13"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </RadioButton>
+
+                    <!-- New SG panel -->
+                    <StackPanel x:Name="PnlNewSg" Margin="0,8,0,0">
+                        <TextBlock x:Name="TxtSgPreview" FontSize="11"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                        <!-- SSH rule -->
+                        <Border CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="12,10" Margin="0,0,0,6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ChkAllowSsh" Grid.Column="0"
+                                          Style="{StaticResource FormCheck}" IsChecked="True"
+                                          VerticalAlignment="Top" Margin="0,2,0,0"/>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <TextBlock Style="{StaticResource RuleLabel}" Text="Allow SSH traffic from"/>
+                                    <TextBlock Style="{StaticResource RuleMeta}"
+                                               Text="Helps you connect to your instance"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" Margin="8,0,0,0">
+                                    <TextBlock Text="Anywhere" FontSize="12" FontWeight="Medium"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Right"/>
+                                    <TextBlock Text="0.0.0.0/0" FontFamily="Consolas" FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- HTTPS rule -->
+                        <Border CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="12,10" Margin="0,0,0,6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ChkAllowHttps" Grid.Column="0"
+                                          Style="{StaticResource FormCheck}"
+                                          VerticalAlignment="Top" Margin="0,2,0,0"/>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <TextBlock Style="{StaticResource RuleLabel}"
+                                               Text="Allow HTTPS traffic from the internet"/>
+                                    <TextBlock Style="{StaticResource RuleMeta}"
+                                               Text="To set up an endpoint, for example when creating a web server"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" Margin="8,0,0,0">
+                                    <TextBlock Text="Anywhere" FontSize="12" FontWeight="Medium"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Right"/>
+                                    <TextBlock Text="0.0.0.0/0" FontFamily="Consolas" FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- HTTP rule -->
+                        <Border CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="12,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ChkAllowHttp" Grid.Column="0"
+                                          Style="{StaticResource FormCheck}"
+                                          VerticalAlignment="Top" Margin="0,2,0,0"/>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <TextBlock Style="{StaticResource RuleLabel}"
+                                               Text="Allow HTTP traffic from the internet"/>
+                                    <TextBlock Style="{StaticResource RuleMeta}"
+                                               Text="To set up an endpoint, for example when creating a web server"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" Margin="8,0,0,0">
+                                    <TextBlock Text="Anywhere" FontSize="12" FontWeight="Medium"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Right"/>
+                                    <TextBlock Text="0.0.0.0/0" FontFamily="Consolas" FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Margin="0,8,0,0" FontSize="11"
+                                   Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap">
+                            Rules with source of 0.0.0.0/0 allow all IP addresses to access your instance.
+                            We recommend setting security group rules to allow access from known IP addresses only.
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Existing SG panel -->
+                    <StackPanel x:Name="PnlExistingSg" Visibility="Collapsed" Margin="0,8,0,0">
+                        <TextBlock Text="Security group" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="CmbExistingSg" Height="34"/>
+                        <TextBlock Text="Loading…" x:Name="TxtSgLoading" FontSize="11"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   Margin="0,4,0,0" Visibility="Collapsed"/>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource SectionDiv}"/>
+
+                    <!-- ═══ 6. Storage ════════════════════════════════ -->
+                    <TextBlock Text="Configure storage" Style="{StaticResource SectionHeader}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="72"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Root volume:" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Border Grid.Column="1" Style="{StaticResource InputBorder}" Height="34">
+                            <TextBox x:Name="TxtVolumeSize" Style="{x:Null}"
+                                     Background="Transparent" BorderThickness="0"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     FontSize="13" Padding="11,0" Text="8"
+                                     VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                     CaretBrush="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <TextBlock Grid.Column="2" Text="GiB" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" Margin="8,0,10,0"/>
+                        <ComboBox Grid.Column="3" x:Name="CmbVolumeType" Height="34"/>
+                    </Grid>
+                    <TextBlock x:Name="TxtVolumeError" Foreground="{DynamicResource DangerBrush}"
+                               FontSize="11" Margin="0,4,0,0" Visibility="Collapsed"/>
+
+                    <Border Style="{StaticResource SectionDiv}"/>
+
+                    <!-- ═══ 7. Advanced details ═══════════════════════ -->
+                    <Button x:Name="BtnAdvanced" Click="ToggleAdvanced_Click"
+                            Style="{StaticResource GhostButton}"
+                            Padding="0,0,0,0" HorizontalAlignment="Left"
+                            HorizontalContentAlignment="Left" Margin="0,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="TxtAdvancedChevron" Text="▶"
+                                       FontSize="10" Foreground="{DynamicResource TextMutedBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Advanced details" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </StackPanel>
+                    </Button>
+
+                    <StackPanel x:Name="PnlAdvanced" Visibility="Collapsed" Margin="0,12,0,0">
+
+                        <!-- IAM instance profile -->
+                        <TextBlock Text="IAM instance profile" Style="{StaticResource FieldLabel}"/>
+                        <Border Style="{StaticResource InputBorder}" Height="34" Margin="0,0,0,4">
+                            <TextBox x:Name="TxtIamProfile" Style="{x:Null}"
+                                     Background="Transparent" BorderThickness="0"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     FontSize="13" Padding="11,0"
+                                     VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                     CaretBrush="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <TextBlock Text="Enter an IAM role name or ARN to attach to the instance."
+                                   Style="{StaticResource HintText}" Margin="0,0,0,12"/>
+
+                        <!-- Shutdown behavior -->
+                        <TextBlock Text="Shutdown behavior" Style="{StaticResource FieldLabel}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <RadioButton x:Name="RdoShutdownStop" Style="{StaticResource FormRadio}"
+                                         GroupName="Shutdown" IsChecked="True" Margin="0,0,16,0">
+                                <TextBlock Text="Stop" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </RadioButton>
+                            <RadioButton x:Name="RdoShutdownTerminate" Style="{StaticResource FormRadio}"
+                                         GroupName="Shutdown">
+                                <TextBlock Text="Terminate" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </RadioButton>
+                        </StackPanel>
+
+                        <!-- Termination protection -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <CheckBox x:Name="ChkTermProtect" Style="{StaticResource FormCheck}"/>
+                            <StackPanel Margin="10,0,0,0">
+                                <TextBlock Text="Enable termination protection" FontSize="12"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Prevents accidental termination via the API or console."
+                                           Style="{StaticResource HintText}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Detailed monitoring -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <CheckBox x:Name="ChkMonitoring" Style="{StaticResource FormCheck}"/>
+                            <StackPanel Margin="10,0,0,0">
+                                <TextBlock Text="Enable detailed monitoring" FontSize="12"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Provides CloudWatch metrics at 1-minute intervals (additional cost)."
+                                           Style="{StaticResource HintText}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- EBS-optimized -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <CheckBox x:Name="ChkEbsOptimized" Style="{StaticResource FormCheck}"/>
+                            <StackPanel Margin="10,0,0,0">
+                                <TextBlock Text="EBS-optimized instance" FontSize="12"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Dedicated throughput between the instance and EBS volumes."
+                                           Style="{StaticResource HintText}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- IMDSv2 -->
+                        <TextBlock Text="Metadata (IMDS)" Style="{StaticResource FieldLabel}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <RadioButton x:Name="RdoImdsOptional" Style="{StaticResource FormRadio}"
+                                         GroupName="Imds" IsChecked="True" Margin="0,0,16,0">
+                                <TextBlock Text="IMDSv2 optional" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </RadioButton>
+                            <RadioButton x:Name="RdoImdsRequired" Style="{StaticResource FormRadio}"
+                                         GroupName="Imds">
+                                <TextBlock Text="IMDSv2 required" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </RadioButton>
+                        </StackPanel>
+
+                        <!-- User data -->
+                        <TextBlock Text="User data" Style="{StaticResource FieldLabel}"/>
+                        <Border Style="{StaticResource InputBorder}" Height="90">
+                            <TextBox x:Name="TxtUserData" Style="{x:Null}"
+                                     Background="Transparent" BorderThickness="0"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     FontFamily="Consolas" FontSize="12" Padding="10,8"
+                                     AcceptsReturn="True" TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     VerticalAlignment="Stretch"
+                                     CaretBrush="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <TextBlock Text="Startup script or cloud-init data. Executed as root on first boot."
+                                   Style="{StaticResource HintText}"/>
+
+                    </StackPanel>
+
+                    <Border Style="{StaticResource SectionDiv}"/>
+
+                    <!-- ═══ 8. Count ══════════════════════════════════ -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="80"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Number of instances" Style="{StaticResource SectionHeader}"
+                                       Margin="0"/>
+                            <TextBlock Text="EC2 can launch multiple identical instances simultaneously."
+                                       Style="{StaticResource HintText}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Border Grid.Column="1" Style="{StaticResource InputBorder}" Height="34"
+                                VerticalAlignment="Center">
+                            <TextBox x:Name="TxtCount" Style="{x:Null}"
+                                     Background="Transparent" BorderThickness="0"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     FontSize="13" Padding="11,0" Text="1"
+                                     VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                     CaretBrush="{DynamicResource AccentBrush}"/>
+                        </Border>
+                    </Grid>
+                    <TextBlock x:Name="TxtCountError" Foreground="{DynamicResource DangerBrush}"
+                               FontSize="11" Margin="0,4,0,0" Visibility="Collapsed"/>
+
+                    <Border Height="12"/>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ── Footer ─────────────────────────────────────────── -->
+            <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+                <Grid Margin="20,12,20,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <UIElement Grid.Column="0"/>
+                    <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                            Click="Cancel_Click" Padding="16,8" Margin="0,0,8,0">
+                        <TextBlock Text="Cancel" FontSize="13"/>
+                    </Button>
+                    <Button Grid.Column="2" Click="Launch_Click" Padding="20,8">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="{DynamicResource AccentBrush}"
+                                        CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <TextBlock Text="Launch instance" FontSize="13" FontWeight="Medium" Foreground="White"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+        </Grid>
+    </Border>
+</Window>

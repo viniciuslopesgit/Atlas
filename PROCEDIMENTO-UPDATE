@@ -1,0 +1,21 @@
+1. Abra Services/UpdateService.cs linha 9 e troque YOUR_USERNAME/Atlas pelo seu repositório GitHub real.
+2. Instale a CLI do Velopack:
+dotnet tool install -g vpk
+
+
+
+3. Para cada release, faça o publish + pack:
+# Publica o app
+dotnet publish Atlas/Atlas.csproj -c Release -r win-x64 --self-contained -o publish/
+# Empacota como release Velopack (troque 1.0.0 pela versão)
+vpk pack --packId Atlas --packVersion 0.0.7 --packDir publish/ --outputDir releases/
+# Faz upload para GitHub Releases (precisa do gh CLI autenticado)
+vpk upload github --repoUrl https://github.com/SEU_USER/Atlas --token $env:GITHUB_TOKEN --outputDir releases/
+
+4. Atualize o link de download do site
+5. Atualize o site no https://app.netlify.com
+
+
+# 2. Upload para GitHub (só depois do pack terminar)
+
+vpk upload github --repoUrl https://github.com/viniciuslopesgit/atlas-cloud --token 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 --outputDir releases/ --publish

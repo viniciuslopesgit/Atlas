@@ -1,0 +1,832 @@
+﻿<UserControl x:Class="Atlas.Views.BillingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Atlas.ViewModels">
+
+    <UserControl.Resources>
+
+        <!-- Month button in the date-range picker -->
+        <Style x:Key="MonthPickerBtn" TargetType="Button">
+            <Setter Property="Width"            Value="58"/>
+            <Setter Property="Height"           Value="34"/>
+            <Setter Property="Margin"           Value="3"/>
+            <Setter Property="FontSize"         Value="12"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="BorderThickness"  Value="1"/>
+            <Setter Property="BorderBrush"      Value="Transparent"/>
+            <Setter Property="Background"       Value="Transparent"/>
+            <Setter Property="Foreground"       Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource SidebarActiveBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.3"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <!-- DataTriggers for picker highlight states -->
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsInRange}" Value="True">
+                    <Setter Property="Background" Value="#225C7CFA"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsStart}" Value="True">
+                    <Setter Property="Background" Value="#5C7CFA"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsEnd}" Value="True">
+                    <Setter Property="Background" Value="#5C7CFA"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Small ghost-style preset button -->
+        <Style x:Key="PresetBtn" TargetType="Button">
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Padding"         Value="10,5"/>
+            <Setter Property="Margin"          Value="0,0,6,6"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource BackgroundBrush}">
+
+        <!-- ═══════════════ NO ACCOUNT ══════════════════════════════════════ -->
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}">
+            <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="52"
+                       HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+            <TextBlock Text="No AWS account configured" FontSize="16"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center" Margin="0,12,0,0"/>
+            <TextBlock Text="Go to Settings to add your first account."
+                       FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
+                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
+        </StackPanel>
+
+        <!-- ═══════════════ MAIN CONTENT ════════════════════════════════════ -->
+        <Grid Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- ── Page header ────────────────────────────────────────────── -->
+            <Grid Grid.Row="0" Margin="32,28,32,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Billing &amp; Cost Management" FontSize="24" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Border CornerRadius="6" Padding="8,2" Margin="12,0,0,0"
+                                Background="{DynamicResource SidebarActiveBrush}" VerticalAlignment="Center">
+                            <TextBlock Text="PRO" FontSize="10" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="{Binding PeriodRangeText}" FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <!-- Action buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource GhostButton}"
+                            Command="{Binding ExportCsvCommand}"
+                            IsEnabled="{Binding HasData}"
+                            Padding="16,8" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" VerticalAlignment="Center" Margin="0,0,7,0"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Export CSV" FontSize="13" FontWeight="Medium"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource GhostButton}"
+                            Command="{Binding RefreshCommand}"
+                            Padding="10,8">
+                        <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ── Scrollable body ───────────────────────────────────────── -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,20,0,0">
+                <Grid Margin="32,0,32,32">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Loading overlay -->
+                    <Border Grid.RowSpan="4" Background="{DynamicResource BackgroundBrush}"
+                            Opacity="0.85" Panel.ZIndex="10"
+                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisible}}">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="32" Foreground="{DynamicResource AccentBrush}"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Fetching billing data…" FontSize="14"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Notices row (data-limit amber + real errors red) -->
+                    <StackPanel Grid.Row="0">
+
+                        <!-- Data-limit notice (amber, non-blocking, with Reset button) -->
+                        <Border Style="{StaticResource Card}"
+                                Background="#33FBBF24" BorderBrush="#55FBBF24"
+                                Visibility="{Binding DataLimitNotice, Converter={StaticResource NullToCollapsed}}"
+                                Margin="0,0,0,12" Padding="16,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="16" Foreground="{DynamicResource WarningBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="1" Text="{Binding DataLimitNotice}"
+                                           Foreground="{DynamicResource WarningBrush}"
+                                           FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                        Command="{Binding ResetDateRangeCommand}"
+                                        Padding="12,6" Margin="16,0,0,0"
+                                        Foreground="{DynamicResource WarningBrush}">
+                                    <TextBlock Text="Reset range" FontSize="12" FontWeight="Medium"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Real errors (red) -->
+                        <Border Style="{StaticResource Card}"
+                                Background="#33EF5350" BorderBrush="#55EF5350"
+                                Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}"
+                                Margin="0,0,0,12">
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       Foreground="{DynamicResource DangerBrush}" FontSize="13"/>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- ── KPI cards ───────────────────────────────────────── -->
+                    <UniformGrid Grid.Row="1" Columns="4" Rows="1" Margin="0,0,0,20">
+
+                        <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                            <StackPanel>
+                                <TextBlock Text="Total Cost" FontSize="12" FontWeight="Medium"
+                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding TotalCostText}"
+                                           FontSize="22" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
+                                <TextBlock Text="blended · selected period" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="6,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="Avg / Month" FontSize="12" FontWeight="Medium"
+                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding AvgMonthlyCostText}"
+                                           FontSize="22" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
+                                <TextBlock Text="average monthly spend" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="6,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="MoM Change" FontSize="12" FontWeight="Medium"
+                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding MoMChangeText, FallbackValue='—'}"
+                                           FontSize="22" FontWeight="SemiBold" Margin="0,8,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding MoMUp}" Value="True">
+                                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="vs previous month" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="12,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Services" FontSize="12" FontWeight="Medium"
+                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding ServiceTotals.Count, FallbackValue='—'}"
+                                           FontSize="22" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
+                                <TextBlock Text="tracked service groups" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- ── Stacked bar chart card ──────────────────────────── -->
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,20">
+                        <Grid>
+
+                            <!-- Pro lock overlay -->
+                            <Border CornerRadius="12" Panel.ZIndex="5"
+                                    Background="{DynamicResource BackgroundBrush}" Opacity="0.94"
+                                    Visibility="{Binding IsPro, Converter={StaticResource BoolToInvisible}}">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Margin="0,40">
+                                    <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="40"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Pro feature" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                                    <TextBlock Text="Upgrade to Atlas Pro to unlock detailed billing analytics and CSV export."
+                                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center" Margin="0,6,0,0"
+                                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="380"/>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel>
+                                <!-- Card header -->
+                                <Grid Margin="0,0,0,20">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Cost Breakdown" FontSize="15" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="Blended cost · monthly granularity"
+                                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                                   Margin="0,3,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- ── Period picker button + Popup ─────── -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="Period" FontSize="12"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                                        <!-- Anchor element for the popup -->
+                                        <Border x:Name="PickerAnchor" Width="0" Height="0"/>
+
+                                        <Button x:Name="PickerToggleBtn"
+                                                Style="{StaticResource GhostButton}"
+                                                Command="{Binding OpenPickerCommand}"
+                                                Padding="12,7" MinWidth="190">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="13" VerticalAlignment="Center"
+                                                           Margin="0,0,8,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                                <TextBlock Text="{Binding SelectedRangeText}"
+                                                           FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="10" VerticalAlignment="Center"
+                                                           Margin="8,0,0,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- ═══ Calendar Popup ═══ -->
+                                        <Popup x:Name="DatePickerPopup"
+                                               IsOpen="{Binding IsPickerOpen, Mode=TwoWay}"
+                                               PlacementTarget="{Binding ElementName=PickerToggleBtn}"
+                                               Placement="Bottom"
+                                               StaysOpen="True"
+                                               AllowsTransparency="True"
+                                               PopupAnimation="Fade">
+                                            <Border Background="{DynamicResource SidebarBrush}"
+                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="12"
+                                                    Padding="20,16" MinWidth="560">
+                                                <Border.Effect>
+                                                    <DropShadowEffect BlurRadius="24" ShadowDepth="4"
+                                                                      Opacity="0.22" Color="Black"/>
+                                                </Border.Effect>
+                                                <StackPanel>
+
+                                                    <!-- ── Presets row ──── -->
+                                                    <WrapPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                                        <Button Style="{StaticResource PresetBtn}"
+                                                                Content="Last 3M"
+                                                                Command="{Binding ApplyPresetCommand}"
+                                                                CommandParameter="3M"/>
+                                                        <Button Style="{StaticResource PresetBtn}"
+                                                                Content="Last 6M"
+                                                                Command="{Binding ApplyPresetCommand}"
+                                                                CommandParameter="6M"/>
+                                                        <Button Style="{StaticResource PresetBtn}"
+                                                                Content="Last 12M"
+                                                                Command="{Binding ApplyPresetCommand}"
+                                                                CommandParameter="12M"/>
+                                                        <Button Style="{StaticResource PresetBtn}"
+                                                                Content="Last 24M"
+                                                                Command="{Binding ApplyPresetCommand}"
+                                                                CommandParameter="24M"/>
+                                                        <Button Style="{StaticResource PresetBtn}"
+                                                                Content="This Year"
+                                                                Command="{Binding ApplyPresetCommand}"
+                                                                CommandParameter="ThisYear"/>
+                                                        <Button Style="{StaticResource PresetBtn}"
+                                                                Content="Last Year"
+                                                                Command="{Binding ApplyPresetCommand}"
+                                                                CommandParameter="LastYear"/>
+                                                    </WrapPanel>
+
+                                                    <!-- ── Divider ──────── -->
+                                                    <Border Height="1" Margin="0,0,0,14"
+                                                            Background="{DynamicResource BorderBrush}"/>
+
+                                                    <!-- ── Two-year calendars ── -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="12"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- LEFT YEAR -->
+                                                        <StackPanel Grid.Column="0">
+                                                            <!-- Year header -->
+                                                            <Grid Margin="0,0,0,10">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <Button Grid.Column="0"
+                                                                        Style="{StaticResource GhostButton}"
+                                                                        Command="{Binding PrevPickerYearCommand}"
+                                                                        Padding="6,4" Width="28" Height="28">
+                                                                    <TextBlock Text="&#xE76B;"
+                                                                               FontFamily="Segoe MDL2 Assets"
+                                                                               FontSize="10"
+                                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                </Button>
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding PickerLeftYear}"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                            </Grid>
+                                                            <!-- Month grid 3×4 -->
+                                                            <ItemsControl ItemsSource="{Binding LeftYearMonths}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <UniformGrid Columns="3" Rows="4"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate DataType="{x:Type vm:PickerMonthItem}">
+                                                                        <Button Style="{StaticResource MonthPickerBtn}"
+                                                                                Content="{Binding Label}"
+                                                                                IsEnabled="{Binding IsEnabled}"
+                                                                                Command="{Binding SelectCmd}"
+                                                                                CommandParameter="{Binding Date}"/>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+
+                                                        <!-- Separator -->
+                                                        <Border Grid.Column="1" Width="1"
+                                                                Background="{DynamicResource BorderBrush}"
+                                                                Margin="0,8"/>
+
+                                                        <!-- RIGHT YEAR -->
+                                                        <StackPanel Grid.Column="2">
+                                                            <Grid Margin="0,0,0,10">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0"
+                                                                           Text="{Binding PickerRightYear}"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                                <Button Grid.Column="1"
+                                                                        Style="{StaticResource GhostButton}"
+                                                                        Command="{Binding NextPickerYearCommand}"
+                                                                        Padding="6,4" Width="28" Height="28">
+                                                                    <TextBlock Text="&#xE76C;"
+                                                                               FontFamily="Segoe MDL2 Assets"
+                                                                               FontSize="10"
+                                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                </Button>
+                                                            </Grid>
+                                                            <ItemsControl ItemsSource="{Binding RightYearMonths}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <UniformGrid Columns="3" Rows="4"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate DataType="{x:Type vm:PickerMonthItem}">
+                                                                        <Button Style="{StaticResource MonthPickerBtn}"
+                                                                                Content="{Binding Label}"
+                                                                                IsEnabled="{Binding IsEnabled}"
+                                                                                Command="{Binding SelectCmd}"
+                                                                                CommandParameter="{Binding Date}"/>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </Grid>
+
+                                                    <!-- ── Footer ─────────────── -->
+                                                    <Border Height="1" Margin="0,14,0,12"
+                                                            Background="{DynamicResource BorderBrush}"/>
+
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="8"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Temp range hint -->
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding TempRangeText}"
+                                                                   FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource TextMutedBrush}"/>
+
+                                                        <!-- Cancel -->
+                                                        <Button Grid.Column="1"
+                                                                Style="{StaticResource GhostButton}"
+                                                                Content="Cancel"
+                                                                Command="{Binding ClosePickerCommand}"
+                                                                Padding="14,7" FontSize="12"/>
+
+                                                        <!-- Apply -->
+                                                        <Button Grid.Column="3"
+                                                                Content="Apply"
+                                                                Command="{Binding ApplyRangeCommand}"
+                                                                Padding="18,7" FontSize="12"
+                                                                FontWeight="SemiBold"
+                                                                Background="{DynamicResource AccentBrush}"
+                                                                Foreground="White"
+                                                                BorderThickness="0"
+                                                                Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Template">
+                                                                        <Setter.Value>
+                                                                            <ControlTemplate TargetType="Button">
+                                                                                <Border Background="{TemplateBinding Background}"
+                                                                                        CornerRadius="7"
+                                                                                        Padding="{TemplateBinding Padding}">
+                                                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                                                      VerticalAlignment="Center"/>
+                                                                                </Border>
+                                                                            </ControlTemplate>
+                                                                        </Setter.Value>
+                                                                    </Setter>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
+                                                    </Grid>
+
+                                                </StackPanel>
+                                            </Border>
+                                        </Popup>
+                                        <!-- ═══ End Calendar Popup ═══ -->
+
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Empty state -->
+                                <Border Padding="0,32"
+                                        Visibility="{Binding HasData, Converter={StaticResource BoolToInvisible}}">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <TextBlock Text="&#xE81E;" FontFamily="Segoe MDL2 Assets" FontSize="42"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   HorizontalAlignment="Center"/>
+                                        <TextBlock Text="No billing data for this period" FontSize="14"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                                        <TextBlock Text="Cost Explorer data may take up to 24 h to appear in AWS."
+                                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                                   HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Chart (only when data exists) -->
+                                <StackPanel Visibility="{Binding HasData, Converter={StaticResource BoolToVisible}}">
+
+                                    <TextBlock Text="Costs (USD)" FontSize="11" FontWeight="Medium"
+                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Y-axis tick labels -->
+                                        <Grid Grid.Column="0" Margin="0,0,6,22">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Text="{Binding YAxis100}" FontSize="10"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Grid.Row="1" Text="{Binding YAxis75}" FontSize="10"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Grid.Row="2" Text="{Binding YAxis50}" FontSize="10"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Grid.Row="3" Text="{Binding YAxis25}" FontSize="10"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Grid.Row="4" Text="$0" FontSize="10"
+                                                       HorizontalAlignment="Right"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Grid>
+
+                                        <!-- Chart area: grid lines + stacked bars -->
+                                        <Grid Grid.Column="1">
+                                            <Grid Height="200" VerticalAlignment="Top" IsHitTestVisible="False">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*"/>
+                                                    <RowDefinition Height="*"/>
+                                                    <RowDefinition Height="*"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <Border Grid.Row="0" BorderThickness="0,1,0,0"
+                                                        BorderBrush="{DynamicResource BorderBrush}" Opacity="0.6"/>
+                                                <Border Grid.Row="1" BorderThickness="0,1,0,0"
+                                                        BorderBrush="{DynamicResource BorderBrush}" Opacity="0.6"/>
+                                                <Border Grid.Row="2" BorderThickness="0,1,0,0"
+                                                        BorderBrush="{DynamicResource BorderBrush}" Opacity="0.6"/>
+                                                <Border Grid.Row="3" BorderThickness="0,1,0,0"
+                                                        BorderBrush="{DynamicResource BorderBrush}" Opacity="0.6"/>
+                                            </Grid>
+
+                                            <ItemsControl ItemsSource="{Binding BillingBars}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <UniformGrid Rows="1"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:BillingBar}">
+                                                        <StackPanel Margin="3,0">
+                                                            <Grid Height="200">
+                                                                <StackPanel VerticalAlignment="Bottom"
+                                                                            ToolTip="{Binding TotalText}">
+                                                                    <ItemsControl ItemsSource="{Binding Segments}">
+                                                                        <ItemsControl.ItemsPanel>
+                                                                            <ItemsPanelTemplate>
+                                                                                <StackPanel Orientation="Vertical"/>
+                                                                            </ItemsPanelTemplate>
+                                                                        </ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate DataType="{x:Type vm:BillingBarSegment}">
+                                                                                <Border Height="{Binding HeightPx}"
+                                                                                        Background="{Binding Fill}"
+                                                                                        ToolTip="{Binding Tooltip}"
+                                                                                        Cursor="Hand"/>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                            <TextBlock Text="{Binding MonthLabel}" FontSize="10"
+                                                                       HorizontalAlignment="Center" Margin="0,5,0,0"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Grid>
+                                    </Grid>
+
+                                    <!-- Legend -->
+                                    <Border Margin="0,16,0,0" Padding="0,12,0,0"
+                                            BorderThickness="0,1,0,0"
+                                            BorderBrush="{DynamicResource BorderBrush}">
+                                        <ItemsControl ItemsSource="{Binding ServiceTotals}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:ServiceTotalRow}">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                                                        <Border Width="12" Height="12" CornerRadius="2"
+                                                                Background="{Binding Fill}"
+                                                                VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBlock Text="{Binding Service}" FontSize="11"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── Service breakdown table ────────────────────────── -->
+                    <Border Grid.Row="3" Style="{StaticResource Card}"
+                            Visibility="{Binding HasData, Converter={StaticResource BoolToVisible}}">
+                        <StackPanel>
+
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Service Breakdown" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Cumulative spend per service group · entire selected period"
+                                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                               Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" FontSize="12"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           VerticalAlignment="Center">
+                                    <Run Text="{Binding Report.MonthLabels.Count, Mode=OneWay, FallbackValue=''}"/>
+                                    <Run Text=" months analysed"/>
+                                </TextBlock>
+                            </Grid>
+
+                            <!-- Column headers -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="64"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="SERVICE / GROUP"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="2" Text="TOTAL COST"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           HorizontalAlignment="Right"/>
+                                <TextBlock Grid.Column="3" Text="SHARE"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           HorizontalAlignment="Right"/>
+                            </Grid>
+
+                            <!-- Service rows -->
+                            <ItemsControl ItemsSource="{Binding ServiceTotals}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ServiceTotalRow}">
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="190"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="120"/>
+                                                <ColumnDefinition Width="64"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <Border Width="10" Height="10" CornerRadius="2"
+                                                        Background="{Binding Fill}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Service}" FontSize="12"
+                                                           FontWeight="Medium"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Service}"/>
+                                            </StackPanel>
+                                            <Grid Grid.Column="1" Margin="10,0" Height="8"
+                                                  VerticalAlignment="Center">
+                                                <Border Background="{DynamicResource SidebarActiveBrush}"
+                                                        CornerRadius="4"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{Binding FillLength}"/>
+                                                        <ColumnDefinition Width="{Binding EmptyLength}"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" Background="{Binding Fill}"
+                                                            CornerRadius="4" Opacity="0.85"/>
+                                                </Grid>
+                                            </Grid>
+                                            <TextBlock Grid.Column="2" Text="{Binding TotalText}"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding PercentText}"
+                                                       FontSize="11" HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                       Margin="8,0,0,0"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Grand total footer -->
+                            <Border Margin="0,10,0,0" Padding="0,12,0,0"
+                                    BorderThickness="0,1,0,0"
+                                    BorderBrush="{DynamicResource BorderBrush}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="190"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="64"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="GRAND TOTAL" FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding TotalCostText}"
+                                               FontSize="13" FontWeight="Bold"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Grid.Column="3" Text="100%" FontSize="11"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               Margin="8,0,0,0"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

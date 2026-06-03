@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-R46JMXK61J"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-R46JMXK61J');
+  </script>
+  <title>Privacy Policy — Atlas | AWS Desktop Manager</title>
+  <meta name="description" content="Atlas privacy policy. Learn how we handle your data, what we collect, and your rights.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://cloud-atlas.io/privacy">
+  <link rel="icon" href="atlas.ico" type="image/x-icon">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #09090b;
+      color: #e4e4e7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Navbar */
+    #navbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      transition: background 0.3s, box-shadow 0.3s, border-color 0.3s;
+      border-bottom: 1px solid transparent;
+    }
+    #navbar.scrolled {
+      background: rgba(9, 9, 11, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-color: #27272a;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    }
+
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, #27272a 20%, #27272a 80%, transparent);
+    }
+
+    /* Prose content */
+    .prose h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f4f4f5;
+      margin-top: 2.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .prose h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #d4d4d8;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose p {
+      color: #a1a1aa;
+      line-height: 1.75;
+      margin-bottom: 1rem;
+    }
+    .prose ul {
+      list-style: disc;
+      padding-left: 1.5rem;
+      color: #a1a1aa;
+      line-height: 1.75;
+      margin-bottom: 1rem;
+    }
+    .prose ul li {
+      margin-bottom: 0.35rem;
+    }
+    .prose a {
+      color: #3b82f6;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .prose a:hover {
+      color: #60a5fa;
+    }
+    .prose strong {
+      color: #d4d4d8;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================== NAVBAR ======================== -->
+  <nav id="navbar" class="py-4">
+    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <img src="atlas.png" alt="Atlas" class="w-8 h-8 rounded-lg object-contain">
+        <span class="text-xl font-bold text-white">Atlas</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+        <a href="/#features" class="hover:text-white transition">Features</a>
+        <a href="/#comparison" class="hover:text-white transition">vs AWS Console</a>
+        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+        <a href="/#faq" class="hover:text-white transition">FAQ</a>
+      </div>
+      <a href="https://github.com/viniciuslopesgit/atlas-cloud/archive/refs/tags/0.0.1.zip"
+         class="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:scale-95 px-5 py-2.5 rounded-xl font-semibold text-sm transition shadow-lg shadow-blue-900/30">
+        <i class="fa-brands fa-windows text-xs"></i>
+        Download Free
+      </a>
+    </div>
+  </nav>
+
+  <!-- ======================== CONTENT ======================== -->
+  <main class="max-w-2xl mx-auto px-6 py-20">
+
+    <!-- Header -->
+    <div class="mb-12">
+      <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-blue-400 bg-blue-950/40 border border-blue-800/40 px-3 py-1.5 rounded-full mb-6">
+        <i class="fa-solid fa-shield-halved"></i>
+        Legal
+      </span>
+      <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4 leading-tight">Privacy Policy</h1>
+      <p class="text-zinc-500 text-sm">Last updated: <strong class="text-zinc-400">June 3, 2026</strong></p>
+    </div>
+
+    <div class="section-divider mb-12"></div>
+
+    <!-- Body -->
+    <div class="prose">
+
+      <p>
+        Atlas ("we", "us", or "our") is a native Windows desktop application for managing AWS resources.
+        This Privacy Policy explains what information we collect, how we use it, and your rights regarding your data.
+        By using Atlas or visiting <a href="https://cloud-atlas.io">cloud-atlas.io</a>, you agree to the practices described here.
+      </p>
+
+      <!-- 1 -->
+      <h2>1. Information We Collect</h2>
+
+      <h3>a) Website analytics</h3>
+      <p>
+        When you visit <strong>cloud-atlas.io</strong>, we use <strong>Google Analytics 4</strong> to collect
+        anonymous usage data, including pages visited, referral source, browser type, and approximate geographic region.
+        This data is aggregated and does not identify you personally.
+      </p>
+
+      <h3>b) Purchase information</h3>
+      <p>
+        Pro plan purchases are processed by <strong>Lemon Squeezy</strong>, our payment provider.
+        We receive confirmation of your purchase (email address, license key). We do not store or process
+        payment card details — those are handled entirely by Lemon Squeezy under their own
+        <a href="https://www.lemonsqueezy.com/privacy" target="_blank" rel="noopener">privacy policy</a>.
+      </p>
+
+      <h3>c) Support communications</h3>
+      <p>
+        If you contact us at <a href="mailto:support@cloud-atlas.io">support@cloud-atlas.io</a>,
+        we retain your email address and message content to respond to your inquiry.
+      </p>
+
+      <h3>d) AWS credentials — stored locally only</h3>
+      <p>
+        Atlas stores your AWS Access Key ID and Secret Access Key <strong>locally on your device</strong>
+        using an encrypted SQLite database. <strong>We never transmit your AWS credentials to our servers.</strong>
+        All AWS API calls are made directly from your machine to AWS endpoints.
+      </p>
+
+      <!-- 2 -->
+      <h2>2. How We Use Your Information</h2>
+      <ul>
+        <li>To provide, maintain, and improve the Atlas application and website.</li>
+        <li>To fulfill Pro plan licenses and send license-related communications.</li>
+        <li>To respond to support requests.</li>
+        <li>To understand website traffic and improve user experience (via aggregated analytics).</li>
+      </ul>
+      <p>We do not sell, rent, or share your personal information with third parties for marketing purposes.</p>
+
+      <!-- 3 -->
+      <h2>3. Third-Party Services</h2>
+      <p>We use the following third-party services, each governed by their own privacy policies:</p>
+      <ul>
+        <li><strong>Google Analytics 4</strong> — website analytics (<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a>)</li>
+        <li><strong>Lemon Squeezy</strong> — payment processing (<a href="https://www.lemonsqueezy.com/privacy" target="_blank" rel="noopener">Lemon Squeezy Privacy Policy</a>)</li>
+        <li><strong>Amazon Web Services</strong> — your AWS credentials are used to call AWS APIs directly from your device (<a href="https://aws.amazon.com/privacy/" target="_blank" rel="noopener">AWS Privacy Notice</a>)</li>
+      </ul>
+
+      <!-- 4 -->
+      <h2>4. Data Retention</h2>
+      <p>
+        Analytics data is retained by Google according to their standard retention settings.
+        Purchase records are retained as required for tax and accounting purposes.
+        Support emails are retained for as long as necessary to resolve your inquiry.
+        AWS credentials stored locally are under your full control and can be deleted at any time from within the Atlas application.
+      </p>
+
+      <!-- 5 -->
+      <h2>5. Cookies</h2>
+      <p>
+        The cloud-atlas.io website uses cookies set by Google Analytics to distinguish visitors and measure usage.
+        No advertising or tracking cookies from third parties are used.
+        You can disable cookies in your browser settings at any time.
+      </p>
+
+      <!-- 6 -->
+      <h2>6. Children's Privacy</h2>
+      <p>
+        Atlas is not directed at children under 13. We do not knowingly collect personal information
+        from children under 13. If you believe a child has provided us with personal data,
+        please contact us and we will delete it.
+      </p>
+
+      <!-- 7 -->
+      <h2>7. Your Rights</h2>
+      <p>Depending on your location, you may have the right to:</p>
+      <ul>
+        <li>Access the personal data we hold about you.</li>
+        <li>Request correction or deletion of your personal data.</li>
+        <li>Object to or restrict our processing of your data.</li>
+        <li>Withdraw consent at any time (where processing is based on consent).</li>
+      </ul>
+      <p>
+        To exercise any of these rights, contact us at
+        <a href="mailto:support@cloud-atlas.io">support@cloud-atlas.io</a>.
+        We will respond within 30 days.
+      </p>
+
+      <!-- 8 -->
+      <h2>8. Security</h2>
+      <p>
+        We take reasonable technical measures to protect the information we hold.
+        Your AWS credentials are encrypted at rest on your local device.
+        No method of electronic storage or transmission is 100% secure, so we cannot guarantee absolute security.
+      </p>
+
+      <!-- 9 -->
+      <h2>9. Changes to This Policy</h2>
+      <p>
+        We may update this Privacy Policy from time to time. When we do, we will revise the
+        "Last updated" date at the top of this page. Continued use of Atlas or cloud-atlas.io
+        after changes constitutes acceptance of the updated policy.
+      </p>
+
+      <!-- 10 -->
+      <h2>10. Contact</h2>
+      <p>
+        If you have any questions or concerns about this Privacy Policy, please reach out:
+      </p>
+      <p>
+        <strong>Email:</strong> <a href="mailto:support@cloud-atlas.io">support@cloud-atlas.io</a><br>
+        <strong>Website:</strong> <a href="https://cloud-atlas.io">cloud-atlas.io</a>
+      </p>
+
+    </div><!-- /prose -->
+
+    <div class="section-divider mt-16 mb-10"></div>
+
+    <a href="/" class="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 transition">
+      <i class="fa-solid fa-arrow-left text-xs"></i>
+      Back to cloud-atlas.io
+    </a>
+
+  </main>
+
+  <!-- ======================== FOOTER ======================== -->
+  <footer class="bg-zinc-950 border-t border-zinc-900 py-14">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid md:grid-cols-4 gap-8 mb-12">
+        <!-- Brand -->
+        <div class="md:col-span-2">
+          <div class="flex items-center gap-2.5 mb-4">
+            <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+            <span class="text-xl font-bold">Atlas</span>
+          </div>
+          <p class="text-zinc-500 text-sm leading-relaxed max-w-xs">
+            The AWS console alternative built for Windows. Native WPF desktop app for DevOps engineers, SREs and cloud infrastructure teams who manage AWS every day.
+          </p>
+        </div>
+
+        <!-- Links -->
+        <div>
+          <h4 class="text-zinc-300 font-medium text-sm mb-4">Product</h4>
+          <ul class="space-y-3 text-sm text-zinc-500">
+            <li><a href="/#features" class="hover:text-zinc-300 transition">Features</a></li>
+            <li><a href="/#comparison" class="hover:text-zinc-300 transition">Atlas vs AWS Console</a></li>
+            <li><a href="/#pricing" class="hover:text-zinc-300 transition">Pricing</a></li>
+            <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/archive/refs/tags/0.0.1.zip" class="hover:text-zinc-300 transition">Download for Windows</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-zinc-300 font-medium text-sm mb-4">Support</h4>
+          <ul class="space-y-3 text-sm text-zinc-500">
+            <li><a href="/#faq" class="hover:text-zinc-300 transition">FAQ</a></li>
+            <li><a href="mailto:support@cloud-atlas.io" class="hover:text-zinc-300 transition">Contact</a></li>
+            <li><a href="/privacy" class="hover:text-zinc-300 transition">Privacy Policy</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-divider mb-8"></div>
+
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-zinc-600 text-sm">
+        <p>© 2026 Atlas · cloud-atlas.io</p>
+        <p>Made with <span class="text-red-500">♥</span> for those who manage AWS every day</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Navbar scroll effect -->
+  <script>
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 20) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    });
+  </script>
+
+</body>
+</html>

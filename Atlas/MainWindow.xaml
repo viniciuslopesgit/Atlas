@@ -1,0 +1,1062 @@
+﻿<Window x:Class="Atlas.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:Atlas.Views"
+        xmlns:vm="clr-namespace:Atlas.ViewModels"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Atlas" Height="760" Width="1280"
+        Icon="icon/unnamed.png"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" ResizeMode="CanResize"
+        Background="{DynamicResource BackgroundBrush}">
+
+    <!-- Modern custom chrome: keep native resize / snap / shadow, drop the Win32 title bar -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44"
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:DashboardViewModel}"><views:DashboardView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:Ec2ViewModel}"><views:Ec2View/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:S3ViewModel}"><views:S3View/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><views:SettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:IamViewModel}"><views:IamView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BillingViewModel}"><views:BillingView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CloudWatchViewModel}"><views:CloudWatchView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GuardDutyViewModel}"><views:GuardDutyView/></DataTemplate>
+
+        <!-- Splitter thumb: invisible hit area, subtle hover line -->
+        <Style x:Key="SidebarSplitter" TargetType="GridSplitter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="SizeWE"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GridSplitter">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <Border x:Name="Line" Width="1" HorizontalAlignment="Center"
+                                    Background="{DynamicResource BorderBrush}" Opacity="0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Line" Property="Opacity" Value="1"/>
+                                <Setter TargetName="Line" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="Line" Property="Opacity" Value="1"/>
+                                <Setter TargetName="Line" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="RootGrid">
+        <Grid.LayoutTransform>
+            <ScaleTransform x:Name="AppScale" ScaleX="1" ScaleY="1"/>
+        </Grid.LayoutTransform>
+        <Grid.ColumnDefinitions>
+            <!-- Sidebar: resizable between 160 and 360 px -->
+            <ColumnDefinition Width="220" MinWidth="160" MaxWidth="360"/>
+            <!-- Splitter hit zone -->
+            <ColumnDefinition Width="6"/>
+            <!-- Main content -->
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="44"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ══════════════════════════════════════════════════════════
+             TOP BAR  (spans all 3 columns)
+        ════════════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Column 0 is an empty draggable region (moves the window) -->
+
+                <!-- Right side: upgrade CTA · region · account -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="0,0,8,0"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+
+                    <!-- Update available notification -->
+                    <Button Command="{Binding ApplyUpdateCommand}"
+                            Cursor="Hand" BorderThickness="0" Height="34" Margin="0,0,8,0"
+                            FocusVisualStyle="{x:Null}"
+                            Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVisible}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bg" CornerRadius="7"
+                                        Background="#1AFBBF24"
+                                        Padding="10,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock x:Name="UpdateIcon"
+                                                   Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="12"
+                                                   Foreground="#FBBF24"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="UpdateLabel"
+                                                   Text="{Binding UpdateVersionDisplay}"
+                                                   FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="#FBBF24"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#2AFBBF24"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#3AFBBF24"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Upgrade CTA (Free tier only) — minimal green text link -->
+                    <Button Command="{Binding ShowUpgradeCommand}"
+                            Cursor="Hand" BorderThickness="0" Height="34" Margin="0,0,8,0"
+                            FocusVisualStyle="{x:Null}"
+                            Visibility="{Binding IsFree, Converter={StaticResource BoolToVisible}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bg" CornerRadius="7"
+                                        Background="Transparent"
+                                        Padding="10,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock x:Name="StarIcon"
+                                                   Text="&#xE735;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource SuccessBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="Label"
+                                                   Text="Upgrade" FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource SuccessBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#1A4ADE80"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#2A4ADE80"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Region chip -->
+                    <Button x:Name="RegionChipBtn"
+                            Style="{StaticResource AccountChipButton}"
+                            Command="{Binding ToggleRegionMenuCommand}"
+                            Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE909;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="0,0,7,0"/>
+                            <TextBlock Text="{Binding ActiveRegionDisplay}"
+                                       FontSize="13" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="9" VerticalAlignment="Center"
+                                       Margin="7,1,0,0"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Region popup -->
+                    <Popup IsOpen="{Binding IsRegionMenuOpen, Mode=TwoWay}"
+                           PlacementTarget="{Binding ElementName=RegionChipBtn}"
+                           Placement="Bottom" VerticalOffset="6"
+                           StaysOpen="False" AllowsTransparency="True"
+                           PopupAnimation="Fade">
+                        <Border Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="12"
+                                MinWidth="240" MaxWidth="320"
+                                Margin="0,0,12,12">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="24" ShadowDepth="6"
+                                                  Opacity="0.22" Color="Black"/>
+                            </Border.Effect>
+                            <StackPanel>
+                                <TextBlock Text="AWS Region"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           Margin="16,14,16,6"/>
+                                <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{x:Static vm:MainViewModel.AllRegions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource AccountMenuItem}"
+                                                        Command="{Binding DataContext.SelectRegionCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding Code}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Display}"
+                                                                       FontSize="13"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                            <TextBlock Text="{Binding Code}"
+                                                                       FontSize="11" FontFamily="Consolas"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Margin="0,1,0,0"/>
+                                                        </StackPanel>
+                                                        <!-- Active checkmark -->
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                                                   FontSize="12" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource AccentBrush}"
+                                                                   Margin="10,0,0,0">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Value="True">
+                                                                            <DataTrigger.Binding>
+                                                                                <MultiBinding Converter="{StaticResource MultiEq}">
+                                                                                    <Binding Path="Code"/>
+                                                                                    <Binding Path="DataContext.ActiveRegionCode"
+                                                                                             RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                                                </MultiBinding>
+                                                                            </DataTrigger.Binding>
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <Separator Margin="0,6,0,6"/>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+
+                    <!-- Account switcher chip -->
+                    <Button x:Name="AccountChipBtn"
+                            Style="{StaticResource AccountChipButton}"
+                            Command="{Binding ToggleAccountMenuCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Avatar: initials when an account is active, otherwise a muted "add" state -->
+                            <Border Width="24" Height="24" CornerRadius="12"
+                                    Margin="0,0,8,0" VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasActiveAccount}" Value="False">
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <!-- Initials (active account) -->
+                                    <TextBlock Text="{Binding ActiveAccountInitials}"
+                                               FontSize="10" FontWeight="SemiBold" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}"/>
+                                    <!-- Add-account glyph (no account) -->
+                                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="11" Foreground="{DynamicResource AccentBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}"/>
+                                </Grid>
+                            </Border>
+                            <!-- Account name / call to action -->
+                            <TextBlock FontSize="13" VerticalAlignment="Center"
+                                       MaxWidth="160" TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding ActiveAccountName}"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasActiveAccount}" Value="False">
+                                                <Setter Property="Text" Value="Add account"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <!-- Chevron down -->
+                            <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="9" VerticalAlignment="Center"
+                                       Margin="7,1,0,0"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Account popup -->
+                    <Popup x:Name="AccountPopup"
+                           IsOpen="{Binding IsAccountMenuOpen, Mode=TwoWay}"
+                           PlacementTarget="{Binding ElementName=AccountChipBtn}"
+                           Placement="Bottom" VerticalOffset="6"
+                           StaysOpen="False" AllowsTransparency="True"
+                           PopupAnimation="Fade">
+                        <Border Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="12"
+                                MinWidth="240" MaxWidth="340"
+                                Margin="0,0,12,12">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="24" ShadowDepth="6"
+                                                  Opacity="0.22" Color="Black"/>
+                            </Border.Effect>
+                            <StackPanel>
+
+                                <!-- Header label -->
+                                <TextBlock Text="AWS Accounts"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           Margin="16,14,16,6"/>
+
+                                <!-- Account list -->
+                                <ItemsControl ItemsSource="{Binding Accounts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource AccountMenuItem}"
+                                                    Command="{Binding DataContext.SwitchAccountCommand,
+                                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Initials circle -->
+                                                    <Border Grid.Column="0" Width="30" Height="30" CornerRadius="15"
+                                                            Background="{DynamicResource SidebarActiveBrush}"
+                                                            Margin="0,0,10,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name, Converter={StaticResource InitialsConverter}}"
+                                                                   FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource AccentBrush}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+
+                                                    <!-- Name + region -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   FontSize="13" FontWeight="Medium"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding DefaultRegion}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                                   Margin="0,1,0,0"/>
+                                                    </StackPanel>
+
+                                                    <!-- Active checkmark -->
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                                               FontSize="12" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource AccentBrush}"
+                                                               Margin="10,0,0,0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Empty state -->
+                                <StackPanel Margin="16,12"
+                                            Visibility="{Binding Accounts.Count, Converter={StaticResource ZeroToVisible}}">
+                                    <TextBlock Text="No accounts configured."
+                                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                </StackPanel>
+
+                                <!-- Separator + Manage button -->
+                                <Separator Margin="0,6,0,0"/>
+
+                                <Button Style="{StaticResource AccountMenuItem}"
+                                        Command="{Binding OpenAccountSettingsCommand}"
+                                        Margin="0,0,0,6">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="13" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,10,0"/>
+                                        <TextBlock Text="Manage accounts"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+
+                </StackPanel>
+
+                <!-- ── Window controls (custom title bar) ─────────────── -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                            VerticalAlignment="Stretch"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="MinimizeButton" Style="{StaticResource CaptionButton}"
+                            Click="MinimizeButton_Click" ToolTip="Minimize">
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}"
+                            Click="MaximizeRestoreButton_Click" ToolTip="Maximize">
+                        <TextBlock x:Name="MaximizeGlyph" Text="&#xE922;"
+                                   FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="CloseButton" Style="{StaticResource CaptionCloseButton}"
+                            Click="CloseButton_Click" ToolTip="Close">
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════════════════
+             SIDEBAR  (Column 0, Row 1)
+        ════════════════════════════════════════════════════════════ -->
+        <Border Grid.Row="1" Grid.Column="0"
+                Background="{DynamicResource SidebarBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,0">
+            <DockPanel LastChildFill="True">
+
+                <!-- Version badge pinned to bottom of sidebar -->
+                <TextBlock DockPanel.Dock="Bottom"
+                           Text="{Binding Source={x:Static vm:MainViewModel.AppVersion}}"
+                           FontSize="11"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,14"/>
+
+            <StackPanel Margin="0,12,0,0">
+
+                <!-- Dashboard -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Dashboard}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.Dashboard}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE80F;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Dashboard" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </Grid>
+                </RadioButton>
+
+                <!-- EC2 Instances -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=EC2}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.EC2}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xEDA3;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="EC2 Instances" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </Grid>
+                </RadioButton>
+
+                <!-- S3 Buckets -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=S3}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.S3}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="S3 Buckets" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </Grid>
+                </RadioButton>
+
+                <!-- IAM -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=IAM}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.IAM}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE77B;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="IAM" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <!-- PRO lock badge (Free tier) -->
+                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource SidebarActiveBrush}"
+                                Visibility="{Binding DataContext.IsFree,
+                                             RelativeSource={RelativeSource AncestorType=Window},
+                                             Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </RadioButton>
+
+                <!-- Billing & Cost Management -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Billing}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.Billing}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE81E;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Billing" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <!-- PRO lock badge -->
+                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource SidebarActiveBrush}"
+                                Visibility="{Binding DataContext.IsFree,
+                                             RelativeSource={RelativeSource AncestorType=Window},
+                                             Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </RadioButton>
+
+                <!-- CloudWatch -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=CloudWatch}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.CloudWatch}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="CloudWatch" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <!-- PRO lock badge -->
+                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource SidebarActiveBrush}"
+                                Visibility="{Binding DataContext.IsFree,
+                                             RelativeSource={RelativeSource AncestorType=Window},
+                                             Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </RadioButton>
+
+                <!-- GuardDuty -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=GuardDuty}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.GuardDuty}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="GuardDuty" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <!-- PRO lock badge -->
+                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource SidebarActiveBrush}"
+                                Visibility="{Binding DataContext.IsFree,
+                                             RelativeSource={RelativeSource AncestorType=Window},
+                                             Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </RadioButton>
+
+                <Separator Background="{DynamicResource BorderBrush}" Margin="16,12" Height="1"/>
+
+                <!-- Settings -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Settings}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.Settings}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Settings" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </Grid>
+                </RadioButton>
+
+            </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════════════════
+             GRID SPLITTER  (Column 1, Row 1)
+        ════════════════════════════════════════════════════════════ -->
+        <GridSplitter Grid.Row="1" Grid.Column="1"
+                      Style="{StaticResource SidebarSplitter}"
+                      ResizeBehavior="PreviousAndNext"
+                      ResizeDirection="Columns"/>
+
+        <!-- ══════════════════════════════════════════════════════════
+             MAIN CONTENT  (Column 2, Row 1)
+        ════════════════════════════════════════════════════════════ -->
+        <ContentPresenter Grid.Row="1" Grid.Column="2"
+                          Content="{Binding CurrentViewModel}"/>
+
+        <!-- ══════════════════════════════════════════════════════════
+             UPGRADE TO PRO  (full-window overlay, dismissable)
+             Free users can close this and keep working. Shown on demand
+             when a Pro-only feature is requested or via the Upgrade CTA.
+             Inner card DataContext is the LicenseViewModel for activation.
+        ════════════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Grid.Column="0"
+                Grid.RowSpan="2" Grid.ColumnSpan="3"
+                Panel.ZIndex="1000"
+                Background="#F20C0C0C"
+                Visibility="{Binding IsUpgradeOpen, Converter={StaticResource BoolToVisible}}">
+
+            <Border Width="440" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="16" Padding="36,28,36,32"
+                    DataContext="{Binding License}">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="40" ShadowDepth="0"
+                                      Opacity="0.45" Color="Black"/>
+                </Border.Effect>
+
+                <StackPanel>
+
+                    <!-- Close (X) — keeps the app usable on Free -->
+                    <Button HorizontalAlignment="Right" Margin="0,-8,-8,0"
+                            Width="30" Height="30" Cursor="Hand"
+                            Command="{Binding DataContext.CloseUpgradeCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" CornerRadius="8" Background="Transparent">
+                                    <TextBlock x:Name="Ic" Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                        <Setter TargetName="Ic" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Pro badge + name -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="24"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="Atlas" FontSize="22" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <Border CornerRadius="5" Padding="7,2" Margin="9,2,0,0"
+                                Background="{DynamicResource AccentBrush}" VerticalAlignment="Center">
+                            <TextBlock Text="PRO" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Heading -->
+                    <TextBlock Text="Upgrade to Pro"
+                               FontSize="17" FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding DataContext.UpgradeReason, RelativeSource={RelativeSource AncestorType=Window}}"
+                               FontSize="13" TextWrapping="Wrap" TextAlignment="Center"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               Margin="0,0,0,18"/>
+
+                    <!-- Pro feature bullets -->
+                    <Border CornerRadius="10" Padding="16,12" Margin="0,0,0,18"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           Foreground="{DynamicResource SuccessBrush}" Margin="0,0,9,0"/>
+                                <TextBlock Text="Multiple AWS accounts" FontSize="12.5"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           Foreground="{DynamicResource SuccessBrush}" Margin="0,0,9,0"/>
+                                <TextBlock Text="Bulk EC2 actions (start / stop / reboot)" FontSize="12.5"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           Foreground="{DynamicResource SuccessBrush}" Margin="0,0,9,0"/>
+                                <TextBlock Text="IAM, global search &amp; security audit" FontSize="12.5"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           Foreground="{DynamicResource SuccessBrush}" Margin="0,0,9,0"/>
+                                <TextBlock Text="No upload limits &amp; priority support" FontSize="12.5"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- License key field -->
+                    <TextBlock Text="LICENSE KEY"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               Margin="0,0,0,6"/>
+                    <TextBox Text="{Binding LicenseKey, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="14" FontFamily="Consolas"
+                             Padding="12,10"
+                             Background="{DynamicResource BackgroundBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                             IsEnabled="{Binding IsActivating, Converter={StaticResource BoolInvert}}"/>
+
+                    <!-- Error banner -->
+                    <Border CornerRadius="8" Padding="12,9" Margin="0,14,0,0"
+                            Background="#26EF4444"
+                            BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1"
+                            Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xEA39;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                       Foreground="{DynamicResource DangerBrush}"
+                                       VerticalAlignment="Top" Margin="0,1,10,0"/>
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       FontSize="12.5" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Activate button -->
+                    <Button Command="{Binding ActivateCommand}"
+                            Style="{StaticResource PrimaryButton}"
+                            Height="42" Margin="0,20,0,0"
+                            IsEnabled="{Binding IsActivating, Converter={StaticResource BoolInvert}}">
+                        <Grid>
+                            <TextBlock Text="Activate"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding IsActivating, Converter={StaticResource BoolToInvisible}}"/>
+                            <TextBlock Text="Activating…"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding IsActivating, Converter={StaticResource BoolToVisible}}"/>
+                        </Grid>
+                    </Button>
+
+                    <!-- Dismiss → continue on Free -->
+                    <Button HorizontalAlignment="Center" Margin="0,12,0,0" Cursor="Hand"
+                            Command="{Binding DataContext.CloseUpgradeCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="Transparent" Padding="6,4">
+                                    <TextBlock x:Name="Txt" Text="Maybe later — continue with Free"
+                                               FontSize="12.5"
+                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════════════════
+             COMMAND PALETTE  (Ctrl+K — full-window overlay)
+        ════════════════════════════════════════════════════════════ -->
+        <Border x:Name="PaletteBackdrop"
+                Grid.Row="0" Grid.Column="0"
+                Grid.RowSpan="2" Grid.ColumnSpan="3"
+                Panel.ZIndex="2000"
+                Background="#CC050505"
+                Visibility="{Binding Palette.IsOpen, Converter={StaticResource BoolToVisible}}"
+                MouseDown="PaletteBackdrop_MouseDown">
+
+            <!-- Card: fixed width, anchored near top -->
+            <Border x:Name="PaletteCard"
+                    Width="580" VerticalAlignment="Top"
+                    HorizontalAlignment="Center"
+                    Margin="0,72,0,0"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="14"
+                    MouseDown="PaletteCard_MouseDown">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="56" ShadowDepth="0"
+                                      Opacity="0.6" Color="Black"/>
+                </Border.Effect>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>  <!-- search input -->
+                        <RowDefinition Height="Auto"/>  <!-- separator -->
+                        <RowDefinition Height="Auto"/>  <!-- results -->
+                        <RowDefinition Height="Auto"/>  <!-- footer hint -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Search row -->
+                    <Grid Grid.Row="0" Margin="18,14,18,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Search glyph -->
+                        <TextBlock Grid.Column="0"
+                                   Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,13,0"/>
+
+                        <!-- Search TextBox (borderless — card provides the frame) -->
+                        <Grid Grid.Column="1" VerticalAlignment="Center">
+                            <TextBox x:Name="PaletteSearchBox"
+                                     Text="{Binding Palette.SearchText, Mode=TwoWay,
+                                                    UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="15" Background="Transparent"
+                                     BorderThickness="0" Padding="0"
+                                     CaretBrush="{DynamicResource AccentBrush}"
+                                     PreviewKeyDown="PaletteSearchBox_PreviewKeyDown"/>
+                            <!-- Placeholder text -->
+                            <TextBlock Text="Type a command or search…"
+                                       FontSize="15" VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       Foreground="{DynamicResource TextMutedBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=PaletteSearchBox}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <!-- Esc hint badge -->
+                        <Border Grid.Column="2" CornerRadius="5" Padding="8,3"
+                                Background="{DynamicResource BackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1">
+                            <TextBlock Text="Esc" FontSize="11" FontFamily="Consolas"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Border>
+                    </Grid>
+
+                    <!-- Divider -->
+                    <Separator Grid.Row="1" Background="{DynamicResource BorderBrush}" Margin="0"/>
+
+                    <!-- Results list -->
+                    <ScrollViewer Grid.Row="2" MaxHeight="420"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="8,6,8,6"
+                                  Visibility="{Binding Palette.FilteredCommands.Count,
+                                               Converter={StaticResource ZeroToCollapsed}}">
+                        <ListView x:Name="PaletteListView"
+                                  ItemsSource="{Binding Palette.FilteredCommands}"
+                                  SelectedItem="{Binding Palette.SelectedCommand, Mode=TwoWay}"
+                                  Background="Transparent" BorderThickness="0"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  VirtualizingPanel.IsVirtualizing="False"
+                                  MouseLeftButtonUp="PaletteList_MouseLeftButtonUp"
+                                  FocusVisualStyle="{x:Null}">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0,1"/>
+                                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListViewItem">
+                                                <Border x:Name="Bd" CornerRadius="8"
+                                                        Padding="12,9"
+                                                        Background="Transparent">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background"
+                                                                Value="{DynamicResource SidebarActiveBrush}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background"
+                                                                Value="{DynamicResource RowSelectedBrush}"/>
+                                                    </Trigger>
+                                                    <MultiTrigger>
+                                                        <MultiTrigger.Conditions>
+                                                            <Condition Property="IsSelected" Value="True"/>
+                                                            <Condition Property="IsMouseOver" Value="True"/>
+                                                        </MultiTrigger.Conditions>
+                                                        <Setter TargetName="Bd" Property="Background"
+                                                                Value="{DynamicResource RowSelectedHoverBrush}"/>
+                                                    </MultiTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="36"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Icon pill -->
+                                        <Border Grid.Column="0" Width="30" Height="30"
+                                                CornerRadius="8" VerticalAlignment="Center"
+                                                Background="{DynamicResource BackgroundBrush}">
+                                            <TextBlock Text="{Binding Icon}"
+                                                       FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                        </Border>
+
+                                        <!-- Title + subtitle -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                    Margin="12,0,12,0">
+                                            <TextBlock Text="{Binding Title}" FontSize="13"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                       Margin="0,2,0,0"
+                                                       Visibility="{Binding Subtitle,
+                                                                    Converter={StaticResource NullToCollapsed}}"/>
+                                        </StackPanel>
+
+                                        <!-- Category badge -->
+                                        <Border Grid.Column="2" CornerRadius="5" Padding="8,3"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource BackgroundBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1">
+                                            <TextBlock Text="{Binding Category}" FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </ScrollViewer>
+
+                    <!-- Empty state -->
+                    <TextBlock Grid.Row="2"
+                               Text="No commands match your search."
+                               FontSize="13" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               Margin="0,24,0,24"
+                               Visibility="{Binding Palette.FilteredCommands.Count,
+                                            Converter={StaticResource ZeroToVisible}}"/>
+
+                    <!-- Footer: keyboard hints -->
+                    <Border Grid.Row="3"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="18,9"
+                            Visibility="{Binding Palette.FilteredCommands.Count,
+                                         Converter={StaticResource ZeroToCollapsed}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontSize="11" Foreground="{DynamicResource TextMutedBrush}">
+                                <Run Text="&#xE74A;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                                <Run Text=" &#xE74B;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                                <Run Text=" to navigate"/>
+                            </TextBlock>
+                            <TextBlock Text=" · " FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="8,0"/>
+                            <TextBlock FontSize="11" Foreground="{DynamicResource TextMutedBrush}">
+                                <Run Text="&#xE751;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                                <Run Text=" to execute"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Border>
+
+    </Grid>
+</Window>

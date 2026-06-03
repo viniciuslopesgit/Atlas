@@ -66,12 +66,12 @@ jobs:
           name: releases-signed
           path: releases-signed/
 
-      - name: Upload to GitHub Releases
+      - name: Upload to GitHub Releases (public repo)
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
           vpk upload github `
             --repoUrl https://github.com/viniciuslopesgit/atlas-cloud `
-            --token ${{ secrets.GITHUB_TOKEN }} `
+            --token ${{ secrets.RELEASES_TOKEN }} `
             --outputDir releases-signed/ `
             --publish
