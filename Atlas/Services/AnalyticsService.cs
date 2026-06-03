@@ -14,8 +14,8 @@ namespace Atlas.Services;
 public sealed class AnalyticsService : IAnalyticsService
 {
     // ── Replace these with your GA4 property credentials ──────────────
-    private const string MeasurementId = "G-XXXXXXXXXX";
-    private const string ApiSecret     = "YOUR_API_SECRET";
+    private const string MeasurementId = "G-R46JMXK61J";
+    private const string ApiSecret     = "TaXoI7EVT7mfspHZPoVvcw";
     // ──────────────────────────────────────────────────────────────────
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
