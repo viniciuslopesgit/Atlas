@@ -67,17 +67,18 @@ jobs:
           path: releases/
 
       - name: Sign with SignPath
-        uses: signpath/github-action-submit-signing-request@v1
+        uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
           project-slug: Atlas
           signing-policy-slug: release
-          artifact-configuration-slug: initial-version
+          artifact-configuration-slug: initial
           github-artifact-id: ${{ steps.upload-artifact.outputs.artifact-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           wait-for-completion: true
           output-artifact-directory: releases-signed/
+          service-unavailable-timeout-in-seconds: 600
 
       - name: Upload to GitHub Releases (public repo)
         shell: pwsh
