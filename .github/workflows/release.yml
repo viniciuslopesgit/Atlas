@@ -26,8 +26,21 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           echo "Version: $version"
 
+      - name: Override nuget.config for CI
+        shell: pwsh
+        run: |
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+            </packageSources>
+          </configuration>
+          "@ | Set-Content nuget.config
+
       - name: Install vpk
-        run: dotnet tool install -g vpk --add-source https://api.nuget.org/v3/index.json
+        run: dotnet tool install -g vpk
 
       - name: Publish
         run: dotnet publish Atlas/Atlas.csproj -c Release -r win-x64 --self-contained -o publish/
