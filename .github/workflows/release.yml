@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'   # dispara em tags tipo 0.0.8
+
+jobs:
+  build-sign-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Get version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF -replace 'refs/tags/', ''
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Version: $version"
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      - name: Publish
+        run: dotnet publish Atlas/Atlas.csproj -c Release -r win-x64 --self-contained -o publish/
+
+      - name: Pack with Velopack
+        shell: pwsh
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          vpk pack `
+            --packId Atlas `
+            --packVersion ${{ steps.version.outputs.VERSION }} `
+            --packDir publish/ `
+            --outputDir releases/
+
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: releases-unsigned
+          path: releases/
+
+      - name: Sign with SignPath
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+          project-slug: Atlas
+          signing-policy-slug: release
+          artifact-configuration-slug: initial-version
+          github-artifact-name: releases-unsigned
+          wait-for-completion: true
+          output-artifact-name: releases-signed
+
+      - name: Download signed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: releases-signed
+          path: releases-signed/
+
+      - name: Upload to GitHub Releases
+        shell: pwsh
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          vpk upload github `
+            --repoUrl https://github.com/viniciuslopesgit/atlas-cloud `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases-signed/ `
+            --publish
