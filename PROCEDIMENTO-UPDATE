@@ -5,7 +5,7 @@ git add .
 git commit -m "Fix - Windows Firewall bloqueava conexões de saída do Atlas.exe com SocketException 10013 (WSAEACCES)Firewall"
 git push origin main
 
-git tag 0.0.28
-git push origin 0.0.28
+git tag 0.0.29
+git push origin 0.0.29
 
 
