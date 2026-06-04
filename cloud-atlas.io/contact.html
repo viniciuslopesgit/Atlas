@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-R46JMXK61J"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-R46JMXK61J');
+  </script>
+
+  <title>Contact & Feedback — Atlas AWS Desktop Manager</title>
+  <meta name="description" content="Get in touch with the Atlas team. Report a bug, send a suggestion or ask a question about Atlas, the AWS console alternative for Windows.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://cloud-atlas.io/contact">
+  <link rel="icon" href="atlas.ico" sizes="any">
+  <link rel="icon" type="image/png" href="atlas.png">
+  <link rel="apple-touch-icon" href="atlas.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cloud-atlas.io/contact">
+  <meta property="og:title" content="Contact & Feedback — Atlas AWS Desktop Manager">
+  <meta property="og:description" content="Report a bug, send a suggestion or ask a question about Atlas.">
+  <meta property="og:image" content="https://cloud-atlas.io/og-image.png">
+
+  <!-- Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+  <style>
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    html { scroll-behavior: smooth; }
+
+    .hero-bg {
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37,99,235,0.18) 0%, transparent 70%),
+                  linear-gradient(180deg, #0a0e1a 0%, #0f172a 50%, #09090b 100%);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+
+    /* Section divider */
+    .section-divider { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); height: 1px; }
+
+    /* Nav scroll */
+    #navbar { transition: background 0.3s, border-color 0.3s; }
+    #navbar.scrolled { background: rgba(9,9,11,0.92) !important; border-color: rgba(255,255,255,0.08) !important; }
+
+    /* Form fields */
+    .field-input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 14px;
+      transition: border-color 0.15s, background 0.15s;
+      width: 100%;
+      padding: 12px 16px;
+      outline: none;
+    }
+    .field-input:focus {
+      border-color: rgba(59,130,246,0.6);
+      background: rgba(255,255,255,0.06);
+    }
+    .field-input::placeholder { color: #52525b; }
+
+    select.field-input option {
+      background: #18181b;
+      color: #fff;
+    }
+
+    /* Contact card */
+    .contact-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+    }
+
+    /* Type badges */
+    .type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: #a1a1aa;
+      cursor: default;
+    }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.7s linear infinite; display: inline-block; }
+
+    /* Success checkmark pulse */
+    @keyframes pop { 0%{transform:scale(.7);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+    .check-pop { animation: pop 0.4s ease forwards; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-white overflow-x-hidden">
+
+  <!-- ======================== NAVBAR ======================== -->
+  <nav id="navbar" aria-label="Main navigation" class="border-b border-transparent bg-transparent fixed w-full z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+        <span class="text-xl font-bold tracking-tight">Atlas</span>
+      </a>
+
+      <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+        <a href="/#features" class="hover:text-white transition">Features</a>
+        <a href="/#comparison" class="hover:text-white transition">vs AWS Console</a>
+        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+        <a href="/#faq" class="hover:text-white transition">FAQ</a>
+        <a href="/contact" class="text-white font-medium">Contact</a>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <a href="/#pricing" class="hidden md:block text-sm text-zinc-400 hover:text-white transition px-4 py-2">
+          View Pricing
+        </a>
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win-Setup.exe"
+           class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-900/30 flex items-center gap-2">
+          <i class="fa-solid fa-download text-xs"></i>
+          Free Download
+        </a>
+        <button id="menu-toggle" class="md:hidden text-zinc-400 hover:text-white transition p-2">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobile-menu" class="hidden md:hidden border-t border-zinc-800 bg-zinc-950/95">
+      <div class="px-6 py-4 flex flex-col gap-4 text-sm">
+        <a href="/#features" class="text-zinc-400 hover:text-white transition py-2">Features</a>
+        <a href="/#comparison" class="text-zinc-400 hover:text-white transition py-2">vs AWS Console</a>
+        <a href="/#pricing" class="text-zinc-400 hover:text-white transition py-2">Pricing</a>
+        <a href="/#faq" class="text-zinc-400 hover:text-white transition py-2">FAQ</a>
+        <a href="/contact" class="text-white font-medium py-2">Contact</a>
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win-Setup.exe"
+           class="bg-blue-600 hover:bg-blue-500 text-center py-3 rounded-xl font-medium transition">Free Download</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ======================== HEADER ======================== -->
+  <section class="hero-bg pt-32 pb-16">
+    <div class="max-w-3xl mx-auto px-6 text-center">
+      <div class="inline-flex items-center gap-2 bg-blue-950/60 border border-blue-800/50 text-blue-300 text-xs font-medium px-4 py-2 rounded-full mb-6">
+        <i class="fa-regular fa-envelope text-xs"></i>
+        We typically reply within 24 hours
+      </div>
+      <h1 class="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight mb-4">
+        Contact &amp; Feedback
+      </h1>
+      <p class="text-zinc-400 text-lg leading-relaxed">
+        Found a bug? Have a suggestion? Want to share feedback about Atlas?<br>
+        We'd love to hear from you.
+      </p>
+    </div>
+  </section>
+
+  <!-- ======================== FORM ======================== -->
+  <section class="py-16 pb-28">
+    <div class="max-w-2xl mx-auto px-6">
+
+      <!-- ── SUCCESS STATE ─────────────────────────────────── -->
+      <div id="success-state" class="hidden contact-card p-10 text-center">
+        <div class="check-pop w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-6">
+          <i class="fa-solid fa-check text-emerald-400 text-2xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold mb-3">Message sent!</h2>
+        <p class="text-zinc-400 text-base mb-8 leading-relaxed">
+          Thanks for reaching out. We've received your message and will get back to you as soon as possible.
+        </p>
+        <button id="send-another-btn"
+                class="bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 px-6 py-3 rounded-xl font-medium text-sm transition">
+          Send another message
+        </button>
+      </div>
+
+      <!-- ── FORM ──────────────────────────────────────────── -->
+      <div id="form-wrapper">
+        <div class="contact-card p-8 md:p-10">
+          <form id="contact-form" novalidate>
+
+            <!-- Type -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-zinc-300 mb-2">
+                Type <span class="text-zinc-600 font-normal">(optional)</span>
+              </label>
+              <select name="type" class="field-input">
+                <option value="Bug Report">🐛 Bug Report</option>
+                <option value="Suggestion">💡 Suggestion</option>
+                <option value="Feature Request">🚀 Feature Request</option>
+                <option value="General Question">💬 General Question</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <!-- Name + Email (2 cols on md+) -->
+            <div class="grid md:grid-cols-2 gap-5 mb-6">
+              <div>
+                <label class="block text-sm font-medium text-zinc-300 mb-2">
+                  Name <span class="text-zinc-600 font-normal">(optional)</span>
+                </label>
+                <input type="text" name="from_name" placeholder="Your name"
+                       class="field-input" autocomplete="name">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-zinc-300 mb-2">
+                  Email <span class="text-zinc-600 font-normal">(for reply)</span>
+                </label>
+                <input type="email" name="reply_to" id="email-field" placeholder="you@example.com"
+                       class="field-input" autocomplete="email">
+                <p id="email-error" class="hidden text-red-400 text-xs mt-1.5">
+                  Please enter a valid email address.
+                </p>
+              </div>
+            </div>
+
+            <!-- Subject -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-zinc-300 mb-2">
+                Subject <span class="text-red-400 text-xs">*</span>
+              </label>
+              <input type="text" name="subject" id="subject-field" placeholder="Brief description of your message"
+                     class="field-input" autocomplete="off">
+              <p id="subject-error" class="hidden text-red-400 text-xs mt-1.5">
+                Please enter a subject.
+              </p>
+            </div>
+
+            <!-- Message -->
+            <div class="mb-8">
+              <label class="block text-sm font-medium text-zinc-300 mb-2">
+                Message <span class="text-red-400 text-xs">*</span>
+              </label>
+              <textarea name="message" id="message-field" rows="6"
+                        placeholder="Describe the bug, suggestion or question in as much detail as you like…"
+                        class="field-input resize-none leading-relaxed"
+                        style="min-height:148px"></textarea>
+              <p id="message-error" class="hidden text-red-400 text-xs mt-1.5">
+                Please enter a message.
+              </p>
+            </div>
+
+            <!-- Error banner -->
+            <div id="send-error" class="hidden mb-6 flex items-start gap-3 bg-red-950/40 border border-red-800/50 rounded-xl px-4 py-3.5">
+              <i class="fa-solid fa-circle-exclamation text-red-400 mt-0.5 shrink-0"></i>
+              <p id="send-error-msg" class="text-red-300 text-sm leading-relaxed"></p>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" id="submit-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                           py-4 rounded-2xl font-semibold text-base transition flex items-center justify-center gap-2.5
+                           shadow-lg shadow-blue-900/30">
+              <i class="fa-regular fa-paper-plane"></i>
+              Send Message
+            </button>
+
+            <p class="text-zinc-600 text-xs text-center mt-4 leading-relaxed">
+              Your message is sent directly and securely.
+              The destination address is not stored in this page.
+            </p>
+
+          </form>
+        </div>
+
+        <!-- Info cards below form -->
+        <div class="grid md:grid-cols-3 gap-4 mt-6">
+          <div class="contact-card px-5 py-4 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0 mt-0.5">
+              <i class="fa-solid fa-bug text-blue-400 text-xs"></i>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-200">Bug reports</p>
+              <p class="text-xs text-zinc-500 mt-0.5 leading-relaxed">Include steps to reproduce and your Atlas version.</p>
+            </div>
+          </div>
+          <div class="contact-card px-5 py-4 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0 mt-0.5">
+              <i class="fa-solid fa-lightbulb text-blue-400 text-xs"></i>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-200">Suggestions</p>
+              <p class="text-xs text-zinc-500 mt-0.5 leading-relaxed">New AWS services, UI ideas or workflow improvements.</p>
+            </div>
+          </div>
+          <div class="contact-card px-5 py-4 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0 mt-0.5">
+              <i class="fa-solid fa-key text-blue-400 text-xs"></i>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-200">License issues</p>
+              <p class="text-xs text-zinc-500 mt-0.5 leading-relaxed">Problems activating or renewing your Pro license.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================== FOOTER ======================== -->
+  <footer class="bg-zinc-950 border-t border-zinc-900 py-14">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid md:grid-cols-4 gap-8 mb-12">
+        <div class="md:col-span-2">
+          <div class="flex items-center gap-2.5 mb-4">
+            <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+            <span class="text-xl font-bold">Atlas</span>
+          </div>
+          <p class="text-zinc-500 text-sm leading-relaxed max-w-xs">
+            The AWS console alternative built for Windows. Native WPF desktop app for DevOps engineers, SREs and cloud infrastructure teams who manage AWS every day.
+          </p>
+        </div>
+        <div>
+          <h4 class="text-zinc-300 font-medium text-sm mb-4">Product</h4>
+          <ul class="space-y-3 text-sm text-zinc-500">
+            <li><a href="/#features" class="hover:text-zinc-300 transition">Features</a></li>
+            <li><a href="/#comparison" class="hover:text-zinc-300 transition">Atlas vs AWS Console</a></li>
+            <li><a href="/#pricing" class="hover:text-zinc-300 transition">Pricing</a></li>
+            <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win-Setup.exe" class="hover:text-zinc-300 transition">Download for Windows</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-zinc-300 font-medium text-sm mb-4">Support</h4>
+          <ul class="space-y-3 text-sm text-zinc-500">
+            <li><a href="/#faq" class="hover:text-zinc-300 transition">FAQ</a></li>
+            <li><a href="/contact" class="text-zinc-300 hover:text-white transition">Contact</a></li>
+            <li><a href="/privacy" class="hover:text-zinc-300 transition">Privacy Policy</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="section-divider mb-8"></div>
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-zinc-600 text-sm">
+        <p>© 2026 Atlas · cloud-atlas.io</p>
+        <p>Made with <span class="text-red-500">♥</span> for those who manage AWS every day</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================== JS ======================== -->
+  <script>
+    // ─────────────────────────────────────────────────────────────────────────
+    // EmailJS credentials — stored encoded so the destination email is never
+    // visible in the page source. The recipient is configured only inside the
+    // EmailJS dashboard.
+    //
+    // HOW TO SET UP:
+    //   1. Create a free account at https://www.emailjs.com
+    //   2. Add a Gmail service  → note the Service ID  (e.g. service_xxxxxx)
+    //   3. Create a template    → note the Template ID (e.g. template_xxxxxx)
+    //      Template variables:  {{type}} {{from_name}} {{reply_to}} {{subject}} {{message}}
+    //   4. Go to Account → API Keys → note your Public Key
+    //   5. Run in the browser console to get the encoded arrays:
+    //        const K = 0x4F;
+    //        const enc = s => JSON.stringify([...s].map(c => c.charCodeAt(0) ^ K));
+    //        enc("service_7u8gnkj")   // → paste into _si below
+    //        enc("template_07ihend") // → paste into _ti below
+    //        enc("7eRQCAsC4Tdp4l4u5") // → paste into _pk below
+    // ─────────────────────────────────────────────────────────────────────────
+    const _K  = 0x4F;
+    const _d  = a => a.map(v => String.fromCharCode(v ^ _K)).join('');
+
+    const _si = [60,42,61,57,38,44,42,16,120,58,119,40,33,36,37];
+    const _ti = [59,42,34,63,35,46,59,42,16,127,120,38,39,42,33,43];
+    const _pk = [120,42,29,30,12,14,60,12,123,27,43,63,123,35,123,58,122];
+
+    // Init EmailJS with decoded public key
+    (function() {
+      try { emailjs.init({ publicKey: _d(_pk) }); }
+      catch(e) { console.warn('[Atlas Contact] EmailJS init failed:', e.message); }
+    })();
+
+    // ── Navbar ────────────────────────────────────────────────
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 20);
+    });
+
+    const menuToggle = document.getElementById('menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    menuToggle.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+    mobileMenu.querySelectorAll('a').forEach(l => l.addEventListener('click', () => mobileMenu.classList.add('hidden')));
+
+    // ── Form helpers ──────────────────────────────────────────
+    const form        = document.getElementById('contact-form');
+    const submitBtn   = document.getElementById('submit-btn');
+    const formWrapper = document.getElementById('form-wrapper');
+    const successState = document.getElementById('success-state');
+    const sendError   = document.getElementById('send-error');
+    const sendErrorMsg = document.getElementById('send-error-msg');
+
+    function showError(id, show) {
+      document.getElementById(id).classList.toggle('hidden', !show);
+      const field = document.getElementById(id.replace('-error', '-field'));
+      if (field) field.style.borderColor = show ? 'rgba(239,68,68,0.6)' : '';
+    }
+
+    function setLoading(on) {
+      submitBtn.disabled = on;
+      submitBtn.innerHTML = on
+        ? '<span class="spinner"><i class="fa-solid fa-circle-notch"></i></span> Sending…'
+        : '<i class="fa-regular fa-paper-plane"></i> Send Message';
+    }
+
+    function validateEmail(v) {
+      return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    }
+
+    // ── Submit ────────────────────────────────────────────────
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const subject = form.subject.value.trim();
+      const message = form.message.value.trim();
+      const email   = form.reply_to.value.trim();
+
+      let valid = true;
+      showError('subject-error', !subject);
+      showError('message-error', !message);
+      showError('email-error',   !validateEmail(email));
+      if (!subject || !message || !validateEmail(email)) return;
+
+      sendError.classList.add('hidden');
+      setLoading(true);
+
+      try {
+        await emailjs.sendForm(_d(_si), _d(_ti), form);
+        formWrapper.classList.add('hidden');
+        successState.classList.remove('hidden');
+      } catch (err) {
+        console.error('[Atlas Contact] Send failed:', err);
+        sendErrorMsg.textContent = err?.text
+          || 'Failed to send your message. Please try again or email us directly.';
+        sendError.classList.remove('hidden');
+        sendError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // ── Reset inline errors on input ─────────────────────────
+    ['subject-field','message-field'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => {
+        showError(id.replace('-field','-error'), false);
+      });
+    });
+    document.getElementById('email-field')?.addEventListener('input', () => {
+      showError('email-error', false);
+    });
+
+    // ── Send another ─────────────────────────────────────────
+    document.getElementById('send-another-btn').addEventListener('click', () => {
+      form.reset();
+      sendError.classList.add('hidden');
+      successState.classList.add('hidden');
+      formWrapper.classList.remove('hidden');
+    });
+  </script>
+
+</body>
+</html>

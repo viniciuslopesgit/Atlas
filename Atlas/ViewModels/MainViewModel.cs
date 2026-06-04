@@ -56,9 +56,9 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnIsProChanged(bool value) => OnPropertyChanged(nameof(IsFree));
 
-    /// <summary>Current application version, e.g. "v0.0.18".</summary>
+    /// <summary>Current application version, e.g. "v0.0.23 beta".</summary>
     public static string AppVersion { get; } =
-        $"v{Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.18"}";
+        $"v{Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.23"} beta";
 
     /// <summary>Pages locked behind the Pro tier.</summary>
     private static bool IsProOnly(NavigationPage page) =>
