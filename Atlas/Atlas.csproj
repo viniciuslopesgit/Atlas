@@ -49,6 +49,9 @@
     <!-- Auto-update -->
     <PackageReference Include="Velopack" Version="1.*" />
 
+    <!-- Email -->
+    <PackageReference Include="MailKit" Version="4.*" />
+
   </ItemGroup>
 
 </Project>

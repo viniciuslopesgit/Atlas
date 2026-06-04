@@ -14,7 +14,6 @@
                            Margin="0,6,0,0"/>
             </StackPanel>
 
-            <!-- Divider -->
             <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,20,0,24"/>
 
             <!-- Success state -->
@@ -29,20 +28,20 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="16" Foreground="{DynamicResource SuccessBrush}"
+                               FontSize="18" Foreground="{DynamicResource SuccessBrush}"
                                VerticalAlignment="Center" Margin="0,0,14,0"/>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Email client opened successfully!"
+                        <TextBlock Text="Feedback sent successfully!"
                                    FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding StatusMessage}"
-                                   FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="0,3,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                     <Button Grid.Column="2" Command="{Binding ResetCommand}"
                             Style="{StaticResource GhostButton}"
                             Padding="10,6" VerticalAlignment="Center" Margin="12,0,0,0">
-                        <TextBlock Text="Send another" FontSize="12.5"
+                        <TextBlock Text="Send another" FontSize="12"
                                    Foreground="{DynamicResource AccentBrush}"/>
                     </Button>
                 </Grid>
@@ -53,46 +52,47 @@
                     Visibility="{Binding IsSent, Converter={StaticResource BoolToInvisible}}">
                 <StackPanel>
 
-                    <!-- Type selector -->
-                    <TextBlock Text="TYPE" FontSize="11" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6"/>
+                    <!-- Type -->
+                    <TextBlock Text="Type" FontSize="12" FontWeight="Medium"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
                     <ComboBox ItemsSource="{Binding FeedbackTypes}"
                               SelectedItem="{Binding SelectedType}"
-                              Height="38" FontSize="13"
-                              Background="{DynamicResource BackgroundBrush}"
-                              Foreground="{DynamicResource TextPrimaryBrush}"
-                              BorderBrush="{DynamicResource BorderBrush}"
-                              Margin="0,0,0,20"/>
+                              Height="34" FontSize="13"
+                              Margin="0,0,0,16"/>
 
                     <!-- Subject -->
-                    <TextBlock Text="SUBJECT" FontSize="11" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6"/>
-                    <TextBox Text="{Binding Subject, UpdateSourceTrigger=PropertyChanged}"
-                             Height="38" FontSize="13" Padding="12,8"
-                             Background="{DynamicResource BackgroundBrush}"
-                             Foreground="{DynamicResource TextPrimaryBrush}"
-                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                             Margin="0,0,0,20"/>
+                    <TextBlock Text="Subject" FontSize="12" FontWeight="Medium"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                    <Border Style="{StaticResource InputBorder}" Height="34" Margin="0,0,0,16">
+                        <TextBox Style="{x:Null}"
+                                 Text="{Binding Subject, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 FontSize="13" Padding="11,0"
+                                 VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                 CaretBrush="{DynamicResource AccentBrush}"/>
+                    </Border>
 
                     <!-- Description -->
-                    <TextBlock Text="DESCRIPTION" FontSize="11" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6"/>
-                    <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
-                             Height="140" FontSize="13" Padding="12,10"
-                             AcceptsReturn="True" TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             Background="{DynamicResource BackgroundBrush}"
-                             Foreground="{DynamicResource TextPrimaryBrush}"
-                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                             VerticalContentAlignment="Top"
-                             Margin="0,0,0,8"/>
-
-                    <TextBlock Text="Your default email client will open with a pre-filled message."
-                               FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
-                               Margin="0,0,0,20"/>
+                    <TextBlock Text="Description" FontSize="12" FontWeight="Medium"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                    <Border Style="{StaticResource InputBorder}" Height="140" Margin="0,0,0,6">
+                        <TextBox Style="{x:Null}"
+                                 Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 FontSize="13" Padding="11,9"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 VerticalAlignment="Stretch" VerticalContentAlignment="Top"
+                                 CaretBrush="{DynamicResource AccentBrush}"/>
+                    </Border>
+                    <TextBlock Text="Your message will be sent directly — no email client required."
+                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,18"/>
 
                     <!-- Error banner -->
-                    <Border CornerRadius="8" Padding="12,10" Margin="0,0,0,16"
+                    <Border CornerRadius="8" Padding="12,10" Margin="0,0,0,14"
                             Background="#26EF4444"
                             BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1"
                             Visibility="{Binding HasError, Converter={StaticResource BoolToVisible}}">
@@ -101,7 +101,7 @@
                                        Foreground="{DynamicResource DangerBrush}"
                                        VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <TextBlock Text="{Binding StatusMessage}"
-                                       FontSize="12.5" TextWrapping="Wrap"
+                                       FontSize="13" TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
@@ -110,13 +110,27 @@
                     <!-- Send button -->
                     <Button Command="{Binding SendCommand}"
                             Style="{StaticResource PrimaryButton}"
-                            Height="42" HorizontalAlignment="Left"
-                            MinWidth="180">
+                            Height="38" HorizontalAlignment="Left" Padding="18,0"
+                            IsEnabled="{Binding SendCommand.IsRunning, Converter={StaticResource BoolInvert}}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE715;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="14" VerticalAlignment="Center" Margin="0,0,9,0"/>
-                            <TextBlock Text="Open Email Client" FontSize="13.5" FontWeight="SemiBold"
-                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Visibility="{Binding SendCommand.IsRunning, Converter={StaticResource BoolToVisible}}"/>
+                            <TextBlock Text="&#xE724;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Visibility="{Binding SendCommand.IsRunning, Converter={StaticResource BoolToInvisible}}"/>
+                            <TextBlock FontSize="13" FontWeight="Medium" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Send Feedback"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SendCommand.IsRunning}" Value="True">
+                                                <Setter Property="Text" Value="Sending…"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                     </Button>
 

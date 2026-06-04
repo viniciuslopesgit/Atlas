@@ -168,7 +168,7 @@
         <Style x:Key="SectionDiv" TargetType="Border">
             <Setter Property="Height" Value="1"/>
             <Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
-            <Setter Property="Margin" Value="0,16,0,16"/>
+            <Setter Property="Margin" Value="0,18,0,18"/>
         </Style>
 
         <!-- Rule row label style -->
@@ -757,7 +757,7 @@
                             Click="Cancel_Click" Padding="16,8" Margin="0,0,8,0">
                         <TextBlock Text="Cancel" FontSize="13"/>
                     </Button>
-                    <Button Grid.Column="2" Click="Launch_Click" Padding="20,8">
+                    <Button Grid.Column="2" Click="Launch_Click" Padding="18,8">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" Background="{DynamicResource AccentBrush}"

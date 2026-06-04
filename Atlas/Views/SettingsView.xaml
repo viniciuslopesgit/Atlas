@@ -247,8 +247,15 @@
                         <StackPanel Grid.Row="0" Grid.Column="0">
                             <TextBlock Text="Account Name" FontSize="12" FontWeight="Medium"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-                            <TextBox Text="{Binding NewAccountName, UpdateSourceTrigger=PropertyChanged}"
-                                     x:Name="TbAccountName"/>
+                            <Border Style="{StaticResource InputBorder}" Height="34">
+                                <TextBox x:Name="TbAccountName" Style="{x:Null}"
+                                         Text="{Binding NewAccountName, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="Transparent" BorderThickness="0"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                         FontSize="13" Padding="11,0"
+                                         VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                         CaretBrush="{DynamicResource AccentBrush}"/>
+                            </Border>
                         </StackPanel>
 
                         <!-- Region -->
@@ -256,22 +263,36 @@
                             <TextBlock Text="Default Region" FontSize="12" FontWeight="Medium"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
                             <ComboBox ItemsSource="{Binding CommonRegions}"
-                                      SelectedItem="{Binding NewRegion}"/>
+                                      SelectedItem="{Binding NewRegion}"
+                                      Height="34" FontSize="13"/>
                         </StackPanel>
 
                         <!-- Access Key -->
                         <StackPanel Grid.Row="2" Grid.Column="0">
                             <TextBlock Text="Access Key ID" FontSize="12" FontWeight="Medium"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-                            <TextBox Text="{Binding NewAccessKeyId, UpdateSourceTrigger=PropertyChanged}"
-                                     FontFamily="Consolas"/>
+                            <Border Style="{StaticResource InputBorder}" Height="34">
+                                <TextBox Style="{x:Null}"
+                                         Text="{Binding NewAccessKeyId, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="Transparent" BorderThickness="0"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                         FontFamily="Consolas" FontSize="13" Padding="11,0"
+                                         VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                         CaretBrush="{DynamicResource AccentBrush}"/>
+                            </Border>
                         </StackPanel>
 
                         <!-- Secret Key -->
                         <StackPanel Grid.Row="2" Grid.Column="2">
                             <TextBlock Text="Secret Access Key" FontSize="12" FontWeight="Medium"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-                            <PasswordBox x:Name="PbSecretKey" FontFamily="Consolas"/>
+                            <Border Style="{StaticResource InputBorder}" Height="34">
+                                <PasswordBox x:Name="PbSecretKey" Style="{x:Null}"
+                                             Background="Transparent" BorderThickness="0"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             FontFamily="Consolas" FontSize="13" Padding="11,0"
+                                             VerticalAlignment="Stretch" VerticalContentAlignment="Center"/>
+                            </Border>
                         </StackPanel>
 
                         <!-- Submit -->
