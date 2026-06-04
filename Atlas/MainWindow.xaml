@@ -686,22 +686,6 @@
                     </Grid>
                 </RadioButton>
 
-                <!-- Contact & Feedback -->
-                <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Contact}"
-                             Command="{Binding NavigateToCommand}"
-                             CommandParameter="{x:Static vm:NavigationPage.Contact}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="22"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xED15;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="Feedback" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    </Grid>
-                </RadioButton>
-
             </StackPanel>
             </DockPanel>
         </Border>

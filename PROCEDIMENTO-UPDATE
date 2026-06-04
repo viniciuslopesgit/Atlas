@@ -6,8 +6,8 @@ git add .
 git commit -m "Google Analytics"
 git push origin main
 
-git tag 0.0.21
-git push origin 0.0.21
+git tag 0.0.22
+git push origin 0.0.22
 
 
 4. Atualize o link de download do site
