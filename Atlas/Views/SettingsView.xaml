@@ -225,7 +225,7 @@
                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock FontSize="12" TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
-                                       Text="The Free plan supports one AWS account. Upgrade to Pro to connect more."/>
+                                       Text="The Free plan supports up to two AWS accounts. Upgrade to Pro to connect more."/>
                         </StackPanel>
                     </Border>
 

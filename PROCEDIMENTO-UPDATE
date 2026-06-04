@@ -1,17 +1,11 @@
-1. Abra Services/UpdateService.cs linha 9 e troque YOUR_USERNAME/Atlas pelo seu repositório GitHub real.
-
+1. Altere a versão dentro do ficheiro Atlas.csproj
 
 2. 
 git add .
 git commit -m "Google Analytics"
 git push origin main
 
-git tag 0.0.24
-git push origin 0.0.24
-
-
-4. Atualize o link de download do site
-5. Atualize o site no https://app.netlify.com
-
+git tag 0.0.25
+git push origin 0.0.25
 
 

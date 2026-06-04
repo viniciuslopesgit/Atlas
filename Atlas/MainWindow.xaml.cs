@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -141,6 +142,11 @@ public partial class MainWindow : Window
 
     private void PaletteCard_MouseDown(object sender, MouseButtonEventArgs e)
         => e.Handled = true; // stop backdrop from closing when clicking inside the card
+
+    private void BuyLicense_Click(object sender, RoutedEventArgs e)
+        => Process.Start(new ProcessStartInfo(
+            "https://atlas-cloud.lemonsqueezy.com/checkout/buy/b77ae4c5-789d-4b23-93c4-449f21d6db79")
+            { UseShellExecute = true });
 
     private void ScrollPaletteToSelected()
     {

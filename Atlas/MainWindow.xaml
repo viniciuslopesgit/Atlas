@@ -752,9 +752,9 @@
 
                     <!-- Pro badge + name -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
-                        <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="24"
-                                   Foreground="{DynamicResource AccentBrush}"
-                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Image Source="icon/unnamed.png" Width="28" Height="28"
+                               VerticalAlignment="Center" Margin="0,0,10,0"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
                         <TextBlock Text="Atlas" FontSize="22" FontWeight="Bold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                         <Border CornerRadius="5" Padding="7,2" Margin="9,2,0,0"
@@ -805,6 +805,18 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
+
+                    <!-- Buy license -->
+                    <Button Click="BuyLicense_Click" Cursor="Hand"
+                            Style="{StaticResource PrimaryButton}"
+                            Height="42" Margin="0,0,0,20">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                            <TextBlock Text="Get Atlas Pro" FontSize="14" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" Foreground="White"/>
+                        </StackPanel>
+                    </Button>
 
                     <!-- License key field -->
                     <TextBlock Text="LICENSE KEY"

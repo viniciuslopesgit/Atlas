@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-R46JMXK61J"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-R46JMXK61J');
+  </script>
+
+  <title>Documentation — Atlas AWS Desktop Manager</title>
+  <meta name="description" content="Atlas documentation. Learn how to install, configure, and use Atlas — the native Windows desktop app for managing AWS EC2, S3, CloudWatch, GuardDuty, IAM and Billing.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://cloud-atlas.io/docs">
+  <link rel="icon" href="atlas.ico" sizes="any">
+  <link rel="icon" type="image/png" href="atlas.png">
+  <link rel="apple-touch-icon" href="atlas.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cloud-atlas.io/docs">
+  <meta property="og:title" content="Documentation — Atlas AWS Desktop Manager">
+  <meta property="og:description" content="Full documentation for Atlas — installation, account setup, features, keyboard shortcuts, security, and troubleshooting.">
+  <meta property="og:image" content="https://cloud-atlas.io/og-image.png">
+
+  <!-- Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+  <style>
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    html { scroll-behavior: smooth; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+
+    /* Nav scroll */
+    #navbar { transition: background 0.3s, border-color 0.3s; }
+    #navbar.scrolled { background: rgba(9,9,11,0.92) !important; border-color: rgba(255,255,255,0.08) !important; }
+
+    /* Section divider */
+    .section-divider { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); height: 1px; }
+
+    /* Sidebar */
+    .docs-sidebar {
+      position: sticky;
+      top: 80px;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+    }
+    .docs-sidebar::-webkit-scrollbar { width: 3px; }
+    .docs-sidebar::-webkit-scrollbar-thumb { background: #27272a; }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #71717a;
+      text-decoration: none;
+      transition: color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .sidebar-link:hover { color: #e4e4e7; background: rgba(255,255,255,0.04); }
+    .sidebar-link.active { color: #93c5fd; background: rgba(37,99,235,0.12); }
+    .sidebar-group-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #52525b;
+      padding: 4px 10px;
+      margin-top: 16px;
+      margin-bottom: 2px;
+    }
+
+    /* Content */
+    .doc-section { scroll-margin-top: 90px; }
+
+    .doc-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 32px;
+    }
+
+    .doc-h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f4f4f5;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .doc-h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e4e4e7;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    .doc-p {
+      font-size: 14px;
+      color: #a1a1aa;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    .doc-ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .doc-ul li {
+      font-size: 14px;
+      color: #a1a1aa;
+      line-height: 1.6;
+      padding-left: 16px;
+      position: relative;
+    }
+    .doc-ul li::before {
+      content: '–';
+      position: absolute;
+      left: 0;
+      color: #3b82f6;
+    }
+
+    /* Code block */
+    .code-block {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #a5f3fc;
+      overflow-x: auto;
+      margin: 12px 0;
+      white-space: pre;
+    }
+    .code-inline {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-family: 'Courier New', monospace;
+      font-size: 12.5px;
+      color: #c4b5fd;
+    }
+
+    /* Pro badge */
+    .badge-pro {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(234,179,8,0.12);
+      border: 1px solid rgba(234,179,8,0.3);
+      color: #fbbf24;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .badge-free {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.25);
+      color: #34d399;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .badge-new {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.3);
+      color: #60a5fa;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+
+    /* Callout boxes */
+    .callout {
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin: 16px 0;
+    }
+    .callout-info { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: #93c5fd; }
+    .callout-warn { background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.2); color: #fde68a; }
+    .callout-danger { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
+
+    /* Step badges */
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(37,99,235,0.25);
+      border: 1px solid rgba(59,130,246,0.4);
+      color: #93c5fd;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* Feature row */
+    .feature-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .feature-row:last-child { border-bottom: none; }
+
+    /* Shortcut table */
+    .shortcut-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13.5px;
+    }
+    .shortcut-row:last-child { border-bottom: none; }
+    .shortcut-key {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .kbd {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 5px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      color: #d4d4d8;
+    }
+
+    /* Changelog */
+    .changelog-version {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .version-tag {
+      background: rgba(37,99,235,0.15);
+      border: 1px solid rgba(59,130,246,0.3);
+      color: #60a5fa;
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Table */
+    .doc-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0; }
+    .doc-table th { text-align: left; color: #71717a; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .doc-table td { color: #a1a1aa; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+    .doc-table tr:last-child td { border-bottom: none; }
+    .doc-table td:first-child { color: #e4e4e7; font-weight: 500; }
+
+    /* Mobile sidebar toggle */
+    .sidebar-mobile-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 40;
+    }
+    .sidebar-mobile-overlay.open { display: block; }
+
+    @media (max-width: 1024px) {
+      #docs-sidebar {
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        width: 260px;
+        background: #09090b;
+        border-right: 1px solid rgba(255,255,255,0.07);
+        z-index: 50;
+        overflow-y: auto;
+        padding: 80px 16px 32px;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+      }
+      #docs-sidebar.open { transform: translateX(0); }
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-white overflow-x-hidden">
+
+  <!-- ======================== NAVBAR ======================== -->
+  <nav id="navbar" aria-label="Main navigation" class="border-b border-transparent bg-transparent fixed w-full z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+        <span class="text-xl font-bold tracking-tight">Atlas</span>
+      </a>
+
+      <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+        <a href="/#features" class="hover:text-white transition">Features</a>
+        <a href="/#comparison" class="hover:text-white transition">vs AWS Console</a>
+        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+        <a href="/docs" class="text-white font-medium">Docs</a>
+        <a href="/contact" class="hover:text-white transition">Contact</a>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <a href="/#pricing" class="hidden md:block text-sm text-zinc-400 hover:text-white transition px-4 py-2">
+          View Pricing
+        </a>
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win-Setup.exe"
+           class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-900/30 flex items-center gap-2">
+          <i class="fa-solid fa-download text-xs"></i>
+          Free Download
+        </a>
+        <button id="menu-toggle" class="md:hidden text-zinc-400 hover:text-white transition p-2">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobile-menu" class="hidden md:hidden border-t border-zinc-800 bg-zinc-950/95">
+      <div class="px-6 py-4 flex flex-col gap-4 text-sm">
+        <a href="/#features" class="text-zinc-400 hover:text-white transition py-2">Features</a>
+        <a href="/#comparison" class="text-zinc-400 hover:text-white transition py-2">vs AWS Console</a>
+        <a href="/#pricing" class="text-zinc-400 hover:text-white transition py-2">Pricing</a>
+        <a href="/docs" class="text-white font-medium py-2">Docs</a>
+        <a href="/contact" class="text-zinc-400 hover:text-white transition py-2">Contact</a>
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win-Setup.exe"
+           class="bg-blue-600 hover:bg-blue-500 text-center py-3 rounded-xl font-medium transition">Free Download</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ======================== SIDEBAR OVERLAY (mobile) ======================== -->
+  <div id="sidebar-overlay" class="sidebar-mobile-overlay"></div>
+
+  <!-- ======================== LAYOUT ======================== -->
+  <div class="max-w-7xl mx-auto px-6 pt-28 pb-24 flex gap-10">
+
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside id="docs-sidebar" class="w-52 shrink-0 docs-sidebar hidden lg:block">
+
+      <!-- Mobile close -->
+      <button id="sidebar-close" class="lg:hidden absolute top-5 right-4 text-zinc-500 hover:text-white p-1">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="sidebar-group-title">Getting Started</div>
+      <a href="#getting-started" class="sidebar-link"><i class="fa-solid fa-rocket w-3.5 text-center text-xs"></i>Overview</a>
+      <a href="#requirements" class="sidebar-link"><i class="fa-solid fa-desktop w-3.5 text-center text-xs"></i>Requirements</a>
+      <a href="#installation" class="sidebar-link"><i class="fa-solid fa-download w-3.5 text-center text-xs"></i>Installation</a>
+      <a href="#first-launch" class="sidebar-link"><i class="fa-solid fa-play w-3.5 text-center text-xs"></i>First Launch</a>
+
+      <div class="sidebar-group-title">Account Setup</div>
+      <a href="#add-account" class="sidebar-link"><i class="fa-solid fa-plus w-3.5 text-center text-xs"></i>Add Account</a>
+      <a href="#iam-permissions" class="sidebar-link"><i class="fa-solid fa-shield-halved w-3.5 text-center text-xs"></i>IAM Permissions</a>
+      <a href="#multi-account" class="sidebar-link"><i class="fa-solid fa-layer-group w-3.5 text-center text-xs"></i>Multi-Account</a>
+
+      <div class="sidebar-group-title">Features</div>
+      <a href="#dashboard" class="sidebar-link"><i class="fa-solid fa-chart-pie w-3.5 text-center text-xs"></i>Dashboard</a>
+      <a href="#ec2" class="sidebar-link"><i class="fa-solid fa-server w-3.5 text-center text-xs"></i>EC2 Instances</a>
+      <a href="#s3" class="sidebar-link"><i class="fa-solid fa-bucket w-3.5 text-center text-xs"></i>S3 Buckets</a>
+      <a href="#cloudwatch" class="sidebar-link"><i class="fa-solid fa-bell w-3.5 text-center text-xs"></i>CloudWatch</a>
+      <a href="#guardduty" class="sidebar-link"><i class="fa-solid fa-shield w-3.5 text-center text-xs"></i>GuardDuty</a>
+      <a href="#iam" class="sidebar-link"><i class="fa-solid fa-users w-3.5 text-center text-xs"></i>IAM</a>
+      <a href="#billing" class="sidebar-link"><i class="fa-solid fa-credit-card w-3.5 text-center text-xs"></i>Billing</a>
+
+      <div class="sidebar-group-title">Reference</div>
+      <a href="#shortcuts" class="sidebar-link"><i class="fa-solid fa-keyboard w-3.5 text-center text-xs"></i>Shortcuts</a>
+      <a href="#security" class="sidebar-link"><i class="fa-solid fa-lock w-3.5 text-center text-xs"></i>Security</a>
+      <a href="#troubleshooting" class="sidebar-link"><i class="fa-solid fa-triangle-exclamation w-3.5 text-center text-xs"></i>Troubleshooting</a>
+      <a href="#changelog" class="sidebar-link"><i class="fa-solid fa-code-branch w-3.5 text-center text-xs"></i>Changelog</a>
+    </aside>
+
+    <!-- ── CONTENT ── -->
+    <main class="flex-1 min-w-0">
+
+      <!-- Page header -->
+      <div class="mb-10">
+        <!-- Mobile sidebar toggle -->
+        <button id="sidebar-toggle" class="lg:hidden flex items-center gap-2 text-zinc-400 hover:text-white text-sm mb-6 transition">
+          <i class="fa-solid fa-bars"></i>
+          <span>Menu</span>
+        </button>
+
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-950/60 border border-blue-900/40 flex items-center justify-center">
+            <i class="fa-solid fa-book text-blue-400"></i>
+          </div>
+          <div>
+            <p class="text-xs text-zinc-500 uppercase tracking-widest font-semibold">Documentation</p>
+            <h1 class="text-3xl font-bold text-white tracking-tight">Atlas Docs</h1>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm leading-relaxed max-w-2xl">
+          Everything you need to install, configure, and get the most out of Atlas — the native Windows desktop app for AWS management.
+        </p>
+      </div>
+
+      <!-- ─────────────────── GETTING STARTED ─────────────────── -->
+      <section id="getting-started" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-rocket text-blue-400 text-xs"></i>
+            </div>
+            Getting Started
+          </div>
+          <p class="doc-p mt-2">
+            Atlas is a native Windows desktop application that replaces the AWS Management Console for daily infrastructure management. It is built with WPF and .NET 9 — no browser, no Electron, no slowness.
+          </p>
+
+          <div class="callout callout-info">
+            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+            <span>Atlas communicates directly with AWS APIs from your machine using the AWS SDK. No data is ever routed through external servers. Your credentials never leave your device.</span>
+          </div>
+
+          <div class="grid sm:grid-cols-3 gap-4 mt-6">
+            <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;">
+              <div class="w-7 h-7 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center mb-3">
+                <i class="fa-solid fa-bolt text-blue-400 text-xs"></i>
+              </div>
+              <p class="text-zinc-200 text-sm font-semibold mb-1">Instant load</p>
+              <p class="text-zinc-500 text-xs leading-relaxed">Launches in under a second. No browser tab, no re-authentication, no spinner.</p>
+            </div>
+            <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;">
+              <div class="w-7 h-7 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center mb-3">
+                <i class="fa-solid fa-lock text-blue-400 text-xs"></i>
+              </div>
+              <p class="text-zinc-200 text-sm font-semibold mb-1">Local-only</p>
+              <p class="text-zinc-500 text-xs leading-relaxed">Credentials stored encrypted on your PC with Windows DPAPI. No cloud sync.</p>
+            </div>
+            <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;">
+              <div class="w-7 h-7 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center mb-3">
+                <i class="fa-solid fa-layer-group text-blue-400 text-xs"></i>
+              </div>
+              <p class="text-zinc-200 text-sm font-semibold mb-1">Multi-account</p>
+              <p class="text-zinc-500 text-xs leading-relaxed">Switch between unlimited AWS accounts instantly from the top bar. (Pro)</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── REQUIREMENTS ─────────────────── -->
+      <section id="requirements" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-desktop text-blue-400 text-xs"></i>
+            </div>
+            System Requirements
+          </div>
+
+          <table class="doc-table mt-4">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Requirement</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Operating System</td>
+                <td>Windows 10 or Windows 11</td>
+                <td>x64 only. macOS and Linux not supported.</td>
+              </tr>
+              <tr>
+                <td>.NET Runtime</td>
+                <td>.NET 9.0 (included)</td>
+                <td>Bundled in the installer. No separate download needed.</td>
+              </tr>
+              <tr>
+                <td>Architecture</td>
+                <td>64-bit (x64)</td>
+                <td>ARM64 not currently supported.</td>
+              </tr>
+              <tr>
+                <td>Disk space</td>
+                <td>~150 MB</td>
+                <td>Includes the .NET runtime and AWS SDK.</td>
+              </tr>
+              <tr>
+                <td>Internet</td>
+                <td>Required for AWS calls</td>
+                <td>No internet needed after launch. AWS calls go out on demand.</td>
+              </tr>
+              <tr>
+                <td>AWS Account</td>
+                <td>IAM user with access keys</td>
+                <td>See <a href="#iam-permissions" class="text-blue-400 hover:underline">IAM Permissions</a>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─────────────────── INSTALLATION ─────────────────── -->
+      <section id="installation" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-download text-blue-400 text-xs"></i>
+            </div>
+            Installation
+          </div>
+
+          <div class="space-y-5 mt-4">
+            <div class="flex gap-3">
+              <span class="step-num">1</span>
+              <div>
+                <p class="text-zinc-200 text-sm font-semibold mb-1">Download the installer</p>
+                <p class="doc-p">Go to <a href="/#pricing" class="text-blue-400 hover:underline">cloud-atlas.io</a> and click <strong class="text-zinc-200">Free Download</strong>. The installer file is named <span class="code-inline">Atlas-win-Setup.exe</span>.</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <span class="step-num">2</span>
+              <div>
+                <p class="text-zinc-200 text-sm font-semibold mb-1">Run the installer</p>
+                <p class="doc-p">Double-click the downloaded file. Windows SmartScreen may show a warning on first run — click <strong class="text-zinc-200">More info → Run anyway</strong>. Atlas is code-signed; the warning appears only because the certificate is new.</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <span class="step-num">3</span>
+              <div>
+                <p class="text-zinc-200 text-sm font-semibold mb-1">Installation completes automatically</p>
+                <p class="doc-p">Atlas installs to <span class="code-inline">%LocalAppData%\Atlas</span> and creates a Start Menu shortcut. No administrator privileges required.</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <span class="step-num">4</span>
+              <div>
+                <p class="text-zinc-200 text-sm font-semibold mb-1">Auto-updates</p>
+                <p class="doc-p">Atlas checks for updates on launch and installs them silently in the background via <a href="https://github.com/velopack/velopack" target="_blank" rel="noopener" class="text-blue-400 hover:underline">Velopack</a>. You will be prompted to restart when a new version is ready.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+            <span>To uninstall, go to <strong>Settings → Apps → Atlas</strong> and click Uninstall, or use the uninstaller in <span class="code-inline">%LocalAppData%\Atlas</span>.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── FIRST LAUNCH ─────────────────── -->
+      <section id="first-launch" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-play text-blue-400 text-xs"></i>
+            </div>
+            First Launch
+          </div>
+          <p class="doc-p mt-2">When you open Atlas for the first time you will see the Dashboard with an empty state. The next step is to add your AWS account.</p>
+          <ul class="doc-ul mt-2">
+            <li>Click <strong class="text-zinc-300">Settings</strong> in the left sidebar, or click the <strong class="text-zinc-300">Go to Settings</strong> link in the Dashboard empty state.</li>
+            <li>Fill in your AWS credentials (see <a href="#add-account" class="text-blue-400 hover:underline">Add Account</a>).</li>
+            <li>Click <strong class="text-zinc-300">Validate &amp; Add Account</strong>. Atlas calls <span class="code-inline">sts:GetCallerIdentity</span> to verify the keys.</li>
+            <li>Once validated, navigate to any page — the data will load automatically.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ─────────────────── ADD ACCOUNT ─────────────────── -->
+      <section id="add-account" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-plus text-blue-400 text-xs"></i>
+            </div>
+            Adding an AWS Account
+          </div>
+          <p class="doc-p mt-2">Open the <strong class="text-zinc-300">Settings</strong> page and fill in the form:</p>
+
+          <table class="doc-table mt-2 mb-4">
+            <thead>
+              <tr><th>Field</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Account name</td>
+                <td>A friendly label, e.g. <em>Production</em> or <em>Dev</em>. Shown in the top bar account switcher.</td>
+              </tr>
+              <tr>
+                <td>Access Key ID</td>
+                <td>The <span class="code-inline">AKIA…</span> key for your IAM user.</td>
+              </tr>
+              <tr>
+                <td>Secret Access Key</td>
+                <td>The 40-character secret. Masked in the UI. Encrypted with Windows DPAPI at rest.</td>
+              </tr>
+              <tr>
+                <td>Default Region</td>
+                <td>The AWS region Atlas will use by default for all calls (e.g. <span class="code-inline">us-east-1</span>).</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="doc-p">Click <strong class="text-zinc-300">Validate &amp; Add Account</strong>. Atlas calls <span class="code-inline">sts:GetCallerIdentity</span> — if the credentials are valid the account is saved. If not, an inline error explains what went wrong.</p>
+
+          <div class="callout callout-warn">
+            <i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
+            <span>Never use your AWS root account access keys. Create a dedicated IAM user with only the permissions Atlas needs. See <a href="#iam-permissions" class="text-yellow-400 hover:underline">IAM Permissions</a> for the exact policy.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── IAM PERMISSIONS ─────────────────── -->
+      <section id="iam-permissions" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-shield-halved text-blue-400 text-xs"></i>
+            </div>
+            IAM Permissions
+          </div>
+          <p class="doc-p mt-2">
+            Atlas only calls read actions plus the specific write actions required for the features you use. Attach the policy below to your IAM user to enable all features. Remove any sections for services you don't use.
+          </p>
+
+          <div class="doc-h3">Minimum policy (Free tier)</div>
+          <div class="code-block">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AtlasFree",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "ec2:DescribeInstances",
+        "ec2:DescribeRegions",
+        "s3:ListAllMyBuckets",
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "*"
+    }
+  ]
+}</div>
+
+          <div class="doc-h3">EC2 write actions (bulk Start / Stop / Reboot / Terminate)</div>
+          <div class="code-block">"ec2:StartInstances",
+"ec2:StopInstances",
+"ec2:RebootInstances",
+"ec2:TerminateInstances"</div>
+
+          <div class="doc-h3">Pro features</div>
+          <div class="code-block">"cloudwatch:DescribeAlarms",
+"cloudwatch:GetMetricStatistics",
+"guardduty:ListDetectors",
+"guardduty:ListFindings",
+"guardduty:GetFindings",
+"iam:ListUsers",
+"iam:ListRoles",
+"iam:ListGroups",
+"iam:ListPolicies",
+"iam:GetUser",
+"iam:ListAttachedUserPolicies",
+"ce:GetCostAndUsage",
+"ce:GetCostForecast"</div>
+
+          <div class="callout callout-info mt-2">
+            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+            <span>If a permission is missing, Atlas will show an inline error for that specific section only — other pages continue to work normally.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── MULTI-ACCOUNT ─────────────────── -->
+      <section id="multi-account" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-layer-group text-blue-400 text-xs"></i>
+            </div>
+            Multi-Account Management
+            <span class="badge-pro"><i class="fa-solid fa-crown text-xs"></i>PRO</span>
+          </div>
+          <p class="doc-p mt-2">
+            With Atlas Pro you can add unlimited AWS accounts (each with its own access keys and default region) and switch between them instantly.
+          </p>
+          <ul class="doc-ul">
+            <li>Add each account in <strong class="text-zinc-300">Settings</strong> using the same form as the first account.</li>
+            <li>The <strong class="text-zinc-300">Active</strong> account is shown in the top bar at all times.</li>
+            <li>Click the account name in the top bar to open the account switcher dropdown.</li>
+            <li>Switching accounts immediately invalidates all cached data and reloads the current page.</li>
+            <li>Each account has its own default region — you can change it in Settings at any time.</li>
+            <li>To remove an account, click <strong class="text-zinc-300">Remove</strong> next to it in Settings. The next account in the list becomes active automatically.</li>
+          </ul>
+          <div class="callout callout-info mt-2">
+            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+            <span>The Free plan is limited to <strong>one</strong> AWS account. To manage multiple accounts, upgrade to Pro from <a href="/#pricing" class="text-blue-400 hover:underline">the pricing page</a>.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── DASHBOARD ─────────────────── -->
+      <section id="dashboard" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-chart-pie text-blue-400 text-xs"></i>
+            </div>
+            Dashboard
+            <span class="badge-free">FREE</span>
+          </div>
+          <p class="doc-p mt-2">The Dashboard gives you an instant overview of your AWS infrastructure health and costs.</p>
+
+          <div class="doc-h3">KPI Cards</div>
+          <table class="doc-table">
+            <thead><tr><th>Card</th><th>Color</th><th>Source</th></tr></thead>
+            <tbody>
+              <tr><td>EC2 Running</td><td><span style="color:#4ade80">●</span> Green</td><td>ec2:DescribeInstances (state = running)</td></tr>
+              <tr><td>EC2 Stopped</td><td><span style="color:#f87171">●</span> Red</td><td>ec2:DescribeInstances (state = stopped)</td></tr>
+              <tr><td>S3 Buckets</td><td><span style="color:#60a5fa">●</span> Blue</td><td>s3:ListAllMyBuckets</td></tr>
+              <tr><td>CloudWatch Alarms</td><td><span style="color:#f87171">●</span> Red</td><td>cloudwatch:DescribeAlarms (state = ALARM)</td></tr>
+            </tbody>
+          </table>
+
+          <div class="doc-h3">Other elements</div>
+          <ul class="doc-ul">
+            <li>Account ID is shown below the KPI cards.</li>
+            <li>Last-refreshed timestamp updates after every reload.</li>
+            <li>The <strong class="text-zinc-300">Refresh</strong> button forces a full reload regardless of cache.</li>
+            <li>All four API calls run in parallel — a missing permission on one call (e.g. no CloudWatch access) does not prevent the others from loading.</li>
+            <li>Cost overview panel shows current-month spend and a 30-day forecast (requires <span class="code-inline">ce:GetCostAndUsage</span>).</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ─────────────────── EC2 ─────────────────── -->
+      <section id="ec2" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-server text-blue-400 text-xs"></i>
+            </div>
+            EC2 Instances
+            <span class="badge-free">FREE</span>
+          </div>
+          <p class="doc-p mt-2">Manage all EC2 instances in your active account and region from a single table.</p>
+
+          <div class="doc-h3">Table & Filtering</div>
+          <ul class="doc-ul">
+            <li>Columns: State badge, Name, Instance ID, Type, Public IP, Private IP, Launch Time.</li>
+            <li>Real-time search by name, instance ID, or IP address — results filter as you type.</li>
+            <li>Status filter dropdown: <strong class="text-zinc-300">All / running / stopped / pending / terminated</strong>.</li>
+            <li>Color-coded state badges: <span style="color:#4ade80">■</span> running, <span style="color:#f87171">■</span> stopped, <span style="color:#fbbf24">■</span> pending/stopping, <span style="color:#a78bfa">■</span> shutting-down, <span style="color:#52525b">■</span> terminated.</li>
+          </ul>
+
+          <div class="doc-h3">Bulk Actions</div>
+          <ul class="doc-ul">
+            <li>Select instances via row checkboxes. The header checkbox selects/deselects all visible rows. Use <kbd class="kbd">Ctrl+A</kbd> to select all.</li>
+            <li>A slide-in action bar appears at the bottom when at least one row is selected, showing a count pill and action buttons.</li>
+            <li>Available actions: <strong class="text-zinc-300">Start</strong>, <strong class="text-zinc-300">Stop</strong>, <strong class="text-zinc-300">Reboot</strong>, <strong class="text-zinc-300">Terminate</strong>.</li>
+            <li>Every action opens a confirmation dialog listing the target instances. Terminate uses a <span style="color:#f87171">red danger</span> variant with an explicit "this cannot be undone" warning.</li>
+            <li>After an action completes the list auto-reloads to reflect the new state.</li>
+          </ul>
+
+          <div class="callout callout-danger">
+            <i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
+            <span><strong>Terminate is irreversible.</strong> Terminating an instance permanently deletes it and any non-persistent EBS volumes attached to it. Atlas always shows a confirmation dialog before executing this action.</span>
+          </div>
+
+          <div class="doc-h3">Instance Detail Panel</div>
+          <p class="doc-p">Selecting exactly one instance opens a detail panel on the right side. It shows:</p>
+          <ul class="doc-ul">
+            <li><strong class="text-zinc-300">Summary</strong> — ID, state, type, vCPUs, public/private/IPv6 IPs, region, DNS names, VPC, Subnet, IAM role, Auto Scaling Group, IMDSv2 status, ARN.</li>
+            <li><strong class="text-zinc-300">Details</strong> — AMI ID, monitoring, platform, key pair, launch time, virtualization type, lifecycle, boot mode, credit specification.</li>
+            <li><strong class="text-zinc-300">Placement</strong> — Tenancy, Host ID, affinity, placement group, partition, reservation.</li>
+            <li><strong class="text-zinc-300">Capacity Reservation</strong> — Reservation ID and setting.</li>
+          </ul>
+          <p class="doc-p">Copy buttons (<i class="fa-regular fa-copy text-xs text-zinc-400"></i>) are available next to Instance ID, ARN, and AMI ID. The panel closes when you clear the selection or select multiple rows.</p>
+        </div>
+      </section>
+
+      <!-- ─────────────────── S3 ─────────────────── -->
+      <section id="s3" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-bucket text-blue-400 text-xs"></i>
+            </div>
+            S3 Buckets
+            <span class="badge-free">FREE</span>
+          </div>
+          <p class="doc-p mt-2">Browse S3 buckets and objects, upload files, and download objects — all from a split-pane browser.</p>
+
+          <div class="doc-h3">Layout</div>
+          <ul class="doc-ul">
+            <li>Left panel lists all buckets with name and creation date. Click a bucket to open it.</li>
+            <li>Right panel shows the objects inside the selected bucket.</li>
+            <li>Object columns: Key/Name, Size (auto-formatted as B / KB / MB / GB), Storage Class, Last Modified.</li>
+            <li>Objects are browsed with prefix-based navigation, similar to a folder hierarchy.</li>
+          </ul>
+
+          <div class="doc-h3">Upload</div>
+          <ul class="doc-ul">
+            <li>Click <strong class="text-zinc-300">Upload</strong> to open a file picker.</li>
+            <li>A real-time progress bar and percentage are shown during the upload.</li>
+            <li>The object list refreshes automatically when the upload completes.</li>
+          </ul>
+
+          <div class="doc-h3">Download</div>
+          <ul class="doc-ul">
+            <li>Select an object and click <strong class="text-zinc-300">Download</strong>.</li>
+            <li>A save dialog lets you choose the destination.</li>
+            <li>A real-time progress bar and percentage are shown during the download.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ─────────────────── CLOUDWATCH ─────────────────── -->
+      <section id="cloudwatch" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-bell text-blue-400 text-xs"></i>
+            </div>
+            CloudWatch Alarms
+            <span class="badge-pro"><i class="fa-solid fa-crown text-xs"></i>PRO</span>
+          </div>
+          <p class="doc-p mt-2">Monitor the state of all your CloudWatch alarms in one place without navigating through the AWS Console.</p>
+
+          <div class="doc-h3">Features</div>
+          <ul class="doc-ul">
+            <li>KPI cards show counts per alarm state: <span style="color:#f87171">ALARM</span>, <span style="color:#4ade80">OK</span>, <span style="color:#fbbf24">INSUFFICIENT_DATA</span>.</li>
+            <li>Filter chips at the top let you show only alarms in a specific state.</li>
+            <li>Real-time search filters alarms by name as you type.</li>
+            <li>Each row shows alarm name, state badge, metric name, threshold, and last update time.</li>
+          </ul>
+
+          <div class="doc-h3">Required permissions</div>
+          <div class="code-block">"cloudwatch:DescribeAlarms",
+"cloudwatch:GetMetricStatistics"</div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── GUARDDUTY ─────────────────── -->
+      <section id="guardduty" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-shield text-blue-400 text-xs"></i>
+            </div>
+            GuardDuty Findings
+            <span class="badge-pro"><i class="fa-solid fa-crown text-xs"></i>PRO</span>
+          </div>
+          <p class="doc-p mt-2">Review all active GuardDuty security findings sorted and filtered by severity.</p>
+
+          <div class="doc-h3">Features</div>
+          <ul class="doc-ul">
+            <li>KPI cards show finding counts per severity: <span style="color:#f87171">HIGH</span>, <span style="color:#fbbf24">MEDIUM</span>, <span style="color:#60a5fa">LOW</span>.</li>
+            <li>Severity filter chips at the top narrow down the list.</li>
+            <li>Real-time search filters findings by title or description.</li>
+            <li>Each finding row shows title, severity badge, finding type, region, and last seen time.</li>
+          </ul>
+
+          <div class="callout callout-info">
+            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+            <span>GuardDuty must be enabled in your AWS account for findings to appear. If it is not enabled, Atlas will show an empty state with a link to the GuardDuty console.</span>
+          </div>
+
+          <div class="doc-h3">Required permissions</div>
+          <div class="code-block">"guardduty:ListDetectors",
+"guardduty:ListFindings",
+"guardduty:GetFindings"</div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── IAM ─────────────────── -->
+      <section id="iam" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-users text-blue-400 text-xs"></i>
+            </div>
+            IAM Management
+            <span class="badge-pro"><i class="fa-solid fa-crown text-xs"></i>PRO</span>
+          </div>
+          <p class="doc-p mt-2">Audit IAM users, roles, groups, and policies across your AWS account.</p>
+
+          <div class="doc-h3">Features</div>
+          <ul class="doc-ul">
+            <li>List all IAM users with username, creation date, last activity, and attached policies.</li>
+            <li>List all IAM roles with role name, creation date, and trust policy summary.</li>
+            <li>List IAM groups and their membership counts.</li>
+            <li>List managed policies with their attachment counts.</li>
+            <li>Real-time search across all IAM entities.</li>
+          </ul>
+
+          <div class="doc-h3">Required permissions</div>
+          <div class="code-block">"iam:ListUsers",
+"iam:ListRoles",
+"iam:ListGroups",
+"iam:ListPolicies",
+"iam:GetUser",
+"iam:ListAttachedUserPolicies"</div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── BILLING ─────────────────── -->
+      <section id="billing" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-credit-card text-blue-400 text-xs"></i>
+            </div>
+            Billing &amp; Costs
+            <span class="badge-pro"><i class="fa-solid fa-crown text-xs"></i>PRO</span>
+          </div>
+          <p class="doc-p mt-2">Track your AWS spend with Cost Explorer data pulled directly from the AWS API.</p>
+
+          <div class="doc-h3">Features</div>
+          <ul class="doc-ul">
+            <li>Current-month cost breakdown by service.</li>
+            <li>Month-over-month spend comparison.</li>
+            <li>30-day cost forecast based on current usage trends.</li>
+            <li>Displayed on the Dashboard summary panel as well as the dedicated Billing page.</li>
+          </ul>
+
+          <div class="callout callout-warn">
+            <i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
+            <span>Cost Explorer must be enabled in your AWS account. The first time you enable it there may be up to 24 hours before data appears.</span>
+          </div>
+
+          <div class="doc-h3">Required permissions</div>
+          <div class="code-block">"ce:GetCostAndUsage",
+"ce:GetCostForecast"</div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── SHORTCUTS ─────────────────── -->
+      <section id="shortcuts" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-keyboard text-blue-400 text-xs"></i>
+            </div>
+            Keyboard Shortcuts
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-x-12 mt-4">
+            <div>
+              <p class="text-xs text-zinc-500 font-semibold uppercase tracking-widest mb-3">Global</p>
+              <div class="shortcut-row">
+                <span class="text-zinc-300 text-sm">Command palette / global search</span>
+                <span class="shortcut-key"><span class="kbd">Ctrl</span><span class="text-zinc-600 text-xs mx-1">+</span><span class="kbd">K</span></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="text-zinc-300 text-sm">Refresh current page</span>
+                <span class="shortcut-key"><span class="kbd">F5</span></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="text-zinc-300 text-sm">Toggle dark / light theme</span>
+                <span class="shortcut-key"><span class="kbd">Ctrl</span><span class="text-zinc-600 text-xs mx-1">+</span><span class="kbd">T</span></span>
+              </div>
+            </div>
+            <div class="mt-6 sm:mt-0">
+              <p class="text-xs text-zinc-500 font-semibold uppercase tracking-widest mb-3">EC2 Table</p>
+              <div class="shortcut-row">
+                <span class="text-zinc-300 text-sm">Select all visible rows</span>
+                <span class="shortcut-key"><span class="kbd">Ctrl</span><span class="text-zinc-600 text-xs mx-1">+</span><span class="kbd">A</span></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="text-zinc-300 text-sm">Deselect all</span>
+                <span class="shortcut-key"><span class="kbd">Esc</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── SECURITY ─────────────────── -->
+      <section id="security" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-lock text-blue-400 text-xs"></i>
+            </div>
+            Security &amp; Privacy
+          </div>
+
+          <div class="doc-h3">Credential storage</div>
+          <ul class="doc-ul">
+            <li>AWS access keys are encrypted with <strong class="text-zinc-300">Windows DPAPI (user-scoped)</strong> before being written to the local SQLite database.</li>
+            <li>Credentials are decrypted in memory only at the moment an AWS SDK call is made, then discarded.</li>
+            <li>No plaintext credentials are ever written to disk.</li>
+            <li>The SQLite database is stored at <span class="code-inline">%LocalAppData%\Atlas\atlas.db</span> and is readable only by the Windows user account that created it.</li>
+          </ul>
+
+          <div class="doc-h3">Network</div>
+          <ul class="doc-ul">
+            <li>Atlas has <strong class="text-zinc-300">no backend server</strong>. All AWS API calls go directly from your machine to the AWS SDK endpoints.</li>
+            <li>No telemetry data containing your AWS resource names or account IDs is ever transmitted anywhere.</li>
+            <li>The only external connections are: AWS SDK endpoints, optional auto-update checks (Velopack/GitHub), and anonymous usage analytics (page views only, via Google Analytics).</li>
+          </ul>
+
+          <div class="doc-h3">Error logs</div>
+          <ul class="doc-ul">
+            <li>Unhandled errors are written to <span class="code-inline">atlas-errors.txt</span> in the application directory.</li>
+            <li>Log entries are prepended (newest first) and include timestamp, level, message, and stack trace.</li>
+            <li>Log format: <span class="code-inline">[YYYY-MM-DD HH:mm:ss] [LEVEL] message</span></li>
+            <li>Logs never contain credential values.</li>
+          </ul>
+
+          <div class="callout callout-info">
+            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+            <span>Atlas is open about what it does. If you have a security concern or find a vulnerability, please <a href="/contact" class="text-blue-400 hover:underline">contact us</a>.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── TROUBLESHOOTING ─────────────────── -->
+      <section id="troubleshooting" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-triangle-exclamation text-blue-400 text-xs"></i>
+            </div>
+            Troubleshooting
+          </div>
+
+          <div class="space-y-6 mt-4">
+
+            <div>
+              <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>"Invalid credentials" when adding an account</p>
+              <ul class="doc-ul">
+                <li>Double-check that the Access Key ID starts with <span class="code-inline">AKIA</span> and that the Secret Access Key is correct.</li>
+                <li>Ensure the IAM user is not suspended or has no permission boundaries blocking <span class="code-inline">sts:GetCallerIdentity</span>.</li>
+                <li>Make sure the account is not in an AWS Organizations SCP that blocks STS calls.</li>
+              </ul>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div>
+              <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>A page shows "Access Denied"</p>
+              <ul class="doc-ul">
+                <li>The IAM user is missing the required permissions for that page. See <a href="#iam-permissions" class="text-blue-400 hover:underline">IAM Permissions</a>.</li>
+                <li>Other pages will continue to work — Atlas isolates permission errors per service.</li>
+              </ul>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div>
+              <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>EC2 / S3 list is empty</p>
+              <ul class="doc-ul">
+                <li>Check that the selected region is correct — resources are region-specific.</li>
+                <li>Try clicking <strong class="text-zinc-300">Refresh</strong> to force a fresh API call bypassing the 30-second cache.</li>
+                <li>Verify that your IAM user has the <span class="code-inline">ec2:DescribeInstances</span> or <span class="code-inline">s3:ListAllMyBuckets</span> permission.</li>
+              </ul>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div>
+              <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>CloudWatch / GuardDuty / IAM / Billing show a "Pro required" screen</p>
+              <ul class="doc-ul">
+                <li>These features require an Atlas Pro license. Upgrade from <a href="/#pricing" class="text-blue-400 hover:underline">the pricing page</a>.</li>
+                <li>If you already have Pro and see this screen, open <strong class="text-zinc-300">Settings → License</strong> and verify your license key is activated.</li>
+              </ul>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div>
+              <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>App crashes or closes unexpectedly</p>
+              <ul class="doc-ul">
+                <li>Check <span class="code-inline">atlas-errors.txt</span> in the Atlas installation folder (<span class="code-inline">%LocalAppData%\Atlas\</span>) for the error details.</li>
+                <li>Send the log content to the team via the <a href="/contact" class="text-blue-400 hover:underline">contact page</a> and include your Atlas version.</li>
+              </ul>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div>
+              <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>Windows SmartScreen blocks the installer</p>
+              <ul class="doc-ul">
+                <li>Click <strong class="text-zinc-300">More info</strong> and then <strong class="text-zinc-300">Run anyway</strong>. The installer is signed; the warning appears because the code-signing certificate is relatively new.</li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── CHANGELOG ─────────────────── -->
+      <section id="changelog" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-code-branch text-blue-400 text-xs"></i>
+            </div>
+            Changelog
+          </div>
+
+          <!-- v0.0.1 -->
+          <div class="mt-6">
+            <div class="changelog-version">
+              <span class="version-tag">v0.0.1</span>
+              <span class="text-zinc-500 text-sm">2026-06-02</span>
+              <span class="badge-new">Initial Release</span>
+            </div>
+
+            <div class="doc-h3">Shell &amp; Navigation</div>
+            <ul class="doc-ul">
+              <li>Sidebar with radio-button items and a 3 px blue active indicator.</li>
+              <li>Pages: Dashboard, EC2 Instances, S3 Buckets, IAM, Billing, CloudWatch, GuardDuty, Settings.</li>
+              <li>Pro gating — IAM, Billing, CloudWatch, GuardDuty locked on free tier with upgrade prompt.</li>
+              <li>Theme toggle (☀ / 🌙) in top bar — switches Dark/Light at runtime without restart.</li>
+              <li>Active account picker in top bar — switching accounts reloads all page data.</li>
+              <li>Global resource search bar.</li>
+            </ul>
+
+            <div class="doc-h3">Dashboard</div>
+            <ul class="doc-ul">
+              <li>KPI cards: EC2 Running, EC2 Stopped, S3 Buckets, Active CloudWatch Alarms.</li>
+              <li>Account ID, last-refreshed timestamp, manual Refresh button.</li>
+              <li>Dashboard API calls execute concurrently — one missing permission does not block the rest.</li>
+              <li>Cost Explorer integration: costs and usage overview.</li>
+            </ul>
+
+            <div class="doc-h3">EC2 Instances</div>
+            <ul class="doc-ul">
+              <li>Full instance table with real-time search and state filter.</li>
+              <li>Multi-select with batch Start / Stop / Reboot / Terminate actions.</li>
+              <li>Confirmation dialog for all batch actions; Terminate uses a red danger variant.</li>
+              <li>Instance detail side panel with 20+ fields across Summary, Details, Placement, and Capacity Reservation sections.</li>
+              <li><kbd class="kbd">Ctrl+A</kbd> shortcut hint in the action bar.</li>
+            </ul>
+
+            <div class="doc-h3">S3 Buckets</div>
+            <ul class="doc-ul">
+              <li>Bucket list + object browser split-pane layout.</li>
+              <li>Upload and download with real-time progress bars.</li>
+              <li>Prefix-based folder-like navigation.</li>
+            </ul>
+
+            <div class="doc-h3">CloudWatch <span class="badge-pro ml-1"><i class="fa-solid fa-crown text-xs"></i>PRO</span></div>
+            <ul class="doc-ul">
+              <li>Alarm list with state filter chips (All / ALARM / OK / INSUFFICIENT_DATA).</li>
+              <li>KPI cards per alarm state.</li>
+            </ul>
+
+            <div class="doc-h3">GuardDuty <span class="badge-pro ml-1"><i class="fa-solid fa-crown text-xs"></i>PRO</span></div>
+            <ul class="doc-ul">
+              <li>Findings list with severity filter chips (All / HIGH / MEDIUM / LOW).</li>
+              <li>KPI cards per severity.</li>
+            </ul>
+
+            <div class="doc-h3">IAM &amp; Billing <span class="badge-pro ml-1"><i class="fa-solid fa-crown text-xs"></i>PRO</span></div>
+            <ul class="doc-ul">
+              <li>IAM user, role, group, and policy audit tables.</li>
+              <li>Billing overview with Cost Explorer integration.</li>
+            </ul>
+
+            <div class="doc-h3">Infrastructure</div>
+            <ul class="doc-ul">
+              <li>AWS credentials encrypted with Windows DPAPI at rest.</li>
+              <li>SDK clients cached per (service, region, access key) — HTTP connections reused.</li>
+              <li>30-second ViewModel data cache with cancellation on navigation.</li>
+              <li>Error logging to <span class="code-inline">atlas-errors.txt</span> in prepend mode.</li>
+              <li>Auto-updates via Velopack.</li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:16px;padding:28px 32px;" class="flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div>
+          <p class="text-zinc-200 font-semibold text-base mb-1">Ready to get started?</p>
+          <p class="text-zinc-500 text-sm">Download Atlas for free and manage your AWS infrastructure in seconds.</p>
+        </div>
+        <div class="flex gap-3 shrink-0">
+          <a href="/contact" class="px-5 py-2.5 rounded-xl border border-zinc-700 hover:border-zinc-500 text-sm text-zinc-300 hover:text-white transition">
+            Contact Support
+          </a>
+          <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win-Setup.exe"
+             class="bg-blue-600 hover:bg-blue-500 px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-900/30 flex items-center gap-2">
+            <i class="fa-solid fa-download text-xs"></i>
+            Free Download
+          </a>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ======================== FOOTER ======================== -->
+  <footer class="bg-zinc-950 border-t border-zinc-900 py-14">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid md:grid-cols-4 gap-8 mb-12">
+        <div class="md:col-span-2">
+          <div class="flex items-center gap-2.5 mb-4">
+            <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+            <span class="text-xl font-bold">Atlas</span>
+          </div>
+          <p class="text-zinc-500 text-sm leading-relaxed max-w-xs">
+            The AWS console alternative built for Windows. Native WPF desktop app for DevOps engineers, SREs and cloud infrastructure teams who manage AWS every day.
+          </p>
+        </div>
+        <div>
+          <h4 class="text-zinc-300 font-medium text-sm mb-4">Product</h4>
+          <ul class="space-y-3 text-sm text-zinc-500">
+            <li><a href="/#features" class="hover:text-zinc-300 transition">Features</a></li>
+            <li><a href="/#comparison" class="hover:text-zinc-300 transition">Atlas vs AWS Console</a></li>
+            <li><a href="/#pricing" class="hover:text-zinc-300 transition">Pricing</a></li>
+            <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win-Setup.exe" class="hover:text-zinc-300 transition">Download for Windows</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-zinc-300 font-medium text-sm mb-4">Support</h4>
+          <ul class="space-y-3 text-sm text-zinc-500">
+            <li><a href="/docs" class="text-zinc-300 hover:text-white transition">Documentation</a></li>
+            <li><a href="/#faq" class="hover:text-zinc-300 transition">FAQ</a></li>
+            <li><a href="/contact" class="hover:text-zinc-300 transition">Contact</a></li>
+            <li><a href="/privacy" class="hover:text-zinc-300 transition">Privacy Policy</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="section-divider mb-8"></div>
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-zinc-600 text-sm">
+        <p>© 2026 Atlas · cloud-atlas.io</p>
+        <p>Made with <span class="text-red-500">♥</span> for those who manage AWS every day</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================== JS ======================== -->
+  <script>
+    // ── Navbar scroll ─────────────────────────────────────────
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 20);
+    });
+
+    // ── Mobile nav toggle ─────────────────────────────────────
+    const menuToggle = document.getElementById('menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    menuToggle.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+    mobileMenu.querySelectorAll('a').forEach(l => l.addEventListener('click', () => mobileMenu.classList.add('hidden')));
+
+    // ── Mobile sidebar ────────────────────────────────────────
+    const sidebarToggle  = document.getElementById('sidebar-toggle');
+    const sidebarClose   = document.getElementById('sidebar-close');
+    const docsSidebar    = document.getElementById('docs-sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    function openSidebar() {
+      docsSidebar.classList.add('open');
+      sidebarOverlay.classList.add('open');
+    }
+    function closeSidebar() {
+      docsSidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('open');
+    }
+
+    sidebarToggle?.addEventListener('click', openSidebar);
+    sidebarClose?.addEventListener('click', closeSidebar);
+    sidebarOverlay?.addEventListener('click', closeSidebar);
+
+    // ── Active sidebar link on scroll ─────────────────────────
+    const sections = document.querySelectorAll('.doc-section');
+    const sidebarLinks = document.querySelectorAll('.sidebar-link');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          sidebarLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            link.classList.toggle('active', href === '#' + id);
+          });
+        }
+      });
+    }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+
+    sections.forEach(s => observer.observe(s));
+
+    // Close mobile sidebar when a sidebar link is clicked
+    sidebarLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth < 1024) closeSidebar();
+      });
+    });
+  </script>
+
+</body>
+</html>

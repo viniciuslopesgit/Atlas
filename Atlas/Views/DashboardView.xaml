@@ -14,7 +14,8 @@
             <TextBlock Text="Dashboard" FontSize="24" FontWeight="SemiBold"
                        Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock Text="{Binding LastRefreshedText}" FontSize="12"
-                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"/>
+                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"
+                       Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}"/>
         </StackPanel>
 
         <!-- Content -->
