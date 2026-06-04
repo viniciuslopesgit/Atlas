@@ -51,14 +51,16 @@ public sealed class LicenseService : ILicenseService
         var key          = licenseKey.Trim();
         var instanceName = $"Atlas-{Environment.MachineName}";
 
-        var (json, ok) = await PostAsync("activate", new Dictionary<string, string>
+        var (json, ok, firewallBlock) = await PostAsync("activate", new Dictionary<string, string>
         {
             ["license_key"]   = key,
             ["instance_name"] = instanceName
         });
 
         if (!ok)
-            return LicenseActivationResult.Fail(json);   // json holds the friendly error here
+            return firewallBlock
+                ? LicenseActivationResult.FirewallFail()
+                : LicenseActivationResult.Fail(json);
 
         return ParseResponse(key, instanceId: null, successField: "activated", json);
     }
@@ -70,13 +72,13 @@ public sealed class LicenseService : ILicenseService
         if (_current is null || string.IsNullOrEmpty(_current.InstanceId))
             return LicenseActivationResult.Fail("No active license to refresh.");
 
-        var (json, ok) = await PostAsync("validate", new Dictionary<string, string>
+        var (json, ok, _) = await PostAsync("validate", new Dictionary<string, string>
         {
             ["license_key"] = _current.Key,
             ["instance_id"] = _current.InstanceId
         });
 
-        // Transport/network error → keep the license unchanged (offline grace)
+        // Transport/network error (including firewall block) → keep the license unchanged (offline grace)
         if (!ok)
             return LicenseActivationResult.Fail(json);
 
@@ -128,23 +130,43 @@ public sealed class LicenseService : ILicenseService
 
     // ── HTTP helper ───────────────────────────────────────────────────
 
-    /// <summary>Returns (payload, true) on HTTP success or (friendlyError, false) on transport error.</summary>
-    private static async Task<(string body, bool ok)> PostAsync(string path, Dictionary<string, string> form)
+    /// <summary>
+    /// Returns (payload, ok, isFirewallBlock).
+    /// ok=true  → HTTP call succeeded (parse the body).
+    /// ok=false → transport error; body holds the friendly message.
+    /// isFirewallBlock=true → SocketException 10013 (WSAEACCES) — Windows Firewall is blocking the connection.
+    /// </summary>
+    private static async Task<(string body, bool ok, bool isFirewallBlock)> PostAsync(
+        string path, Dictionary<string, string> form)
     {
         try
         {
             var response = await Http.PostAsync(path, new FormUrlEncodedContent(form));
             var body     = await response.Content.ReadAsStringAsync();
-            // Log only the HTTP status — never the body (it contains the license key in plain text)
             FileLogger.Info($"LicenseService — {path} HTTP {(int)response.StatusCode}");
-            // LemonSqueezy returns the activated/valid flag in-body even on 400, so we still parse it
-            return (body, true);
+            return (body, true, false);
+        }
+        catch (HttpRequestException ex) when (IsFirewallBlock(ex))
+        {
+            FileLogger.Error($"LicenseService — {path} blocked by Windows Firewall", ex);
+            return (string.Empty, false, true);
         }
         catch (Exception ex)
         {
             FileLogger.Error($"LicenseService — {path} HTTP error", ex);
-            return ("Could not reach the activation server. Check your internet connection and try again.", false);
+            return ("Could not reach the activation server. Check your internet connection and try again.", false, false);
         }
+    }
+
+    private static bool IsFirewallBlock(Exception ex)
+    {
+        for (var inner = ex.InnerException; inner is not null; inner = inner.InnerException)
+        {
+            if (inner is System.Net.Sockets.SocketException se &&
+                se.SocketErrorCode == System.Net.Sockets.SocketError.AccessDenied)
+                return true;
+        }
+        return false;
     }
 
     // ── Response parsing ──────────────────────────────────────────────

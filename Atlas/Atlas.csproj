@@ -11,10 +11,12 @@
     <Platforms>x64</Platforms>
     <Version>0.0.25</Version>
     <StartupObject>Atlas.Program</StartupObject>
+    <ApplicationIcon>icon\atlas.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Resource Include="icon\unnamed.png"/>
+    <Resource Include="icon\atlas.ico"/>
   </ItemGroup>
 
   <ItemGroup>

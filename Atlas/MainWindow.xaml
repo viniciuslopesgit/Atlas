@@ -846,6 +846,27 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Fix Firewall button — shown only when Windows Firewall is blocking the connection -->
+                    <Button Command="{Binding FixFirewallCommand}"
+                            Style="{StaticResource PrimaryButton}"
+                            Height="38" Margin="0,10,0,0"
+                            IsEnabled="{Binding IsFixingFirewall, Converter={StaticResource BoolInvert}}"
+                            Visibility="{Binding IsFirewallError, Converter={StaticResource BoolToVisible}}">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                        Visibility="{Binding IsFixingFirewall, Converter={StaticResource BoolToInvisible}}">
+                                <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                                <TextBlock Text="Fix Network Access" FontSize="13" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" Foreground="White"/>
+                            </StackPanel>
+                            <TextBlock Text="Applying fix…" FontSize="13" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="White"
+                                       Visibility="{Binding IsFixingFirewall, Converter={StaticResource BoolToVisible}}"/>
+                        </Grid>
+                    </Button>
+
                     <!-- Activate button -->
                     <Button Command="{Binding ActivateCommand}"
                             Style="{StaticResource PrimaryButton}"

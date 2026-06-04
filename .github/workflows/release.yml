@@ -55,7 +55,8 @@ jobs:
             --packId Atlas `
             --packVersion ${{ steps.version.outputs.VERSION }} `
             --packDir publish/ `
-            --outputDir releases/
+            --outputDir releases/ `
+            --installRoot '%ProgramFiles%'
 
       - name: Upload to GitHub Releases (public repo)
         shell: pwsh

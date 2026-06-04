@@ -2,10 +2,10 @@
 
 2. 
 git add .
-git commit -m "Google Analytics"
+git commit -m "Windows Firewall bloqueava conexões de saída do Atlas.exe com SocketException 10013 (WSAEACCES)Firewall"
 git push origin main
 
-git tag 0.0.25
-git push origin 0.0.25
+git tag 0.0.26
+git push origin 0.0.26
 
 
