@@ -56,7 +56,8 @@ jobs:
             --packVersion ${{ steps.version.outputs.VERSION }} `
             --packDir publish/ `
             --outputDir releases/ `
-            --installRoot '%ProgramFiles%'
+            --msi `
+            --instLocation PerMachine
 
       - name: Upload to GitHub Releases (public repo)
         shell: pwsh
