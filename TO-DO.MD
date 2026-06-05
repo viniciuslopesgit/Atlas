@@ -1,3 +1,10 @@
+1. Transferir site para cloudflare
+2. Passar upload que será usado para download para dentro do cloudflare storage
+3. criar link fixo para o download do atlas.msi dentro do cloudflare storage
+4. remover site do Netflify
+
+
+
 Funcionalidades da Versão FREE
 
 1. DashboardVisão geral básica
@@ -40,4 +47,6 @@ Funcionalidades que FICAM BLOQUEADAS na Free (só no Pro)
 - Exportar tudo com 1 clique (CSV, Excel, JSON)Relatórios para chefes/clientes
 - Histórico de ações feitas no AtlasAuditoria local do que você fez
 - Criar lixeira para buckets s3 apagados para possibilitar recuperação de dados
+
+
 

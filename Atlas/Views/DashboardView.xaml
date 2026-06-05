@@ -4,6 +4,23 @@
              xmlns:vm="clr-namespace:Atlas.ViewModels">
 
     <Grid Background="{DynamicResource BackgroundBrush}">
+
+        <!-- ═══════════════ NO ACCOUNT ══════════════════════════════════════ -->
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}">
+            <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="52" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextMutedBrush}"/>
+            <TextBlock Text="No AWS account configured" FontSize="16"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center" Margin="0,12,0,0"/>
+            <TextBlock Text="Go to Settings to add your first account."
+                       FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
+                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
+        </StackPanel>
+
+        <!-- ═══════════════ MAIN CONTENT ════════════════════════════════════ -->
+        <Grid Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -14,29 +31,14 @@
             <TextBlock Text="Dashboard" FontSize="24" FontWeight="SemiBold"
                        Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock Text="{Binding LastRefreshedText}" FontSize="12"
-                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"
-                       Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}"/>
+                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"/>
         </StackPanel>
 
         <!-- Content -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <Grid Margin="32,0,32,32">
 
-                <!-- No account -->
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                            Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}">
-                    <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="52" HorizontalAlignment="Center"
-                               Foreground="{DynamicResource TextMutedBrush}"/>
-                    <TextBlock Text="No AWS account configured" FontSize="16"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               HorizontalAlignment="Center" Margin="0,12,0,0"/>
-                    <TextBlock Text="Go to Settings to add your first account."
-                               FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
-                               HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                </StackPanel>
-
-                <Grid Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}">
+                <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -1022,5 +1024,6 @@
 
             </Grid>
         </ScrollViewer>
+        </Grid><!-- end main content wrapper -->
     </Grid>
 </UserControl>

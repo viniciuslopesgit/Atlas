@@ -57,7 +57,7 @@
         <!-- ═══════════════ NO ACCOUNT ══════════════════════════════════════ -->
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}">
-            <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="52"
+            <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="52"
                        HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
             <TextBlock Text="No AWS account configured" FontSize="16"
                        Foreground="{DynamicResource TextSecondaryBrush}"

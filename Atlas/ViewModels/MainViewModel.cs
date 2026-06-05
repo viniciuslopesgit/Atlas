@@ -48,7 +48,7 @@ public partial class MainViewModel : ObservableObject
     /// <summary>True when a newer version was found and is ready to download/apply.</summary>
     [ObservableProperty] private bool _isUpdateAvailable;
 
-    /// <summary>Label shown on the update button, e.g. "v1.2.0 disponível".</summary>
+    /// <summary>Label shown on the update button, e.g. "v1.2.0 update".</summary>
     [ObservableProperty] private string _updateVersionDisplay = string.Empty;
 
     /// <summary>Convenience inverse of <see cref="IsPro"/> for badge/CTA visibility.</summary>
@@ -193,7 +193,7 @@ public partial class MainViewModel : ObservableObject
         var available = await _updates.CheckAsync();
         Atlas.Infrastructure.Logging.FileLogger.Info($"[Update] available={available}, version={_updates.AvailableVersion}");
         if (!available) return;
-        UpdateVersionDisplay = $"v{_updates.AvailableVersion} disponível";
+        UpdateVersionDisplay = $"v{_updates.AvailableVersion} update";
         IsUpdateAvailable = true;
     }
 

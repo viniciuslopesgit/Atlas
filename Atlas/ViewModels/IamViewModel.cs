@@ -90,6 +90,8 @@ public partial class IamViewModel : AsyncViewModel
     public ObservableCollection<AccessKeyInfo> SelectedUserAccessKeys { get; } = [];
     public ObservableCollection<IamTagModel>   SelectedUserTags       { get; } = [];
 
+    public bool HasActiveAccount => _accounts.ActiveAccount != null;
+
     public bool IsUsersTab    => ActiveTab == IamTab.Users;
     public bool IsRolesTab    => ActiveTab == IamTab.Roles;
     public bool IsGroupsTab   => ActiveTab == IamTab.Groups;
@@ -150,6 +152,8 @@ public partial class IamViewModel : AsyncViewModel
 
     private void OnAccountChanged(object? s, EventArgs e)
     {
+        OnPropertyChanged(nameof(HasActiveAccount));
+
         // Cancel and dispose any in-flight enrichment before clearing the tracking sets
         _enrichCts?.Cancel();
         _enrichCts?.Dispose();

@@ -80,6 +80,8 @@ public partial class S3ViewModel : AsyncViewModel
         OnPropertyChanged(nameof(SelectedObject));
     }
 
+    public bool HasActiveAccount => _accounts.ActiveAccount != null;
+
     // ── Create-bucket dialog ──────────────────────────────────────
     [ObservableProperty] private bool   _isCreateBucketOpen;
     [ObservableProperty] private bool   _isCreatingBucket;
@@ -206,6 +208,7 @@ public partial class S3ViewModel : AsyncViewModel
 
     private void OnAccountChanged(object? s, EventArgs e)
     {
+        OnPropertyChanged(nameof(HasActiveAccount));
         Buckets.Clear();
         Objects.Clear();
         _ = LoadAsync(force: true);

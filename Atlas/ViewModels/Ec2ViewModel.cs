@@ -42,6 +42,8 @@ public partial class Ec2ViewModel : AsyncViewModel
     public string NetOutLastText   => FormatBytes(_selectedMetrics?.NetworkOut);
     public string DiskWriteLastText=> FormatBytes(_selectedMetrics?.DiskWriteBytes);
 
+    public bool HasActiveAccount => _accounts.ActiveAccount != null;
+
     public string[] StatusOptions { get; } = ["All", "running", "stopped", "pending", "terminated"];
 
     public List<Ec2InstanceModel> SelectedInstances { get; } = [];
@@ -88,7 +90,11 @@ public partial class Ec2ViewModel : AsyncViewModel
         return false;
     }
 
-    private void OnAccountChanged(object? s, EventArgs e) => _ = LoadAsync(force: true);
+    private void OnAccountChanged(object? s, EventArgs e)
+    {
+        OnPropertyChanged(nameof(HasActiveAccount));
+        _ = LoadAsync(force: true);
+    }
 
     [RelayCommand]
     public async Task LoadAsync(bool force = false)
