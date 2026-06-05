@@ -14,9 +14,6 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ILicenseService _license;
     private readonly IUpgradeService _upgrade;
 
-    /// <summary>Free tier is capped at two AWS accounts; Pro is unlimited.</summary>
-    private const int FreeAccountLimit = 2;
-
     [ObservableProperty] private string _newAccountName = string.Empty;
     [ObservableProperty] private string _newAccessKeyId = string.Empty;
     [ObservableProperty] private string _newSecretKey = string.Empty;
@@ -84,14 +81,6 @@ public partial class SettingsViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(NewAccountName) ||
             string.IsNullOrWhiteSpace(NewAccessKeyId) ||
             string.IsNullOrWhiteSpace(NewSecretKey)) return;
-
-        // Free tier is limited to two AWS accounts.
-        if (!_license.IsPro && _accounts.Accounts.Count >= FreeAccountLimit)
-        {
-            _upgrade.Prompt("Connecting more than two AWS accounts is a Pro feature. " +
-                            "The Free plan supports up to two accounts.");
-            return;
-        }
 
         IsValidating = true;
         ValidationMessage = "Validating credentials…";

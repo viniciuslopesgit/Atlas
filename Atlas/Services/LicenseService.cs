@@ -38,7 +38,7 @@ public sealed class LicenseService : ILicenseService
 
     public LicenseInfo? CurrentLicense => _current;
 
-    public bool IsPro => _current is { IsValid: true };
+    public bool IsPro => true; // Beta: all features free
 
     public event EventHandler? ProStatusChanged;
 

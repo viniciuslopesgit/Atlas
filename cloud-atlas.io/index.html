@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cloud-atlas.io/">
   <link rel="icon" href="atlas.ico" sizes="any">
   <link rel="icon" type="image/png" href="atlas.png">
-  <link rel="apple-touch-icon" href="atlas.png">
+  <link rel="shortcut icon" href="/favicon.ico">
 
   <!-- ===== OPEN GRAPH (LinkedIn, Facebook, Slack unfurls) ===== -->
   <meta property="og:type" content="website">
@@ -71,23 +71,10 @@
     "offers": [
       {
         "@type": "Offer",
-        "name": "Free",
+        "name": "Beta",
         "price": "0",
         "priceCurrency": "USD",
-        "description": "1 AWS account, EC2 and S3 management, Dashboard"
-      },
-      {
-        "@type": "Offer",
-        "name": "Pro",
-        "price": "49",
-        "priceCurrency": "USD",
-        "priceSpecification": {
-          "@type": "UnitPriceSpecification",
-          "price": "49",
-          "priceCurrency": "USD",
-          "unitText": "YEAR"
-        },
-        "description": "Unlimited accounts, CloudWatch, GuardDuty, IAM, Billing, Priority support"
+        "description": "All features free during public beta — unlimited accounts, EC2, S3, CloudWatch, GuardDuty, IAM, Billing"
       }
     ],
     "publisher": {
@@ -117,7 +104,7 @@
         "name": "Is Atlas a free AWS console alternative?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes, Atlas has a permanently free tier that includes 1 AWS account, full EC2 management, S3 browser and the unified Dashboard. The Pro plan ($49/year) adds unlimited accounts, CloudWatch, GuardDuty, IAM and Billing."
+          "text": "Yes. Atlas is completely free during the public beta. All features — EC2, S3, CloudWatch, GuardDuty, IAM and Billing — are available with no license key required."
         }
       },
       {
@@ -149,7 +136,7 @@
         "name": "Can Atlas manage multiple AWS accounts at once?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. With the Pro plan, you can register an unlimited number of AWS accounts (each with their own access keys and default region) and switch between them instantly from the top bar. All credentials are encrypted locally."
+          "text": "Yes. You can register an unlimited number of AWS accounts (each with their own access keys and default region) and switch between them instantly from the top bar. All credentials are encrypted locally."
         }
       },
       {
@@ -162,10 +149,10 @@
       },
       {
         "@type": "Question",
-        "name": "What's included in Atlas Pro updates?",
+        "name": "What's included in Atlas updates?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Pro purchase includes all updates during the license period. New AWS services and features are added continuously based on user feedback. The Free plan also receives bug fix updates."
+          "text": "During beta, all updates are free and included automatically. New AWS services and features are added continuously based on user feedback."
         }
       }
     ]
@@ -276,7 +263,7 @@
       <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
         <a href="#features" class="hover:text-white transition">Features</a>
         <a href="#comparison" class="hover:text-white transition">vs AWS Console</a>
-        <a href="#pricing" class="hover:text-white transition">Pricing</a>
+        <a href="#pricing" class="hover:text-white transition">Beta</a>
         <a href="#faq" class="hover:text-white transition">FAQ</a>
         <a href="/docs" class="hover:text-white transition">Docs</a>
         <a href="/contact" class="hover:text-white transition">Contact</a>
@@ -284,9 +271,6 @@
 
       <!-- CTA -->
       <div class="flex items-center gap-3">
-        <a href="#pricing" class="hidden md:block text-sm text-zinc-400 hover:text-white transition px-4 py-2">
-          View Pricing
-        </a>
         <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-900/30 flex items-center gap-2">
           <i class="fa-solid fa-download text-xs"></i>
           Free Download
@@ -303,7 +287,7 @@
       <div class="px-6 py-4 flex flex-col gap-4 text-sm">
         <a href="#features" class="text-zinc-400 hover:text-white transition py-2">Features</a>
         <a href="#comparison" class="text-zinc-400 hover:text-white transition py-2">vs AWS Console</a>
-        <a href="#pricing" class="text-zinc-400 hover:text-white transition py-2">Pricing</a>
+        <a href="#pricing" class="text-zinc-400 hover:text-white transition py-2">Beta</a>
         <a href="#faq" class="text-zinc-400 hover:text-white transition py-2">FAQ</a>
         <a href="/docs" class="text-zinc-400 hover:text-white transition py-2">Docs</a>
         <a href="/contact" class="text-zinc-400 hover:text-white transition py-2">Contact</a>
@@ -323,7 +307,7 @@
           <!-- Badge -->
           <div class="inline-flex items-center gap-2 bg-blue-950/60 border border-blue-800/50 text-blue-300 text-xs font-medium px-4 py-2 rounded-full">
             <span class="status-dot dot-green shimmer"></span>
-            Available for Windows · v__VERSION__
+            Available for Windows · v__VERSION__ beta release
           </div>
 
           <h1 class="text-5xl md:text-6xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight">
@@ -352,9 +336,9 @@
 
           <!-- Trust badges -->
           <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-zinc-500 pt-2">
-            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Free for 1 account</span>
+            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Free — unlimited accounts</span>
             <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Native Dark Mode</span>
-            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> No monthly subscription</span>
+            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> No license key required</span>
           </div>
 
           <!-- Audience tags -->
@@ -507,7 +491,7 @@
         </div>
         <div>
           <div class="text-3xl font-extrabold text-white">∞</div>
-          <div class="text-zinc-500 text-sm mt-1">Accounts on Pro plan</div>
+          <div class="text-zinc-500 text-sm mt-1">AWS accounts supported</div>
         </div>
         <div>
           <div class="text-3xl font-extrabold text-white">native</div>
@@ -642,10 +626,15 @@
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full text-sm" role="table" aria-label="Atlas vs AWS Console comparison">
+        <table class="w-full text-sm table-fixed" role="table" aria-label="Atlas vs AWS Console comparison">
+          <colgroup>
+            <col class="w-2/5">
+            <col class="w-[30%]">
+            <col class="w-[30%]">
+          </colgroup>
           <thead>
             <tr>
-              <th class="text-left py-4 px-6 text-zinc-500 font-medium w-2/5"></th>
+              <th class="text-left py-4 px-6 text-zinc-500 font-medium"></th>
               <th class="py-4 px-6 text-center">
                 <div class="inline-flex items-center gap-2 text-blue-300 font-semibold text-base">
                   <img src="atlas.png" alt="Atlas" class="w-5 h-5 rounded object-contain">
@@ -659,7 +648,7 @@
             <tr class="group">
               <td class="py-4 px-6 text-zinc-300 font-medium">Load time</td>
               <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Instant (native app)</span></td>
-              <td class="py-4 px-6 text-center text-zinc-500”>3–8 s browser load</td>
+              <td class="py-4 px-6 text-center text-zinc-500">3–8 s browser load</td>
             </tr>
             <tr class="group">
               <td class="py-4 px-6 text-zinc-300 font-medium">Bulk EC2 actions</td>
@@ -698,7 +687,7 @@
             </tr>
             <tr class="group">
               <td class="py-4 px-6 text-zinc-300 font-medium">Cost</td>
-              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Free / $49 per year</span></td>
+              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Free (beta)</span></td>
               <td class="py-4 px-6 text-center text-zinc-500">Free (AWS account required)</td>
             </tr>
           </tbody>
@@ -715,11 +704,11 @@
     <div class="absolute inset-0 bg-gradient-to-b from-zinc-950 via-blue-950/10 to-zinc-950 pointer-events-none"></div>
     <div class="max-w-7xl mx-auto px-6 relative z-10">
       <div class="text-center max-w-2xl mx-auto mb-16">
-        <div class="inline-flex items-center gap-2 badge-pro text-white text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-          <i class="fa-solid fa-bolt text-yellow-300 text-xs"></i> Pro Plan
+        <div class="inline-flex items-center gap-2 text-emerald-400 text-sm font-semibold bg-emerald-950/50 border border-emerald-900/50 px-4 py-1.5 rounded-full mb-4">
+          <i class="fa-solid fa-flask text-emerald-300 text-xs"></i> All Free in Beta
         </div>
-        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Enterprise-grade visibility</h2>
-        <p class="text-zinc-400 text-lg">Unlock full visibility into your AWS account with the tools DevOps teams actually need.</p>
+        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Full-stack AWS visibility</h2>
+        <p class="text-zinc-400 text-lg">Every feature is available during the public beta — no license key, no limits.</p>
       </div>
 
       <div class="grid md:grid-cols-2 gap-6">
@@ -733,7 +722,6 @@
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <h3 class="text-lg font-semibold">CloudWatch Alarms</h3>
-                <span class="text-[10px] bg-blue-900/50 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded-full font-medium">PRO</span>
               </div>
               <p class="text-zinc-400 text-sm leading-relaxed mb-4">
                 View all your alarms with status KPIs (ALARM / OK / INSUFFICIENT_DATA).
@@ -757,7 +745,6 @@
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <h3 class="text-lg font-semibold">GuardDuty Findings</h3>
-                <span class="text-[10px] bg-blue-900/50 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded-full font-medium">PRO</span>
               </div>
               <p class="text-zinc-400 text-sm leading-relaxed mb-4">
                 Track security threats detected by GuardDuty in real time.
@@ -781,7 +768,6 @@
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <h3 class="text-lg font-semibold">IAM & Security</h3>
-                <span class="text-[10px] bg-blue-900/50 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded-full font-medium">PRO</span>
               </div>
               <p class="text-zinc-400 text-sm leading-relaxed mb-4">
                 Manage IAM users, roles and policies. Quickly identify excessive
@@ -804,7 +790,6 @@
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <h3 class="text-lg font-semibold">Billing & Costs</h3>
-                <span class="text-[10px] bg-blue-900/50 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded-full font-medium">PRO</span>
               </div>
               <p class="text-zinc-400 text-sm leading-relaxed mb-4">
                 Track spending by service and identify where your money is going.
@@ -855,118 +840,68 @@
     </div>
   </section>
 
-  <!-- ======================== PRICING ======================== -->
+  <!-- ======================== BETA ======================== -->
   <section id="pricing" class="py-24 bg-zinc-950">
-    <div class="max-w-5xl mx-auto px-6">
-      <div class="text-center mb-16">
-        <div class="inline-block text-blue-400 text-sm font-medium bg-blue-950/50 border border-blue-900/50 px-4 py-1.5 rounded-full mb-4">Pricing</div>
-        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Simple and transparent</h2>
-        <p class="text-zinc-400 text-lg">Start free. Upgrade to Pro when you need more power.</p>
+    <div class="max-w-3xl mx-auto px-6 text-center">
+      <div class="inline-flex items-center gap-2 text-emerald-400 text-sm font-medium bg-emerald-950/50 border border-emerald-900/50 px-4 py-1.5 rounded-full mb-4">
+        <i class="fa-solid fa-flask text-emerald-300 text-xs"></i> Public Beta
+      </div>
+      <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Completely free during beta</h2>
+      <p class="text-zinc-400 text-lg mb-10">
+        Atlas is in public beta — all features are available with no license key, no credit card and no limits.
+        Download, explore and share your feedback.
+      </p>
+
+      <div class="pricing-free rounded-3xl p-8 md:p-10 text-left max-w-xl mx-auto mb-8">
+        <div class="mb-6 text-center">
+          <span class="text-5xl font-extrabold">$0</span>
+          <span class="text-zinc-500 ml-2">during beta</span>
+        </div>
+        <ul class="space-y-3 text-sm">
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Unlimited AWS accounts</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Dashboard with KPIs</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">EC2 management & bulk actions</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">S3 browser</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">CloudWatch Alarms</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">GuardDuty Findings</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">IAM & Security Audit</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Billing & Cost Insights</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Native Dark Mode</span>
+          </li>
+        </ul>
       </div>
 
-      <div class="grid md:grid-cols-2 gap-6">
-
-        <!-- Free -->
-        <div class="pricing-free rounded-3xl p-8 md:p-10">
-          <div class="mb-6">
-            <h3 class="text-xl font-semibold mb-1">Free</h3>
-            <p class="text-zinc-500 text-sm">For testing and basic individual use</p>
-          </div>
-          <div class="mb-8">
-            <span class="text-5xl font-extrabold">$0</span>
-            <span class="text-zinc-500 ml-2">forever</span>
-          </div>
-          <ul class="space-y-3 mb-10 text-sm">
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-              <span class="text-zinc-300">1 AWS account</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-              <span class="text-zinc-300">Dashboard with KPIs</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-              <span class="text-zinc-300">Full EC2 management</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-              <span class="text-zinc-300">S3 browser</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-              <span class="text-zinc-300">Native Dark Mode</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-xmark text-zinc-700 w-4 shrink-0"></i>
-              <span class="text-zinc-600">Multiple accounts</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-xmark text-zinc-700 w-4 shrink-0"></i>
-              <span class="text-zinc-600">CloudWatch & GuardDuty</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-xmark text-zinc-700 w-4 shrink-0"></i>
-              <span class="text-zinc-600">IAM & Billing</span>
-            </li>
-          </ul>
-          <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="block w-full bg-zinc-800 hover:bg-zinc-700 text-center py-4 rounded-2xl font-semibold transition">
-            Get Started Free
-          </a>
-        </div>
-
-        <!-- Pro -->
-        <div class="pricing-pro rounded-3xl p-8 md:p-10 relative">
-          <div class="absolute top-6 right-6">
-            <span class="bg-white text-zinc-900 text-xs font-bold px-3 py-1 rounded-full">RECOMMENDED</span>
-          </div>
-          <div class="mb-6">
-            <h3 class="text-xl font-semibold mb-1">Pro</h3>
-            <p class="text-blue-200/70 text-sm">For teams and professional use</p>
-          </div>
-          <div class="mb-8">
-            <span class="text-5xl font-extrabold">$49</span>
-            <span class="text-blue-200/70 ml-2">per year</span>
-          </div>
-          <ul class="space-y-3 mb-10 text-sm">
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>Everything in Free</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>Unlimited AWS accounts</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>Bulk Actions (EC2)</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>CloudWatch Alarms</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>GuardDuty Findings</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>IAM — Users & Roles</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>Billing & Cost Insights</span>
-            </li>
-            <li class="flex items-center gap-3">
-              <i class="fa-solid fa-check text-white w-4 shrink-0"></i>
-              <span>Priority support</span>
-            </li>
-          </ul>
-          <a href="https://atlas-cloud.lemonsqueezy.com/checkout/buy/b77ae4c5-789d-4b23-93c4-449f21d6db79" class="block w-full bg-white hover:bg-zinc-100 active:bg-zinc-200 text-zinc-900 text-center py-4 rounded-2xl font-bold transition">
-            Buy Pro — $49/year
-          </a>
-        </div>
-      </div>
+      <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-500 active:scale-95 px-10 py-4 rounded-2xl font-bold text-lg transition shadow-xl shadow-blue-900/40">
+        <i class="fa-brands fa-windows"></i>
+        Download Free — No Key Required
+      </a>
+      <p class="text-zinc-600 text-sm mt-6">Windows 10/11 · .NET 9 · Beta — subject to change</p>
     </div>
   </section>
 
@@ -1035,7 +970,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Pro purchase includes all updates during the license period. New AWS services and features are added continuously. The Free plan also receives bug fix updates.
+              During beta, all updates are free and included automatically. New AWS services and features are added continuously based on user feedback.
             </p>
           </div>
         </div>
@@ -1047,7 +982,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Yes. Atlas has a permanently free tier with 1 AWS account, full EC2 management, S3 browser and the unified dashboard. The Pro plan ($49/year) unlocks unlimited accounts, CloudWatch, GuardDuty, IAM and Billing.
+              Yes. Atlas is completely free during the public beta. All features — EC2, S3, CloudWatch, GuardDuty, IAM and Billing — are available with no license key required.
             </p>
           </div>
         </div>
@@ -1071,7 +1006,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Yes. With the Pro plan you can register an unlimited number of AWS accounts — each with its own access key, secret key and default region — and switch between them instantly from the top bar. All credentials are encrypted locally with Windows DPAPI and never leave your machine.
+              Yes. You can register an unlimited number of AWS accounts — each with its own access key, secret key and default region — and switch between them instantly from the top bar. All credentials are encrypted locally with Windows DPAPI and never leave your machine.
             </p>
           </div>
         </div>
@@ -1124,8 +1059,8 @@
           <i class="fa-brands fa-windows"></i>
           Download Atlas Free
         </a>
-        <a href="#pricing" class="border border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50 px-10 py-5 rounded-2xl font-medium text-xl transition">
-          View Pro Plan
+        <a href="/docs" class="border border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50 px-10 py-5 rounded-2xl font-medium text-xl transition">
+          Read the Docs
         </a>
       </div>
       <p class="text-zinc-600 text-sm mt-8">Windows 10/11 · .NET 9 · No credit card required</p>
@@ -1155,7 +1090,7 @@
           <ul class="space-y-3 text-sm text-zinc-500">
             <li><a href="#features" class="hover:text-zinc-300 transition">Features</a></li>
             <li><a href="#comparison" class="hover:text-zinc-300 transition">Atlas vs AWS Console</a></li>
-            <li><a href="#pricing" class="hover:text-zinc-300 transition">Pricing</a></li>
+            <li><a href="#pricing" class="hover:text-zinc-300 transition">Beta</a></li>
             <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="hover:text-zinc-300 transition">Download for Windows</a></li>
           </ul>
         </div>
@@ -1179,9 +1114,6 @@
       </div>
     </div>
   </footer>
-
-  <!-- Lemon Squeezy -->
-  <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
 
   <!-- ======================== JS ======================== -->
   <script>

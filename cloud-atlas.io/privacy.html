@@ -16,6 +16,7 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://cloud-atlas.io/privacy">
   <link rel="icon" href="atlas.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="/favicon.ico">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,15 +116,34 @@
       <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
         <a href="/#features" class="hover:text-white transition">Features</a>
         <a href="/#comparison" class="hover:text-white transition">vs AWS Console</a>
-        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+        <a href="/#pricing" class="hover:text-white transition">Beta</a>
         <a href="/#faq" class="hover:text-white transition">FAQ</a>
         <a href="/docs" class="hover:text-white transition">Docs</a>
+        <a href="/contact" class="hover:text-white transition">Contact</a>
       </div>
-      <a href="https://github.com/viniciuslopesgit/atlas-cloud/archive/refs/tags/0.0.1.zip"
-         class="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:scale-95 px-5 py-2.5 rounded-xl font-semibold text-sm transition shadow-lg shadow-blue-900/30">
-        <i class="fa-brands fa-windows text-xs"></i>
-        Download Free
-      </a>
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi"
+           class="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-900/30">
+          <i class="fa-solid fa-download text-xs"></i>
+          Free Download
+        </a>
+        <button id="menu-toggle" class="md:hidden text-zinc-400 hover:text-white transition p-2">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobile-menu" class="hidden md:hidden border-t border-zinc-800 bg-zinc-950/95">
+      <div class="px-6 py-4 flex flex-col gap-4 text-sm">
+        <a href="/#features" class="text-zinc-400 hover:text-white transition py-2">Features</a>
+        <a href="/#comparison" class="text-zinc-400 hover:text-white transition py-2">vs AWS Console</a>
+        <a href="/#pricing" class="text-zinc-400 hover:text-white transition py-2">Beta</a>
+        <a href="/#faq" class="text-zinc-400 hover:text-white transition py-2">FAQ</a>
+        <a href="/docs" class="text-zinc-400 hover:text-white transition py-2">Docs</a>
+        <a href="/contact" class="text-zinc-400 hover:text-white transition py-2">Contact</a>
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi"
+           class="bg-blue-600 hover:bg-blue-500 text-center py-3 rounded-xl font-medium transition">Free Download</a>
+      </div>
     </div>
   </nav>
 
@@ -161,12 +181,9 @@
         This data is aggregated and does not identify you personally.
       </p>
 
-      <h3>b) Purchase information</h3>
+      <h3>b) Beta program</h3>
       <p>
-        Pro plan purchases are processed by <strong>Lemon Squeezy</strong>, our payment provider.
-        We receive confirmation of your purchase (email address, license key). We do not store or process
-        payment card details — those are handled entirely by Lemon Squeezy under their own
-        <a href="https://www.lemonsqueezy.com/privacy" target="_blank" rel="noopener">privacy policy</a>.
+        Atlas is currently in public beta and is free to use. No payment information is collected or processed.
       </p>
 
       <h3>c) Support communications</h3>
@@ -186,7 +203,6 @@
       <h2>2. How We Use Your Information</h2>
       <ul>
         <li>To provide, maintain, and improve the Atlas application and website.</li>
-        <li>To fulfill Pro plan licenses and send license-related communications.</li>
         <li>To respond to support requests.</li>
         <li>To understand website traffic and improve user experience (via aggregated analytics).</li>
       </ul>
@@ -197,7 +213,6 @@
       <p>We use the following third-party services, each governed by their own privacy policies:</p>
       <ul>
         <li><strong>Google Analytics 4</strong> — website analytics (<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a>)</li>
-        <li><strong>Lemon Squeezy</strong> — payment processing (<a href="https://www.lemonsqueezy.com/privacy" target="_blank" rel="noopener">Lemon Squeezy Privacy Policy</a>)</li>
         <li><strong>Amazon Web Services</strong> — your AWS credentials are used to call AWS APIs directly from your device (<a href="https://aws.amazon.com/privacy/" target="_blank" rel="noopener">AWS Privacy Notice</a>)</li>
       </ul>
 
@@ -205,7 +220,6 @@
       <h2>4. Data Retention</h2>
       <p>
         Analytics data is retained by Google according to their standard retention settings.
-        Purchase records are retained as required for tax and accounting purposes.
         Support emails are retained for as long as necessary to resolve your inquiry.
         AWS credentials stored locally are under your full control and can be deleted at any time from within the Atlas application.
       </p>
@@ -299,8 +313,8 @@
           <ul class="space-y-3 text-sm text-zinc-500">
             <li><a href="/#features" class="hover:text-zinc-300 transition">Features</a></li>
             <li><a href="/#comparison" class="hover:text-zinc-300 transition">Atlas vs AWS Console</a></li>
-            <li><a href="/#pricing" class="hover:text-zinc-300 transition">Pricing</a></li>
-            <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/archive/refs/tags/0.0.1.zip" class="hover:text-zinc-300 transition">Download for Windows</a></li>
+            <li><a href="/#pricing" class="hover:text-zinc-300 transition">Beta</a></li>
+            <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="hover:text-zinc-300 transition">Download for Windows</a></li>
           </ul>
         </div>
 
@@ -323,16 +337,17 @@
     </div>
   </footer>
 
-  <!-- Navbar scroll effect -->
+  <!-- Navbar scroll effect + mobile menu -->
   <script>
     const navbar = document.getElementById('navbar');
     window.addEventListener('scroll', () => {
-      if (window.scrollY > 20) {
-        navbar.classList.add('scrolled');
-      } else {
-        navbar.classList.remove('scrolled');
-      }
+      navbar.classList.toggle('scrolled', window.scrollY > 20);
     });
+
+    const menuToggle = document.getElementById('menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    menuToggle.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+    mobileMenu.querySelectorAll('a').forEach(l => l.addEventListener('click', () => mobileMenu.classList.add('hidden')));
   </script>
 
 </body>

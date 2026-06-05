@@ -106,18 +106,6 @@ public partial class App : Application
             accountService.ActiveAccountChanged += (_, _) => clientFactory.InvalidateAll();
             accountService.ActiveRegionChanged  += (_, _) => clientFactory.InvalidateAll();
 
-            // Re-validate the stored license against LemonSqueezy on launch so that
-            // keys disabled/refunded server-side stop working. Network errors are
-            // tolerated (offline grace) — RefreshAsync only revokes on an explicit
-            // valid=false from the server. The MainWindow itself shows an in-window
-            // activation overlay when no valid license is present.
-            var licenseService = _host.Services.GetRequiredService<ILicenseService>();
-            if (licenseService.CurrentLicense is { IsValid: true })
-            {
-                try { await licenseService.RefreshAsync(); }
-                catch (Exception ex) { FileLogger.Warning($"Startup license revalidation failed: {ex.Message}"); }
-            }
-
             _host.Services.GetRequiredService<IAnalyticsService>().TrackAppStart();
 
             var mainWindow = _host.Services.GetRequiredService<MainWindow>();
