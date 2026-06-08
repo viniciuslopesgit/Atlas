@@ -29,6 +29,7 @@
         <DataTemplate DataType="{x:Type vm:BillingViewModel}"><views:BillingView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:CloudWatchViewModel}"><views:CloudWatchView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:GuardDutyViewModel}"><views:GuardDutyView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TerraformViewModel}"><views:TerraformView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:ContactViewModel}"><views:ContactView/></DataTemplate>
 
         <!-- Splitter thumb: invisible hit area, subtle hover line -->
@@ -665,6 +666,22 @@
                             <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
                                        Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                         </Border>
+                    </Grid>
+                </RadioButton>
+
+                <!-- IaC / Terraform -->
+                <RadioButton Style="{StaticResource NavItem}"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=IaC}"
+                             Command="{Binding NavigateToCommand}"
+                             CommandParameter="{x:Static vm:NavigationPage.IaC}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="&#xE9F5;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="IaC" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </RadioButton>
 

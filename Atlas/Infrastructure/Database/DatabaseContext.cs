@@ -40,6 +40,18 @@ public sealed class DatabaseContext : IDisposable
                 Key TEXT PRIMARY KEY,
                 Value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS TerraformProjects (
+                Id                TEXT PRIMARY KEY,
+                Name              TEXT NOT NULL,
+                RootPath          TEXT NOT NULL,
+                DefaultWorkspace  TEXT NOT NULL DEFAULT 'default',
+                BackendType       TEXT NOT NULL DEFAULT 'local',
+                AutoCommitEnabled INTEGER NOT NULL DEFAULT 0,
+                ManagedModules    TEXT NOT NULL DEFAULT '',
+                CreatedAt         TEXT NOT NULL,
+                IsInitialized     INTEGER NOT NULL DEFAULT 0
+            );
             """;
         cmd.ExecuteNonQuery();
     }

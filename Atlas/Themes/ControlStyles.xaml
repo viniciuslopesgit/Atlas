@@ -69,9 +69,9 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="14,9"/>
+        <Setter Property="Padding" Value="12,7"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -149,8 +149,8 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-        <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="Padding" Value="24"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="18"/>
     </Style>
 
     <!-- ── TextBox (usado nas views principais, com template arredondado) ── -->
@@ -366,7 +366,7 @@
         <Setter Property="SelectionMode" Value="Single"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="RowHeight" Value="42"/>
+        <Setter Property="RowHeight" Value="38"/>
     </Style>
 
     <Style TargetType="DataGridColumnHeader">
@@ -375,7 +375,7 @@
         <Setter Property="FontWeight" Value="Medium"/>
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="Padding" Value="14,10"/>
+        <Setter Property="Padding" Value="12,8"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
     </Style>
@@ -402,7 +402,7 @@
 
     <Style TargetType="DataGridCell">
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="Padding" Value="12,7"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Template">

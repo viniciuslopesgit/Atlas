@@ -8,6 +8,7 @@ using Atlas.Infrastructure.Logging;
 using Atlas.Infrastructure.Security;
 using Atlas.Services;
 using Atlas.Services.AWS;
+using Atlas.Services.Terraform;
 using Atlas.ViewModels;
 
 namespace Atlas;
@@ -46,6 +47,7 @@ public partial class App : Application
         // ── Infrastructure ────────────────────────────────────────
         services.AddSingleton<DatabaseContext>();
         services.AddSingleton<IAccountRepository, AccountRepository>();
+        services.AddSingleton<ITerraformProjectRepository, TerraformProjectRepository>();
         services.AddSingleton<ICredentialProtector, DpapiCredentialProtector>();
         services.AddSingleton<AwsClientFactory>();
 
@@ -55,6 +57,8 @@ public partial class App : Application
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IAwsSessionFactory, AwsSessionFactory>();
         services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<ITerraformCliWrapper, TerraformCliWrapper>();
+        services.AddSingleton<ITerraformProjectManager, TerraformProjectManager>();
 
         // ── AWS Services ──────────────────────────────────────────
         services.AddTransient<IEc2Service, Ec2Service>();
@@ -63,7 +67,6 @@ public partial class App : Application
         services.AddTransient<ISearchService, SearchService>();
         services.AddTransient<IIamService, IamService>();
         services.AddTransient<ISecurityAuditService, SecurityAuditService>();
-        services.AddSingleton<IBudgetService, BudgetService>();
         services.AddTransient<IBillingService, BillingService>();
         services.AddTransient<ISsmTerminalService, SsmTerminalService>();
         services.AddTransient<ICloudWatchService, CloudWatchService>();
@@ -85,6 +88,7 @@ public partial class App : Application
         services.AddSingleton<BillingViewModel>();
         services.AddSingleton<CloudWatchViewModel>();
         services.AddSingleton<GuardDutyViewModel>();
+        services.AddSingleton<TerraformViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<ContactViewModel>();
         services.AddSingleton<MainViewModel>();

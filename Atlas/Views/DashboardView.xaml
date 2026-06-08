@@ -5,38 +5,135 @@
 
     <Grid Background="{DynamicResource BackgroundBrush}">
 
-        <!-- ═══════════════ NO ACCOUNT ══════════════════════════════════════ -->
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}">
-            <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets"
-                       FontSize="52" HorizontalAlignment="Center"
-                       Foreground="{DynamicResource TextMutedBrush}"/>
-            <TextBlock Text="No AWS account configured" FontSize="16"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       HorizontalAlignment="Center" Margin="0,12,0,0"/>
-            <TextBlock Text="Go to Settings to add your first account."
-                       FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
-                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
-        </StackPanel>
+        <!-- ═══════════════ NO ACCOUNT STATE ═══════════════════════════════ -->
+        <Grid Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}">
+
+            <!-- ── First-run onboarding (no accounts configured at all) ──── -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="400"
+                        Visibility="{Binding IsFirstRun, Converter={StaticResource BoolToVisible}}">
+                <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets"
+                           FontSize="56" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource AccentBrush}"/>
+                <TextBlock Text="Welcome to Atlas!" FontSize="26" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" Margin="0,16,0,0"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="Connect your AWS account to explore and manage your cloud infrastructure."
+                           FontSize="14" HorizontalAlignment="Center" Margin="0,8,0,32"
+                           TextAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <Button Style="{StaticResource PrimaryButton}"
+                        Command="{Binding OpenAddAccountDialogCommand}"
+                        HorizontalAlignment="Center" Padding="28,11">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Add AWS Account" FontSize="14" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- ── Accounts exist but none is active (e.g. switching accounts) ── -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{Binding IsFirstRun, Converter={StaticResource BoolToInvisible}}">
+                <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets"
+                           FontSize="52" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextMutedBrush}"/>
+                <TextBlock Text="No active account" FontSize="16"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                <TextBlock Text="Select an account from the top menu."
+                           FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
+                           HorizontalAlignment="Center" Margin="0,6,0,0"/>
+            </StackPanel>
+        </Grid>
 
         <!-- ═══════════════ MAIN CONTENT ════════════════════════════════════ -->
         <Grid Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="32,28,32,20">
-            <TextBlock Text="Dashboard" FontSize="24" FontWeight="SemiBold"
+        <StackPanel Grid.Row="0" Margin="24,18,24,12">
+            <TextBlock Text="Dashboard" FontSize="22" FontWeight="SemiBold"
                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-            <TextBlock Text="{Binding LastRefreshedText}" FontSize="12"
-                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"/>
+            <TextBlock Text="{Binding LastRefreshedText}" FontSize="11"
+                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,3,0,0"/>
         </StackPanel>
 
+        <!-- Quick Start card (shown after first-time account setup) -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="24,0,24,4"
+                Visibility="{Binding ShowNextSteps, Converter={StaticResource BoolToVisible}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Quick Start" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+
+                    <!-- Done: account configured -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                   Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="AWS account configured" FontSize="13"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Configure Terraform (shown until configured or skipped) -->
+                    <Border Margin="0,0,0,10"
+                            Visibility="{Binding ShowTerraformStep, Converter={StaticResource BoolToVisible}}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                           Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding ConfigureTerraformCommand}"
+                                        Foreground="{DynamicResource AccentBrush}" Padding="0,2"
+                                        Content="Configure Terraform / OpenTofu" FontSize="13"/>
+                            </StackPanel>
+                            <Button Style="{StaticResource GhostButton}" Command="{Binding SkipTerraformCommand}"
+                                    HorizontalAlignment="Left" Padding="0,0"
+                                    Margin="21,0,0,0" FontSize="11"
+                                    Foreground="{DynamicResource TextMutedBrush}"
+                                    Content="Skip this step"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Explore EC2 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button Style="{StaticResource GhostButton}" Command="{Binding GoToEc2Command}"
+                                Foreground="{DynamicResource AccentBrush}" Padding="0,2"
+                                Content="Explore EC2 instances" FontSize="13"/>
+                    </StackPanel>
+
+                    <!-- Explore S3 -->
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button Style="{StaticResource GhostButton}" Command="{Binding GoToS3Command}"
+                                Foreground="{DynamicResource AccentBrush}" Padding="0,2"
+                                Content="Explore S3 buckets" FontSize="13"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Dismiss -->
+                <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                        Command="{Binding DismissNextStepsCommand}"
+                        Content="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                        Padding="8" VerticalAlignment="Top"
+                        Foreground="{DynamicResource TextMutedBrush}"/>
+            </Grid>
+        </Border>
+
         <!-- Content -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <Grid Margin="32,0,32,32">
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <Grid Margin="24,0,24,20">
 
                 <Grid>
                     <Grid.RowDefinitions>
@@ -73,7 +170,7 @@
                     </Border>
 
                     <!-- ── Global Search Bar ─────────────────────────────── -->
-                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,20" Padding="16,14">
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,14" Padding="14,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -125,7 +222,7 @@
 
                     <!-- ── Search Results Panel ──────────────────────────── -->
                     <Border Grid.Row="2" Style="{StaticResource Card}"
-                            Margin="0,0,0,20" Padding="0"
+                            Margin="0,0,0,14" Padding="0"
                             Visibility="{Binding SearchPanelVisible, Converter={StaticResource BoolToVisible}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -291,61 +388,61 @@
                     </Border>
 
                     <!-- ── KPI Cards ─────────────────────────────────────── -->
-                    <UniformGrid Grid.Row="3" Columns="4" Rows="1" Margin="0,0,0,20">
+                    <UniformGrid Grid.Row="3" Columns="4" Rows="1" Margin="0,0,0,14">
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                        <Border Style="{StaticResource Card}" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="EC2 Running" FontSize="12"
+                                <TextBlock Text="EC2 Running" FontSize="11"
                                            Foreground="{DynamicResource TextMutedBrush}" FontWeight="Medium"/>
                                 <TextBlock Text="{Binding Summary.RunningInstances, FallbackValue='—'}"
-                                           FontSize="26" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
-                                <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0">
+                                           FontSize="24" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5,0,0"/>
+                                <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0">
                                     <Run Text="{Binding Summary.TotalInstances, FallbackValue='—'}"/>
                                     <Run Text="total instances"/>
                                 </TextBlock>
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="6,0,6,0">
+                        <Border Style="{StaticResource Card}" Margin="4,0,4,0">
                             <StackPanel>
-                                <TextBlock Text="EC2 Stopped" FontSize="12"
+                                <TextBlock Text="EC2 Stopped" FontSize="11"
                                            Foreground="{DynamicResource TextMutedBrush}" FontWeight="Medium"/>
                                 <TextBlock Text="{Binding Summary.StoppedInstances, FallbackValue='—'}"
-                                           FontSize="26" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
-                                <TextBlock Text="instances stopped" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                           FontSize="24" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5,0,0"/>
+                                <TextBlock Text="instances stopped" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="6,0,6,0">
+                        <Border Style="{StaticResource Card}" Margin="4,0,4,0">
                             <StackPanel>
-                                <TextBlock Text="S3 Buckets" FontSize="12"
+                                <TextBlock Text="S3 Buckets" FontSize="11"
                                            Foreground="{DynamicResource TextMutedBrush}" FontWeight="Medium"/>
                                 <TextBlock Text="{Binding Summary.S3BucketCount, FallbackValue='—'}"
-                                           FontSize="26" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
-                                <TextBlock Text="buckets in region" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                           FontSize="24" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5,0,0"/>
+                                <TextBlock Text="buckets in region" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="12,0,0,0">
+                        <Border Style="{StaticResource Card}" Margin="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="Active Alarms" FontSize="12"
+                                <TextBlock Text="Active Alarms" FontSize="11"
                                            Foreground="{DynamicResource TextMutedBrush}" FontWeight="Medium"/>
                                 <TextBlock Text="{Binding Summary.ActiveAlarms, FallbackValue='—'}"
-                                           FontSize="26" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource DangerBrush}" Margin="0,8,0,0"/>
-                                <TextBlock Text="CloudWatch alarms" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                           FontSize="24" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource DangerBrush}" Margin="0,5,0,0"/>
+                                <TextBlock Text="CloudWatch alarms" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
 
                     <!-- ── Cost & Usage ───────────────────────────────────── -->
-                    <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,0,0,20">
+                    <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,0,0,14">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -354,7 +451,7 @@
                             </Grid.RowDefinitions>
 
                             <!-- Section title -->
-                            <Grid Grid.Row="0" Margin="0,0,0,20">
+                            <Grid Grid.Row="0" Margin="0,0,0,14">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -394,7 +491,7 @@
                             </Grid>
 
                             <!-- Three cost figures — forecast hidden for historical months -->
-                            <Grid Grid.Row="1" Margin="0,0,0,24">
+                            <Grid Grid.Row="1" Margin="0,0,0,16">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
@@ -408,10 +505,10 @@
                                         <TextBlock Text="{Binding CurrentMonthLabel}" FontSize="11"
                                                    Foreground="{DynamicResource TextMutedBrush}" FontWeight="Medium"/>
                                         <TextBlock Text="{Binding CurrentMonthCostText}"
-                                                   FontSize="22" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
+                                                   FontSize="20" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5,0,0"/>
                                         <TextBlock Text="blended spend" FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0"/>
                                     </StackPanel>
                                 </Border>
 
@@ -423,10 +520,10 @@
                                         <TextBlock Text="Forecasted (EOM)" FontSize="11"
                                                    Foreground="{DynamicResource TextMutedBrush}" FontWeight="Medium"/>
                                         <TextBlock Text="{Binding ForecastedCostText}"
-                                                   FontSize="22" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
+                                                   FontSize="20" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5,0,0"/>
                                         <TextBlock Text="projected end-of-month" FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0"/>
                                     </StackPanel>
                                 </Border>
 
@@ -440,10 +537,10 @@
                                         <TextBlock Text="Previous month" FontSize="11"
                                                    Foreground="{DynamicResource TextMutedBrush}" FontWeight="Medium"/>
                                         <TextBlock Text="{Binding LastMonthCostText}"
-                                                   FontSize="22" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,0"/>
+                                                   FontSize="20" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,5,0,0"/>
                                         <TextBlock Text="month total" FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -511,20 +608,20 @@
                     </Border>
 
                     <!-- ── Cost by Service ────────────────────────────────── -->
-                    <Border Grid.Row="5" Style="{StaticResource Card}" Margin="0,0,0,20"
+                    <Border Grid.Row="5" Style="{StaticResource Card}" Margin="0,0,0,14"
                             Visibility="{Binding HasServiceCosts, Converter={StaticResource BoolToVisible}}">
                         <StackPanel>
                             <!-- Title -->
-                            <TextBlock Text="Cost by Service" FontSize="15" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                            <TextBlock Text="Cost by Service" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,3"/>
                             <TextBlock Text="Top services by blended cost · sorted by spend"
-                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,20"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,14"/>
 
                             <!-- Service rows -->
                             <ItemsControl ItemsSource="{Binding ServiceCostRows}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Margin="0,0,0,12">
+                                        <Grid Margin="0,0,0,9">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="140"/>
                                                 <ColumnDefinition Width="*"/>
@@ -581,19 +678,19 @@
                     </Border>
 
                     <!-- ── Security Quick Audit (Pro) ───────────────────── -->
-                    <Border Grid.Row="6" Style="{StaticResource Card}" Margin="0,0,0,20">
+                    <Border Grid.Row="6" Style="{StaticResource Card}" Margin="0,0,0,14">
                         <Grid>
                             <!-- Content -->
                             <StackPanel>
                                 <!-- Header row -->
-                                <Grid Margin="0,0,0,16">
+                                <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Security Quick Audit" FontSize="15" FontWeight="SemiBold"
+                                            <TextBlock Text="Security Quick Audit" FontSize="14" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <Border CornerRadius="6" Padding="8,2" Margin="10,0,0,0"
                                                     Background="{DynamicResource SidebarActiveBrush}" VerticalAlignment="Center">
@@ -622,7 +719,7 @@
                                 </Grid>
 
                                 <!-- Summary badges (visible after audit runs) -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16"
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12"
                                             Visibility="{Binding HasAuditResults, Converter={StaticResource BoolToVisible}}">
                                     <Border CornerRadius="8" Padding="10,4" Margin="0,0,8,0" Background="#1AF87171">
                                         <StackPanel Orientation="Horizontal">
@@ -763,213 +860,12 @@
                         </Grid>
                     </Border>
 
-                    <!-- ── Cost Alerts (Pro) ──────────────────────────────── -->
-                    <Border Grid.Row="7" Style="{StaticResource Card}" Margin="0,0,0,20">
-                        <Grid>
-                            <!-- Content -->
-                            <StackPanel>
-                                <!-- Header -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
-                                    <TextBlock Text="Cost Alerts" FontSize="15" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <Border CornerRadius="6" Padding="8,2" Margin="10,0,0,0"
-                                            Background="#1AFBBF24" VerticalAlignment="Center">
-                                        <TextBlock Text="PRO" FontSize="10" FontWeight="Bold"
-                                                   Foreground="{DynamicResource WarningBrush}"/>
-                                    </Border>
-                                </StackPanel>
-
-                                <!-- Budget input row -->
-                                <Grid Margin="0,0,0,20">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="160"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Monthly budget (USD)"
-                                               FontSize="13" FontWeight="Medium"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               VerticalAlignment="Center" Margin="0,0,14,0"/>
-                                    <Border Grid.Column="1" BorderThickness="1"
-                                            BorderBrush="{DynamicResource BorderBrush}"
-                                            CornerRadius="8" Padding="12,8">
-                                        <TextBox Text="{Binding BudgetInputText, UpdateSourceTrigger=PropertyChanged}"
-                                                 BorderThickness="0" Background="Transparent"
-                                                 FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"
-                                                 VerticalAlignment="Center" Padding="0"/>
-                                    </Border>
-                                    <Button Grid.Column="2" Style="{StaticResource GhostButton}"
-                                            Command="{Binding SaveBudgetCommand}"
-                                            Margin="10,0,0,0" Padding="16,8"
-                                            FontSize="12" FontWeight="Medium"
-                                            Foreground="{DynamicResource AccentBrush}"
-                                            Content="Save"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding BudgetSaveMessage}"
-                                               FontSize="11" Foreground="{DynamicResource SuccessBrush}"
-                                               VerticalAlignment="Center" Margin="12,0,0,0"
-                                               TextTrimming="CharacterEllipsis"/>
-                                </Grid>
-
-                                <!-- Budget bars (shown only when a budget is set) -->
-                                <StackPanel Visibility="{Binding HasBudget, Converter={StaticResource BoolToVisible}}">
-
-                                    <!-- Current spend bar -->
-                                    <Grid Margin="0,0,0,10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Current spend"
-                                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   VerticalAlignment="Center"/>
-                                        <Grid Grid.Column="1" Height="10" Margin="0,0,12,0" VerticalAlignment="Center">
-                                            <Border Background="{DynamicResource SidebarActiveBrush}" CornerRadius="5"/>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="{Binding BudgetUsageFill}"/>
-                                                    <ColumnDefinition Width="{Binding BudgetUsageEmpty}"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.Column="0" CornerRadius="5" Opacity="0.9">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Warning">
-                                                                    <Setter Property="Background" Value="{DynamicResource WarningBrush}"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Critical">
-                                                                    <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                </Border>
-                                            </Grid>
-                                        </Grid>
-                                        <TextBlock Grid.Column="2" Text="{Binding BudgetUsageText}"
-                                                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-
-                                    <!-- Forecasted spend bar -->
-                                    <Grid Margin="0,0,0,16"
-                                          Visibility="{Binding ShowForecast, Converter={StaticResource BoolToVisible}}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Forecast (EOM)"
-                                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   VerticalAlignment="Center"/>
-                                        <Grid Grid.Column="1" Height="10" Margin="0,0,12,0" VerticalAlignment="Center">
-                                            <Border Background="{DynamicResource SidebarActiveBrush}" CornerRadius="5"/>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="{Binding BudgetForecastFill}"/>
-                                                    <ColumnDefinition Width="{Binding BudgetForecastEmpty}"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.Column="0" CornerRadius="5" Opacity="0.65">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Critical">
-                                                                    <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                </Border>
-                                            </Grid>
-                                        </Grid>
-                                        <TextBlock Grid.Column="2" Text="{Binding BudgetForecastText}"
-                                                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-
-                                    <!-- Alert banner (always shown when budget is set) -->
-                                    <Border CornerRadius="8" Padding="14,10"
-                                            Visibility="{Binding HasBudget, Converter={StaticResource BoolToVisible}}">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="#1AFBBF24"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Critical">
-                                                        <Setter Property="Background" Value="#1AF87171"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Ok">
-                                                        <Setter Property="Background" Value="#1A4ADE80"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                       VerticalAlignment="Center" Margin="0,0,10,0">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Text" Value="&#xE73E;"/>
-                                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Warning">
-                                                                <Setter Property="Text" Value="&#xE7BA;"/>
-                                                                <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Critical">
-                                                                <Setter Property="Text" Value="&#xEA39;"/>
-                                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                            <TextBlock Text="{Binding BudgetAlertText}" FontSize="12">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Warning">
-                                                                <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding BudgetAlertLevel}" Value="Critical">
-                                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </StackPanel>
-
-                            <!-- Pro lock overlay -->
-                            <Border CornerRadius="12" Panel.ZIndex="5"
-                                    Background="{DynamicResource BackgroundBrush}" Opacity="0.94"
-                                    Visibility="{Binding IsPro, Converter={StaticResource BoolToInvisible}}">
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,24">
-                                    <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="36"
-                                               Foreground="{DynamicResource TextMutedBrush}"
-                                               HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Pro feature" FontSize="15" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               HorizontalAlignment="Center" Margin="0,12,0,0"/>
-                                    <TextBlock Text="Upgrade to Atlas Pro to set budget alerts."
-                                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
-                                               HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-                    </Border>
 
                     <!-- ── Account Info ───────────────────────────────────── -->
                     <Border Grid.Row="8" Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Text="Account Details" FontSize="15" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16"/>
+                            <TextBlock Text="Account Details" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,12"/>
 
                             <Grid>
                                 <Grid.ColumnDefinitions>

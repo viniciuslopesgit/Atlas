@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -31,7 +30,7 @@ public partial class DashboardViewModel : AsyncViewModel
     private readonly ISearchService       _search;
     private readonly ILicenseService      _license;
     private readonly ISecurityAuditService _audit;
-    private readonly IBudgetService       _budget;
+    private readonly IDialogService       _dialog;
 
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _auditCts;
@@ -183,6 +182,14 @@ public partial class DashboardViewModel : AsyncViewModel
     [ObservableProperty] private ObservableCollection<SearchResult> _searchResults = [];
 
     public Action<SearchResult>? NavigateToResultRequested { get; set; }
+    public Action<NavigationPage>? NavigateToPageRequested { get; set; }
+
+    // ── Onboarding (first run — no accounts configured) ───────────────────────
+    public bool IsFirstRun => _accounts.Accounts.Count == 0;
+
+    [ObservableProperty] private bool _showNextSteps;
+    [ObservableProperty] private bool _showTerraformStep;
+    [ObservableProperty] private string? _terraformProjectPath;
 
     public bool HasActiveAccount => _accounts.ActiveAccount != null;
     public bool HasSearchResults => SearchResults.Count > 0;
@@ -202,52 +209,6 @@ public partial class DashboardViewModel : AsyncViewModel
         _                        => ""
     };
 
-    // ── Cost Alerts ───────────────────────────────────────────────────────
-    [ObservableProperty] private string _budgetInputText = string.Empty;
-    [ObservableProperty] private string _budgetSaveMessage = string.Empty;
-
-    private decimal? _currentBudget;
-
-    public bool   HasBudget          => _currentBudget is > 0 && Summary != null;
-    public double BudgetUsagePercent  => HasBudget
-        ? Math.Min(100, (double)(Summary!.CurrentMonthCost / _currentBudget!.Value) * 100) : 0;
-    public double BudgetForecastPct   => HasBudget
-        ? Math.Min(100, (double)(Summary!.ForecastedMonthCost / _currentBudget!.Value) * 100) : 0;
-
-    public string BudgetUsageText => HasBudget
-        ? $"{Summary!.CostCurrency} {Summary.CurrentMonthCost:N2} of {Summary.CostCurrency} {_currentBudget:N2}"
-        : string.Empty;
-
-    public string BudgetForecastText => HasBudget
-        ? $"{Summary!.CostCurrency} {Summary.ForecastedMonthCost:N2} forecasted (EOM)"
-        : string.Empty;
-
-    public GridLength BudgetUsageFill     => new(Math.Max(1, BudgetUsagePercent),    GridUnitType.Star);
-    public GridLength BudgetUsageEmpty    => new(Math.Max(0, 100 - BudgetUsagePercent), GridUnitType.Star);
-    public GridLength BudgetForecastFill  => new(Math.Max(1, BudgetForecastPct),     GridUnitType.Star);
-    public GridLength BudgetForecastEmpty => new(Math.Max(0, 100 - BudgetForecastPct), GridUnitType.Star);
-
-    public AlertLevel BudgetAlertLevel
-    {
-        get
-        {
-            if (!HasBudget) return AlertLevel.None;
-            var cur  = (double)(Summary!.CurrentMonthCost  / _currentBudget!.Value);
-            var fore = (double)(Summary.ForecastedMonthCost / _currentBudget.Value);
-            if (cur >= 1.0 || fore >= 1.0) return AlertLevel.Critical;
-            if (cur >= 0.8 || fore >= 0.9) return AlertLevel.Warning;
-            return AlertLevel.Ok;
-        }
-    }
-
-    public string BudgetAlertText => BudgetAlertLevel switch
-    {
-        AlertLevel.Critical => "Current spend has exceeded your monthly budget!",
-        AlertLevel.Warning  => "Spending is approaching your monthly budget limit.",
-        AlertLevel.Ok       => "Spending is within budget.",
-        _                   => string.Empty
-    };
-
     // ── Constructor ───────────────────────────────────────────────────────
     public DashboardViewModel(
         IDashboardService dashboard,
@@ -255,14 +216,14 @@ public partial class DashboardViewModel : AsyncViewModel
         ISearchService    search,
         ILicenseService   license,
         ISecurityAuditService audit,
-        IBudgetService    budget)
+        IDialogService    dialog)
     {
         _dashboard = dashboard;
         _accounts  = accounts;
         _search    = search;
         _license   = license;
         _audit     = audit;
-        _budget    = budget;
+        _dialog    = dialog;
 
         IsPro = _license.IsPro;
         _licenseChangedHandler = (_, _) => IsPro = _license.IsPro;
@@ -320,6 +281,35 @@ public partial class DashboardViewModel : AsyncViewModel
     [RelayCommand]
     private void ClearSearch() => SearchQuery = string.Empty;
 
+    // ── Onboarding commands ───────────────────────────────────────────────────
+    [RelayCommand]
+    private void OpenAddAccountDialog()
+    {
+        var added = _dialog.ShowAddAccountDialog();
+        if (added)
+        {
+            ShowNextSteps    = true;
+            ShowTerraformStep = true;
+        }
+    }
+
+    [RelayCommand]
+    private void ConfigureTerraform()
+    {
+        var path = _dialog.ShowFolderPicker("Select your Terraform / OpenTofu project folder");
+        if (path == null) return;
+        TerraformProjectPath = path;
+        ShowTerraformStep    = false;
+    }
+
+    [RelayCommand]
+    private void SkipTerraform() => ShowTerraformStep = false;
+
+    [RelayCommand] private void DismissNextSteps() => ShowNextSteps = false;
+    [RelayCommand] private void GoToEc2()      => NavigateToPageRequested?.Invoke(NavigationPage.EC2);
+    [RelayCommand] private void GoToS3()       => NavigateToPageRequested?.Invoke(NavigationPage.S3);
+    [RelayCommand] private void GoToSettings() => NavigateToPageRequested?.Invoke(NavigationPage.Settings);
+
     [RelayCommand]
     private void NavigateToResult(SearchResult result)
     {
@@ -367,42 +357,6 @@ public partial class DashboardViewModel : AsyncViewModel
         }
     }
 
-    // ── Cost Alerts ───────────────────────────────────────────────────────
-    [RelayCommand]
-    private void SaveBudget()
-    {
-        if (_accounts.ActiveAccount == null) return;
-
-        if (string.IsNullOrWhiteSpace(BudgetInputText) ||
-            !decimal.TryParse(BudgetInputText.Replace(",", "."),
-                NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) ||
-            amount < 0)
-        {
-            BudgetSaveMessage = "Invalid amount — enter a positive number.";
-            return;
-        }
-
-        _currentBudget = amount > 0 ? amount : null;
-        _budget.SetMonthlyBudget(_accounts.ActiveAccount.Id, _currentBudget);
-        RefreshBudgetProperties();
-        BudgetSaveMessage = amount > 0 ? $"Budget set to {Summary?.CostCurrency ?? "USD"} {amount:N2}" : "Budget cleared.";
-    }
-
-    private void RefreshBudgetProperties()
-    {
-        OnPropertyChanged(nameof(HasBudget));
-        OnPropertyChanged(nameof(BudgetUsagePercent));
-        OnPropertyChanged(nameof(BudgetForecastPct));
-        OnPropertyChanged(nameof(BudgetUsageFill));
-        OnPropertyChanged(nameof(BudgetUsageEmpty));
-        OnPropertyChanged(nameof(BudgetForecastFill));
-        OnPropertyChanged(nameof(BudgetForecastEmpty));
-        OnPropertyChanged(nameof(BudgetUsageText));
-        OnPropertyChanged(nameof(BudgetForecastText));
-        OnPropertyChanged(nameof(BudgetAlertLevel));
-        OnPropertyChanged(nameof(BudgetAlertText));
-    }
-
     // ── Dashboard load ────────────────────────────────────────────────────
     private void OnAccountChanged(object? s, EventArgs e)
     {
@@ -414,6 +368,7 @@ public partial class DashboardViewModel : AsyncViewModel
         SearchResults.Clear();
 
         OnPropertyChanged(nameof(HasActiveAccount));
+        OnPropertyChanged(nameof(IsFirstRun));
         _ = LoadAsync(force: true);
     }
 
@@ -422,11 +377,6 @@ public partial class DashboardViewModel : AsyncViewModel
     {
         if (_accounts.ActiveAccount == null) return;
         if (!force && !IsDataStale) return;
-
-        // Load budget for current account
-        _currentBudget   = _budget.GetMonthlyBudget(_accounts.ActiveAccount.Id);
-        BudgetInputText  = _currentBudget?.ToString("F2", CultureInfo.InvariantCulture) ?? string.Empty;
-        BudgetSaveMessage = string.Empty;
 
         var ct = BeginLoad();
         try
@@ -452,7 +402,6 @@ public partial class DashboardViewModel : AsyncViewModel
             OnPropertyChanged(nameof(AccountArnText));
             OnPropertyChanged(nameof(AccountRegionText));
             OnPropertyChanged(nameof(AccountAliasText));
-            RefreshBudgetProperties();
             EndLoad();
         }
         catch (Exception ex)
@@ -479,5 +428,3 @@ public partial class DashboardViewModel : AsyncViewModel
         base.Dispose(disposing);
     }
 }
-
-public enum AlertLevel { None, Ok, Warning, Critical }

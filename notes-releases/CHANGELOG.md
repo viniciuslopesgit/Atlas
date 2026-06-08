@@ -4,6 +4,55 @@ All notable changes to Atlas will be documented in this file.
 
 ---
 
+## [Unreleased] — 2026-06-08
+
+### Added
+
+#### IaC — Infrastructure as Code (Terraform integration)
+
+**Data layer**
+- `TerraformProjectConfig` model — properties: `Id`, `Name`, `RootPath`, `DefaultWorkspace`, `BackendType`, `AutoCommitEnabled`, `ManagedModules`, `IsInitialized`, `CreatedAt`
+- `ITerraformProjectRepository` / `TerraformProjectRepository` — full CRUD + `MarkInitialized`; persisted in SQLite (`TerraformProjects` table added to `DatabaseContext.InitializeSchema`)
+
+**Service layer — Project Manager**
+- `ITerraformProjectManager` / `TerraformProjectManager` — validates `.tf` presence in directory, delegates `init` to CLI wrapper, saves/removes projects
+
+**Service layer — CLI Wrapper** (`Services/Terraform/`)
+- `TerraformAwsCredentials` record — `AccessKeyId`, `SecretAccessKey`, `Region`, `SessionToken?`; injected as child-process env vars only — parent process env is never modified
+- `TerraformResult` record — `Status` (`Success`, `PlanHasChanges`, `NoChanges`, `Failed`, `Cancelled`, `TimedOut`, `TerraformNotFound`), `IsSuccess`, `Stdout`, `Stderr`, `FullOutput`, `ParsedErrors`, `DiagnosticMessage`, `Duration`
+- `ITerraformCliWrapper` interface — `GetVersionAsync`, `InitAsync`, `ValidateAsync`, `PlanAsync`, `ApplyAsync`, `ImportAsync`, `OutputAsync`; all accept `IProgress<string>?` and `CancellationToken`
+- `TerraformCliWrapper` implementation:
+  - Executes `terraform` via `System.Diagnostics.Process` with `BeginOutputReadLine`/`BeginErrorReadLine` for real-time streaming
+  - `TF_IN_AUTOMATION=1` and `TF_INPUT=false` always set — prevents interactive prompts
+  - Linked `CancellationTokenSource` separates user cancellation from configurable timeout (default 5 min)
+  - `terraform plan` exit-code 2 mapped to `PlanHasChanges` (not an error)
+  - `terraform` not found in PATH detected via `Win32Exception` native codes and mapped to `TerraformNotFound`
+  - Terraform error block parser: supports TF 1.x `╷/╵` diagnostic format and legacy `Error:` prefix lines
+  - Friendly diagnostic messages for: expired/invalid AWS credentials, state lock, uninitialized backend, missing provider, insufficient permissions, HCL syntax errors
+  - All operations logged via `FileLogger`
+
+**ViewModel**
+- `TerraformViewModel` — `[RelayCommand]` for `LoadAsync`, `AddProject`, `RemoveProject`, `RunInit`, `RunValidate`, `RunPlan`, `RunApply`, `RunOutput`
+- `RunCommandAsync` central method streams output line-by-line via `IProgress<string>` → updates `TerminalOutput` on the UI thread in real time
+- Reads active AWS account credentials from `IAccountService` at execution time — never cached in the ViewModel
+- Detects and displays terraform CLI version badge on page load
+
+**View**
+- `TerraformView.xaml` — new IaC page styled to match all existing views (`Card`, `GhostButton`, `PrimaryButton`, standard margins)
+- Per-project action bar: **init · validate · plan · apply · output** ghost buttons, all disabled while a command runs
+- Integrated terminal panel: header with running/success/error state, scrollable `Consolas` output, stderr appended with separator
+- "Add Project" form: Project Name, Root Path (with `OpenFolderDialog` browse button), Default Workspace, Backend Type dropdown (`local`, `s3`, `azurerm`, `gcs`, `remote`), Auto-commit toggle
+- terraform CLI version badge in page header (hidden when CLI not found)
+
+**Navigation & DI**
+- `NavigationPage.IaC` added to the enum — free tier (not Pro-gated)
+- Sidebar item "IaC" (`&#xE9F5;`) added before the Settings separator
+- `DataTemplate` registered in `MainWindow.xaml`
+- DI registrations in `App.xaml.cs`: `ITerraformProjectRepository`, `ITerraformCliWrapper`, `ITerraformProjectManager`, `TerraformViewModel`
+- IaC page added to Command Palette with keywords: terraform, iac, infrastructure, init, workspace
+
+---
+
 ## [0.0.1] — 2026-06-02
 
 ### Initial release

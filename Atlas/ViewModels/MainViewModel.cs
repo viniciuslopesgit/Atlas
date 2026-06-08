@@ -9,7 +9,7 @@ using System.Reflection;
 
 namespace Atlas.ViewModels;
 
-public enum NavigationPage { Dashboard, EC2, S3, IAM, Billing, CloudWatch, GuardDuty, Settings, Contact }
+public enum NavigationPage { Dashboard, EC2, S3, IAM, Billing, CloudWatch, GuardDuty, IaC, Settings, Contact }
 
 public partial class MainViewModel : ObservableObject
 {
@@ -27,6 +27,7 @@ public partial class MainViewModel : ObservableObject
     public BillingViewModel     BillingVM      { get; }
     public CloudWatchViewModel  CloudWatchVM   { get; }
     public GuardDutyViewModel   GuardDutyVM    { get; }
+    public TerraformViewModel   TerraformVM    { get; }
     public SettingsViewModel    SettingsVM     { get; }
     public ContactViewModel     ContactVM      { get; }
 
@@ -135,6 +136,7 @@ public partial class MainViewModel : ObservableObject
         BillingViewModel billingVM,
         CloudWatchViewModel cloudWatchVM,
         GuardDutyViewModel guardDutyVM,
+        TerraformViewModel terraformVM,
         SettingsViewModel settingsVM,
         ContactViewModel contactVM)
     {
@@ -154,6 +156,7 @@ public partial class MainViewModel : ObservableObject
         BillingVM = billingVM;
         CloudWatchVM = cloudWatchVM;
         GuardDutyVM  = guardDutyVM;
+        TerraformVM  = terraformVM;
         SettingsVM   = settingsVM;
         ContactVM    = contactVM;
 
@@ -181,6 +184,7 @@ public partial class MainViewModel : ObservableObject
         InitializePaletteCommands();
 
         DashboardVM.NavigateToResultRequested = OnSearchResultNavigated;
+        DashboardVM.NavigateToPageRequested   = NavigateTo;
 
         _ = CheckForUpdatesAsync();
     }
@@ -269,6 +273,7 @@ public partial class MainViewModel : ObservableObject
         else if (CurrentViewModel is BillingViewModel bvm)     _ = bvm.LoadAsync(force: true);
         else if (CurrentViewModel is CloudWatchViewModel cwvm) _ = cwvm.LoadAsync(force: true);
         else if (CurrentViewModel is GuardDutyViewModel gdvm)  _ = gdvm.LoadAsync(force: true);
+        else if (CurrentViewModel is TerraformViewModel tvm)   _ = tvm.LoadAsync(force: true);
     }
 
     [RelayCommand]
@@ -312,6 +317,7 @@ public partial class MainViewModel : ObservableObject
             NavigationPage.Billing     => BillingVM,
             NavigationPage.CloudWatch  => CloudWatchVM,
             NavigationPage.GuardDuty   => GuardDutyVM,
+            NavigationPage.IaC         => TerraformVM,
             NavigationPage.Settings    => SettingsVM,
             NavigationPage.Contact     => ContactVM,
             _                          => DashboardVM
@@ -325,6 +331,7 @@ public partial class MainViewModel : ObservableObject
         if (CurrentViewModel is BillingViewModel bvm)     _ = bvm.LoadAsync();
         if (CurrentViewModel is CloudWatchViewModel cwvm) _ = cwvm.LoadAsync();
         if (CurrentViewModel is GuardDutyViewModel gdvm)  _ = gdvm.LoadAsync();
+        if (CurrentViewModel is TerraformViewModel tvm)   _ = tvm.LoadAsync();
     }
 
     partial void OnSelectedAccountChanged(AwsAccount? value)
@@ -391,6 +398,11 @@ public partial class MainViewModel : ObservableObject
             new() { Title = "Go to Settings",        Category = "Navigate", Icon = "",
                     Keywords = ["settings", "config", "accounts", "preferences", "keys"],
                     Execute = () => NavigateTo(NavigationPage.Settings) },
+            new() { Title = "Infrastructure as Code", Category = "Navigate", Icon = "",
+                    Subtitle = "Manage Terraform projects",
+                    Keywords = ["terraform", "iac", "infrastructure", "code", "init", "workspace"],
+                    Execute = () => NavigateTo(NavigationPage.IaC) },
+
             new() { Title = "Contact & Feedback",    Category = "Navigate", Icon = "",
                     Subtitle = "Report a bug or send a suggestion",
                     Keywords = ["contact", "feedback", "bug", "report", "suggestion", "help"],
