@@ -4,6 +4,8 @@ using Atlas.Infrastructure.Logging;
 using Atlas.Models;
 using Atlas.Services;
 using Atlas.Services.AWS;
+using Atlas.Services.Terraform;
+using Atlas.Services.Terraform.Hcl.Models;
 using Atlas.Views;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -13,12 +15,13 @@ namespace Atlas.ViewModels;
 
 public partial class Ec2ViewModel : AsyncViewModel
 {
-    private readonly IEc2Service _ec2;
-    private readonly IAccountService _accounts;
-    private readonly IDialogService _dialog;
-    private readonly ILicenseService _license;
-    private readonly IUpgradeService _upgrade;
+    private readonly IEc2Service        _ec2;
+    private readonly IAccountService    _accounts;
+    private readonly IDialogService     _dialog;
+    private readonly ILicenseService    _license;
+    private readonly IUpgradeService    _upgrade;
     private readonly ISsmTerminalService _ssm;
+    private readonly ITerraformService  _terraform;
     private List<Ec2InstanceModel> _allInstances = [];
 
     [ObservableProperty] private ObservableCollection<Ec2InstanceModel> _instances = [];
@@ -29,6 +32,13 @@ public partial class Ec2ViewModel : AsyncViewModel
     [ObservableProperty] private bool _areAllInstancesSelected;
     [ObservableProperty] private Ec2InstanceModel? _selectedInstance;
     [ObservableProperty] private string _selectedDetailTab = "Details";
+
+    // ── Terraform Sync ────────────────────────────────────────────────────────
+    [ObservableProperty] private bool    _isTerraformSyncing;
+    [ObservableProperty] private string? _terraformSyncMessage;
+    [ObservableProperty] private bool    _terraformSyncSuccess;
+
+    public bool HasTerraformProject => _terraform.ActiveProject is not null;
 
     // ── Metrics ──────────────────────────────────────────────────────────────
     [ObservableProperty] private Ec2InstanceMetrics? _selectedMetrics;
@@ -67,14 +77,16 @@ public partial class Ec2ViewModel : AsyncViewModel
     }
 
     public Ec2ViewModel(IEc2Service ec2, IAccountService accounts, IDialogService dialog,
-                        ILicenseService license, IUpgradeService upgrade, ISsmTerminalService ssm)
+                        ILicenseService license, IUpgradeService upgrade,
+                        ISsmTerminalService ssm, ITerraformService terraform)
     {
-        _ec2 = ec2;
-        _accounts = accounts;
-        _dialog = dialog;
-        _license = license;
-        _upgrade = upgrade;
-        _ssm = ssm;
+        _ec2       = ec2;
+        _accounts  = accounts;
+        _dialog    = dialog;
+        _license   = license;
+        _upgrade   = upgrade;
+        _ssm       = ssm;
+        _terraform = terraform;
         _accounts.ActiveAccountChanged += OnAccountChanged;
     }
 
@@ -299,6 +311,84 @@ public partial class Ec2ViewModel : AsyncViewModel
             FileLogger.Error($"Ec2ViewModel action '{verb}' failed", ex);
             ErrorMessage = $"Error {verb} instance(s): {ex.Message}";
             EndLoad(false);
+        }
+    }
+
+    // ── Terraform Sync ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Gera HCL Terraform para as instâncias seleccionadas (ou todas carregadas
+    /// se nada estiver seleccionado) e escreve no projecto IaC activo.
+    /// </summary>
+    [RelayCommand]
+    private async Task SyncToTerraform()
+    {
+        if (_terraform.ActiveProject is null)
+        {
+            TerraformSyncMessage = "No Terraform project configured — add one in the IaC page.";
+            TerraformSyncSuccess = false;
+            return;
+        }
+
+        var targets = SelectedInstances.Count > 0
+            ? SelectedInstances.ToList()
+            : _allInstances.Take(100).ToList();
+
+        if (targets.Count == 0)
+        {
+            TerraformSyncMessage = "No instances to sync.";
+            TerraformSyncSuccess = false;
+            return;
+        }
+
+        IsTerraformSyncing   = true;
+        TerraformSyncMessage = $"Syncing {targets.Count} instance(s)…";
+        TerraformSyncSuccess = true;
+        ErrorMessage         = null;
+
+        try
+        {
+            var failed = 0;
+            var writtenFile = string.Empty;
+
+            foreach (var instance in targets)
+            {
+                var model  = Ec2InstanceHclModel.FromAtlasInstance(instance);
+                var result = await _terraform.GenerateEc2ResourceAsync(model);
+
+                if (!result.Success)
+                {
+                    failed++;
+                    FileLogger.Warning($"[Ec2ViewModel] Terraform sync failed for {instance.InstanceId}: {result.ErrorMessage}");
+                }
+                else if (string.IsNullOrEmpty(writtenFile))
+                {
+                    writtenFile = result.WrittenFiles.FirstOrDefault() ?? string.Empty;
+                }
+            }
+
+            if (failed == 0)
+            {
+                var fileName = System.IO.Path.GetFileName(writtenFile);
+                TerraformSyncMessage = $"✓ {targets.Count} instance(s) synced"
+                                     + (string.IsNullOrEmpty(fileName) ? "." : $" → {fileName}");
+                TerraformSyncSuccess = true;
+            }
+            else
+            {
+                TerraformSyncMessage = $"{targets.Count - failed} synced, {failed} failed — check logs.";
+                TerraformSyncSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Error("Ec2ViewModel.SyncToTerraform", ex);
+            TerraformSyncMessage = $"Sync error: {ex.Message}";
+            TerraformSyncSuccess = false;
+        }
+        finally
+        {
+            IsTerraformSyncing = false;
         }
     }
 

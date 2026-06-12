@@ -31,11 +31,11 @@
                             <Border.Background>
                                 <SolidColorBrush Color="{DynamicResource AccentColor}" Opacity="0.15"/>
                             </Border.Background>
-                            <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AccentBrush}"/>
+                            <Path Style="{StaticResource Icon}" Width="16" Height="16"
+                                  Data="{StaticResource Icon.Cloud}"
+                                  Stroke="{DynamicResource AccentBrush}"/>
                         </Border>
-                        <TextBlock Text="Add AWS Account" FontSize="15" FontWeight="SemiBold"
+                        <TextBlock x:Name="HeaderTitle" Text="Add AWS Account" FontSize="15" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
@@ -51,7 +51,7 @@
             <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="24,0,24,20"/>
 
             <!-- Form -->
-            <StackPanel Margin="24,0,24,0">
+            <StackPanel x:Name="PageForm" Margin="24,0,24,0">
 
                 <!-- Account Name -->
                 <TextBlock Text="Account Name" FontSize="12" FontWeight="Medium"
@@ -90,11 +90,41 @@
                         <TextBlock Text="Secret Access Key" FontSize="12" FontWeight="Medium"
                                    Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
                         <Border Style="{StaticResource InputBorder}" Height="36">
-                            <PasswordBox x:Name="PbSecretKey" Style="{x:Null}"
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <PasswordBox x:Name="PbSecretKey" Grid.Column="0" Style="{x:Null}"
+                                             Background="Transparent" BorderThickness="0"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             FontFamily="Consolas" FontSize="12" Padding="11,0"
+                                             VerticalAlignment="Stretch" VerticalContentAlignment="Center"/>
+                                <TextBox x:Name="TxtSecretKey" Grid.Column="0" Style="{x:Null}"
                                          Background="Transparent" BorderThickness="0"
                                          Foreground="{DynamicResource TextPrimaryBrush}"
                                          FontFamily="Consolas" FontSize="12" Padding="11,0"
-                                         VerticalAlignment="Stretch" VerticalContentAlignment="Center"/>
+                                         VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                         CaretBrush="{DynamicResource AccentBrush}"
+                                         Visibility="Collapsed"/>
+                                <Button x:Name="BtnToggleSecret" Grid.Column="1"
+                                        Click="BtnToggleSecret_Click"
+                                        Width="32" Background="Transparent" BorderThickness="0"
+                                        Cursor="Hand" FocusVisualStyle="{x:Null}"
+                                        VerticalAlignment="Stretch" ToolTip="Mostrar / ocultar">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="Transparent">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Path x:Name="ToggleSecretIcon"
+                                          Style="{StaticResource Icon}" Width="14" Height="14"
+                                          Data="{StaticResource Icon.Eye}"
+                                          Stroke="{DynamicResource TextMutedBrush}"/>
+                                </Button>
+                            </Grid>
                         </Border>
                     </StackPanel>
                 </Grid>
@@ -129,11 +159,196 @@
                 </StackPanel>
             </Border>
 
+            <!-- Page 3: Import from AWS setup -->
+            <StackPanel x:Name="PageImport" Margin="24,0,24,0" Visibility="Collapsed">
+                <TextBlock Text="Stack name" FontSize="12" FontWeight="Medium"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                <Border Style="{StaticResource InputBorder}" Height="36" Margin="0,0,0,16">
+                    <TextBox x:Name="ImportStackName" Style="{x:Null}"
+                             Background="Transparent" BorderThickness="0"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             FontSize="13" Padding="11,0"
+                             VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                             CaretBrush="{DynamicResource AccentBrush}"/>
+                </Border>
+
+                <TextBlock Text="Destination folder" FontSize="12" FontWeight="Medium"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                <Border Style="{StaticResource InputBorder}" Height="36" Margin="0,0,0,6">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ImportPathText"
+                                   Grid.Column="0"
+                                   Text="No folder selected"
+                                   FontSize="12" FontFamily="Consolas"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   VerticalAlignment="Center" Padding="11,0"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <Button Grid.Column="1" Click="BrowseImportFolder_Click"
+                                Margin="0,4,4,4" Padding="10,0" Height="28"
+                                Style="{StaticResource GhostButton}" FontSize="12">
+                            <TextBlock Text="Browse" Foreground="{DynamicResource AccentBrush}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+                <TextBlock Text="All imported .tf files will be written to this folder."
+                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="2,0,0,0"/>
+
+                <!-- Import feedback -->
+                <Border x:Name="ImportFeedback" Margin="0,12,0,0" CornerRadius="8" Padding="12,9"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="ImportFeedbackText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DangerBrush}"/>
+                </Border>
+            </StackPanel>
+
+            <!-- Page 2: Next step selection -->
+            <StackPanel x:Name="PageNext" Margin="24,0,24,0" Visibility="Collapsed">
+                <TextBlock Text="What would you like to do next?"
+                           FontSize="13" FontWeight="Medium"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,14"/>
+
+                <!-- Open project -->
+                <Button Click="NextAction_Click" Tag="open" Cursor="Hand"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        Margin="0,0,0,8" Padding="0" FocusVisualStyle="{x:Null}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="14,12">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="38"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" VerticalAlignment="Center">
+                            <Border.Background>
+                                <SolidColorBrush Color="{DynamicResource AccentColor}" Opacity="0.15"/>
+                            </Border.Background>
+                            <Path Style="{StaticResource Icon}" Width="14" Height="14"
+                                  Data="{StaticResource Icon.HardDrive}" Stroke="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0">
+                            <TextBlock Text="Open project" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Open an existing local project folder" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Path Grid.Column="2" Style="{StaticResource Icon}" Width="12" Height="12"
+                              Data="{StaticResource Icon.ChevronRight}" Stroke="{DynamicResource TextMutedBrush}"
+                              VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
+
+                <!-- Clone repository -->
+                <Button Click="NextAction_Click" Tag="clone" Cursor="Hand"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        Margin="0,0,0,8" Padding="0" FocusVisualStyle="{x:Null}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="14,12">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="38"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" VerticalAlignment="Center">
+                            <Border.Background>
+                                <SolidColorBrush Color="{DynamicResource AccentColor}" Opacity="0.15"/>
+                            </Border.Background>
+                            <Path Style="{StaticResource Icon}" Width="14" Height="14"
+                                  Data="{StaticResource Icon.Download}" Stroke="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0">
+                            <TextBlock Text="Clone repository" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Clone a Git repository to get started" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Path Grid.Column="2" Style="{StaticResource Icon}" Width="12" Height="12"
+                              Data="{StaticResource Icon.ChevronRight}" Stroke="{DynamicResource TextMutedBrush}"
+                              VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
+
+                <!-- Import from AWS -->
+                <Button Click="NextAction_Click" Tag="import" Cursor="Hand"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        Margin="0,0,0,0" Padding="0" FocusVisualStyle="{x:Null}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="14,12">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="38"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" VerticalAlignment="Center">
+                            <Border.Background>
+                                <SolidColorBrush Color="{DynamicResource AccentColor}" Opacity="0.15"/>
+                            </Border.Background>
+                            <Path Style="{StaticResource Icon}" Width="14" Height="14"
+                                  Data="{StaticResource Icon.Cloud}" Stroke="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0">
+                            <TextBlock Text="Import from AWS" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Discover and import existing AWS resources" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Path Grid.Column="2" Style="{StaticResource Icon}" Width="12" Height="12"
+                              Data="{StaticResource Icon.ChevronRight}" Stroke="{DynamicResource TextMutedBrush}"
+                              VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
+            </StackPanel>
+
             <!-- Divider -->
             <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,20,0,0"/>
 
-            <!-- Footer -->
-            <Grid Margin="20,14,20,20">
+            <!-- Footer page 1 -->
+            <Grid x:Name="FooterPage1" Margin="20,14,20,20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -175,6 +390,48 @@
                         <TextBlock x:Name="BtnText" Text="Validate &amp; Add Account"
                                    FontSize="13" FontWeight="Medium" Foreground="White"/>
                     </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Footer page 3 -->
+            <Grid x:Name="FooterPage3" Margin="20,14,20,20" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                        Click="BackToNextStep_Click" Padding="16,8" Margin="0,0,8,0">
+                    <TextBlock Text="← Back" FontSize="13"/>
+                </Button>
+
+                <Button x:Name="BtnCreateImport" Grid.Column="2"
+                        Click="CreateImport_Click" Padding="16,8">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <TextBlock Text="Create &amp; Import" FontSize="13" FontWeight="Medium" Foreground="White"/>
+                </Button>
+            </Grid>
+
+            <!-- Footer page 2 -->
+            <Grid x:Name="FooterPage2" Margin="20,14,20,20" Visibility="Collapsed">
+                <Button HorizontalAlignment="Right"
+                        Style="{StaticResource GhostButton}"
+                        Click="Skip_Click"
+                        Padding="16,8">
+                    <TextBlock Text="Skip for now" FontSize="13"/>
                 </Button>
             </Grid>
 

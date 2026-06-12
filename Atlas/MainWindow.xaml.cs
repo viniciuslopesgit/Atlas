@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Atlas.Helpers;
 using Atlas.Services;
 using Atlas.ViewModels;
 
@@ -12,7 +13,7 @@ public partial class MainWindow : Window
 {
     private MainViewModel _vm = null!;
 
-    private double _zoomLevel = 1.0;
+    private double _zoomLevel = 0.8;
     private const double ZoomStep = 0.1;
     private const double ZoomMin  = 0.5;
     private const double ZoomMax  = 2.5;
@@ -20,9 +21,11 @@ public partial class MainWindow : Window
     public MainWindow(MainViewModel viewModel, IThemeService theme)
     {
         InitializeComponent();
+        WindowMaximizeFix.Attach(this);
         _vm = viewModel;
         DataContext = viewModel;
         StateChanged += (_, _) => UpdateMaximizeGlyph();
+        ApplyZoom(_zoomLevel);
 
         // Auto-focus search box whenever the palette opens
         _vm.Palette.PropertyChanged += OnPalettePropertyChanged;
@@ -41,10 +44,8 @@ public partial class MainWindow : Window
 
     private void UpdateMaximizeGlyph()
     {
-        // E922 = maximize  E923 = restore  (Segoe MDL2 Assets)
-        MaximizeGlyph.Text     = WindowState == WindowState.Maximized
-            ? ""   // restore
-            : "";  // maximize
+        MaximizeGlyph.Data = (System.Windows.Media.Geometry)FindResource(
+            WindowState == WindowState.Maximized ? "Icon.Minimize2" : "Icon.Maximize2");
         MaximizeButton.ToolTip = WindowState == WindowState.Maximized ? "Restore" : "Maximize";
     }
 

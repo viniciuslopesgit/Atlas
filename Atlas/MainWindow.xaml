@@ -30,6 +30,7 @@
         <DataTemplate DataType="{x:Type vm:CloudWatchViewModel}"><views:CloudWatchView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:GuardDutyViewModel}"><views:GuardDutyView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:TerraformViewModel}"><views:TerraformView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:StacksViewModel}"><views:StacksView/></DataTemplate>
         <DataTemplate DataType="{x:Type vm:ContactViewModel}"><views:ContactView/></DataTemplate>
 
         <!-- Splitter thumb: invisible hit area, subtle hover line -->
@@ -70,6 +71,8 @@
             <ColumnDefinition Width="220" MinWidth="160" MaxWidth="360"/>
             <!-- Splitter hit zone -->
             <ColumnDefinition Width="6"/>
+            <!-- IaC secondary sidebar (Auto = collapses when Collapsed) -->
+            <ColumnDefinition Width="Auto"/>
             <!-- Main content -->
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
@@ -81,7 +84,7 @@
         <!-- ══════════════════════════════════════════════════════════
              TOP BAR  (spans all 3 columns)
         ════════════════════════════════════════════════════════════ -->
-        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,0,0,1">
@@ -111,11 +114,11 @@
                                         Background="Transparent"
                                         Padding="10,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock x:Name="BugIcon"
-                                                   Text="&#xEBE8;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14"
-                                                   Foreground="{DynamicResource TextMutedBrush}"
-                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <Path x:Name="BugIcon"
+                                              Style="{StaticResource Icon}" Width="14" Height="14"
+                                              Data="{StaticResource Icon.Bug}"
+                                              Stroke="{DynamicResource TextMutedBrush}"
+                                              Margin="0,0,6,0"/>
                                         <TextBlock x:Name="BugLabel"
                                                    Text="Report Bug"
                                                    FontSize="12.5"
@@ -126,7 +129,7 @@
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SidebarActiveBrush}"/>
-                                        <Setter TargetName="BugIcon" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                        <Setter TargetName="BugIcon" Property="Stroke" Value="{DynamicResource TextPrimaryBrush}"/>
                                         <Setter TargetName="BugLabel" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                     </Trigger>
                                     <Trigger Property="IsPressed" Value="True">
@@ -148,11 +151,11 @@
                                         Background="#1AFBBF24"
                                         Padding="10,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock x:Name="UpdateIcon"
-                                                   Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="12"
-                                                   Foreground="#FBBF24"
-                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <Path x:Name="UpdateIcon"
+                                              Style="{StaticResource Icon}" Width="13" Height="13"
+                                              Data="{StaticResource Icon.Download}"
+                                              Stroke="#FBBF24"
+                                              Margin="0,0,6,0"/>
                                         <TextBlock x:Name="UpdateLabel"
                                                    Text="{Binding UpdateVersionDisplay}"
                                                    FontSize="13" FontWeight="SemiBold"
@@ -183,11 +186,11 @@
                                         Background="Transparent"
                                         Padding="10,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock x:Name="StarIcon"
-                                                   Text="&#xE735;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SuccessBrush}"
-                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <Path x:Name="StarIcon"
+                                              Style="{StaticResource Icon}" Width="13" Height="13"
+                                              Data="{StaticResource Icon.Star}"
+                                              Stroke="{DynamicResource SuccessBrush}"
+                                              Margin="0,0,6,0"/>
                                         <TextBlock x:Name="Label"
                                                    Text="Upgrade" FontSize="13" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource SuccessBrush}"
@@ -212,17 +215,17 @@
                             Command="{Binding ToggleRegionMenuCommand}"
                             Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE909;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextMutedBrush}"
-                                       Margin="0,0,7,0"/>
+                            <Path Style="{StaticResource Icon}" Width="13" Height="13"
+                                  Data="{StaticResource Icon.Globe}"
+                                  Stroke="{DynamicResource TextMutedBrush}"
+                                  Margin="0,0,7,0"/>
                             <TextBlock Text="{Binding ActiveRegionDisplay}"
                                        FontSize="13" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="9" VerticalAlignment="Center"
-                                       Margin="7,1,0,0"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                            <Path Style="{StaticResource Icon}" Width="10" Height="10"
+                                  Data="{StaticResource Icon.ChevronDown}"
+                                  Stroke="{DynamicResource TextMutedBrush}"
+                                  Margin="7,0,0,0"/>
                         </StackPanel>
                     </Button>
 
@@ -269,13 +272,13 @@
                                                                        Margin="0,1,0,0"/>
                                                         </StackPanel>
                                                         <!-- Active checkmark -->
-                                                        <TextBlock Grid.Column="1"
-                                                                   Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                                                   FontSize="12" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource AccentBrush}"
-                                                                   Margin="10,0,0,0">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
+                                                        <Path Grid.Column="1"
+                                                              Width="12" Height="12"
+                                                              Data="{StaticResource Icon.Check}"
+                                                              Stroke="{DynamicResource AccentBrush}"
+                                                              Margin="10,0,0,0">
+                                                            <Path.Style>
+                                                                <Style TargetType="Path" BasedOn="{StaticResource Icon}">
                                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                                     <Style.Triggers>
                                                                         <DataTrigger Value="True">
@@ -290,8 +293,8 @@
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
+                                                            </Path.Style>
+                                                        </Path>
                                                     </Grid>
                                                 </Button>
                                             </DataTemplate>
@@ -328,10 +331,10 @@
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToVisible}}"/>
                                     <!-- Add-account glyph (no account) -->
-                                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="11" Foreground="{DynamicResource AccentBrush}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}"/>
+                                    <Path Style="{StaticResource Icon}" Width="11" Height="11"
+                                          Data="{StaticResource Icon.Plus}"
+                                          Stroke="{DynamicResource AccentBrush}"
+                                          Visibility="{Binding HasActiveAccount, Converter={StaticResource BoolToInvisible}}"/>
                                 </Grid>
                             </Border>
                             <!-- Account name / call to action -->
@@ -351,10 +354,10 @@
                                 </TextBlock.Style>
                             </TextBlock>
                             <!-- Chevron down -->
-                            <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="9" VerticalAlignment="Center"
-                                       Margin="7,1,0,0"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                            <Path Style="{StaticResource Icon}" Width="10" Height="10"
+                                  Data="{StaticResource Icon.ChevronDown}"
+                                  Stroke="{DynamicResource TextMutedBrush}"
+                                  Margin="7,0,0,0"/>
                         </StackPanel>
                     </Button>
 
@@ -420,13 +423,13 @@
                                                     </StackPanel>
 
                                                     <!-- Active checkmark -->
-                                                    <TextBlock Grid.Column="2"
-                                                               Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                                               FontSize="12" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource AccentBrush}"
-                                                               Margin="10,0,0,0">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
+                                                    <Path Grid.Column="2"
+                                                          Width="12" Height="12"
+                                                          Data="{StaticResource Icon.Check}"
+                                                          Stroke="{DynamicResource AccentBrush}"
+                                                          Margin="10,0,0,0">
+                                                        <Path.Style>
+                                                            <Style TargetType="Path" BasedOn="{StaticResource Icon}">
                                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsActive}" Value="True">
@@ -434,8 +437,8 @@
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
+                                                        </Path.Style>
+                                                    </Path>
                                                 </Grid>
                                             </Button>
                                         </DataTemplate>
@@ -456,10 +459,10 @@
                                         Command="{Binding OpenAccountSettingsCommand}"
                                         Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="13" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   Margin="0,0,10,0"/>
+                                        <Path Style="{StaticResource Icon}" Width="14" Height="14"
+                                              Data="{StaticResource Icon.Settings}"
+                                              Stroke="{DynamicResource TextSecondaryBrush}"
+                                              Margin="0,0,10,0"/>
                                         <TextBlock Text="Manage accounts"
                                                    FontSize="13"
                                                    Foreground="{DynamicResource TextSecondaryBrush}"
@@ -479,16 +482,22 @@
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button x:Name="MinimizeButton" Style="{StaticResource CaptionButton}"
                             Click="MinimizeButton_Click" ToolTip="Minimize">
-                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        <Path Style="{StaticResource Icon}" Width="11" Height="11"
+                              Data="{StaticResource Icon.Minus}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                     <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}"
                             Click="MaximizeRestoreButton_Click" ToolTip="Maximize">
-                        <TextBlock x:Name="MaximizeGlyph" Text="&#xE922;"
-                                   FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        <Path x:Name="MaximizeGlyph"
+                              Style="{StaticResource Icon}" Width="11" Height="11"
+                              Data="{StaticResource Icon.Maximize2}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                     <Button x:Name="CloseButton" Style="{StaticResource CaptionCloseButton}"
                             Click="CloseButton_Click" ToolTip="Close">
-                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        <Path Style="{StaticResource Icon}" Width="11" Height="11"
+                              Data="{StaticResource Icon.X}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -523,165 +532,54 @@
                             <ColumnDefinition Width="22"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE80F;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Path Grid.Column="0" Style="{StaticResource Icon}" Width="16" Height="16"
+                              Data="{StaticResource Icon.House}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                         <TextBlock Grid.Column="1" Text="Dashboard" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </RadioButton>
 
-                <!-- EC2 Instances -->
+                <!-- ── IaC group header ───────────────────────────── -->
+                <TextBlock Text="IaC"
+                           FontSize="10.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           Margin="22,14,0,4"/>
+
+                <!-- IaC > Resources (opens secondary sidebar with AWS services) -->
                 <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=EC2}"
+                             GroupName="Navigation"
+                             IsChecked="{Binding IsInResourcesGroup, Mode=OneWay}"
                              Command="{Binding NavigateToCommand}"
                              CommandParameter="{x:Static vm:NavigationPage.EC2}">
                     <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="10"/>
                             <ColumnDefinition Width="22"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xEDA3;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="EC2 Instances" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <Path Grid.Column="1" Style="{StaticResource Icon}" Width="15" Height="15"
+                              Data="{StaticResource Icon.LayoutGrid}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                        <TextBlock Grid.Column="2" Text="Resources" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </RadioButton>
 
-                <!-- S3 Buckets -->
+                <!-- IaC > Stacks -->
                 <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=S3}"
+                             GroupName="Navigation"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Stacks}"
                              Command="{Binding NavigateToCommand}"
-                             CommandParameter="{x:Static vm:NavigationPage.S3}">
+                             CommandParameter="{x:Static vm:NavigationPage.Stacks}">
                     <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="10"/>
                             <ColumnDefinition Width="22"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="S3 Buckets" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    </Grid>
-                </RadioButton>
-
-                <!-- IAM -->
-                <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=IAM}"
-                             Command="{Binding NavigateToCommand}"
-                             CommandParameter="{x:Static vm:NavigationPage.IAM}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="22"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE77B;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="IAM" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                        <!-- PRO lock badge (Free tier) -->
-                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
-                                VerticalAlignment="Center"
-                                Background="{DynamicResource SidebarActiveBrush}"
-                                Visibility="{Binding DataContext.IsFree,
-                                             RelativeSource={RelativeSource AncestorType=Window},
-                                             Converter={StaticResource BoolToVisible}}">
-                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                        </Border>
-                    </Grid>
-                </RadioButton>
-
-                <!-- Billing & Cost Management -->
-                <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Billing}"
-                             Command="{Binding NavigateToCommand}"
-                             CommandParameter="{x:Static vm:NavigationPage.Billing}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="22"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE81E;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="Billing" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                        <!-- PRO lock badge -->
-                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
-                                VerticalAlignment="Center"
-                                Background="{DynamicResource SidebarActiveBrush}"
-                                Visibility="{Binding DataContext.IsFree,
-                                             RelativeSource={RelativeSource AncestorType=Window},
-                                             Converter={StaticResource BoolToVisible}}">
-                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                        </Border>
-                    </Grid>
-                </RadioButton>
-
-                <!-- CloudWatch -->
-                <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=CloudWatch}"
-                             Command="{Binding NavigateToCommand}"
-                             CommandParameter="{x:Static vm:NavigationPage.CloudWatch}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="22"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="CloudWatch" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                        <!-- PRO lock badge -->
-                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
-                                VerticalAlignment="Center"
-                                Background="{DynamicResource SidebarActiveBrush}"
-                                Visibility="{Binding DataContext.IsFree,
-                                             RelativeSource={RelativeSource AncestorType=Window},
-                                             Converter={StaticResource BoolToVisible}}">
-                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                        </Border>
-                    </Grid>
-                </RadioButton>
-
-                <!-- GuardDuty -->
-                <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=GuardDuty}"
-                             Command="{Binding NavigateToCommand}"
-                             CommandParameter="{x:Static vm:NavigationPage.GuardDuty}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="22"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="GuardDuty" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                        <!-- PRO lock badge -->
-                        <Border Grid.Column="2" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
-                                VerticalAlignment="Center"
-                                Background="{DynamicResource SidebarActiveBrush}"
-                                Visibility="{Binding DataContext.IsFree,
-                                             RelativeSource={RelativeSource AncestorType=Window},
-                                             Converter={StaticResource BoolToVisible}}">
-                            <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                        </Border>
-                    </Grid>
-                </RadioButton>
-
-                <!-- IaC / Terraform -->
-                <RadioButton Style="{StaticResource NavItem}"
-                             IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=IaC}"
-                             Command="{Binding NavigateToCommand}"
-                             CommandParameter="{x:Static vm:NavigationPage.IaC}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="22"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE9F5;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="IaC" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <Path Grid.Column="1" Style="{StaticResource Icon}" Width="15" Height="15"
+                              Data="{StaticResource Icon.Layers}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                        <TextBlock Grid.Column="2" Text="Stacks" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </RadioButton>
 
@@ -697,8 +595,9 @@
                             <ColumnDefinition Width="22"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Path Grid.Column="0" Style="{StaticResource Icon}" Width="16" Height="16"
+                              Data="{StaticResource Icon.Settings}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                         <TextBlock Grid.Column="1" Text="Settings" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </RadioButton>
@@ -716,9 +615,184 @@
                       ResizeDirection="Columns"/>
 
         <!-- ══════════════════════════════════════════════════════════
-             MAIN CONTENT  (Column 2, Row 1)
+             IaC SECONDARY SIDEBAR  (Column 2, Row 1)
+             Visible only when CurrentPage == IaC
         ════════════════════════════════════════════════════════════ -->
-        <ContentPresenter Grid.Row="1" Grid.Column="2"
+        <Border Grid.Row="1" Grid.Column="2"
+                Width="190"
+                Background="{DynamicResource SidebarBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,1,0"
+                Visibility="{Binding IsIacSecondaryNavVisible, Converter={StaticResource BoolToVisible}}">
+            <DockPanel>
+
+                <!-- Section header -->
+                <Border DockPanel.Dock="Top"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="22,14,0,10">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource Icon}" Width="13" Height="13"
+                              Data="{StaticResource Icon.LayoutGrid}"
+                              Stroke="{DynamicResource AccentBrush}"
+                              Margin="0,0,8,0"/>
+                        <TextBlock Text="Resources"
+                                   FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Margin="0,8,0,0">
+
+                    <!-- EC2 Instances -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 GroupName="ResourceNav"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=EC2}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="{x:Static vm:NavigationPage.EC2}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Style="{StaticResource Icon}" Width="15" Height="15"
+                                  Data="{StaticResource Icon.Server}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            <TextBlock Grid.Column="1" Text="EC2 Instances" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        </Grid>
+                    </RadioButton>
+
+                    <!-- S3 Buckets -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 GroupName="ResourceNav"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=S3}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="{x:Static vm:NavigationPage.S3}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Style="{StaticResource Icon}" Width="15" Height="15"
+                                  Data="{StaticResource Icon.HardDrive}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            <TextBlock Grid.Column="1" Text="S3 Buckets" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        </Grid>
+                    </RadioButton>
+
+                    <!-- IAM -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 GroupName="ResourceNav"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=IAM}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="{x:Static vm:NavigationPage.IAM}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Style="{StaticResource Icon}" Width="15" Height="15"
+                                  Data="{StaticResource Icon.User}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            <TextBlock Grid.Column="1" Text="IAM" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <Border Grid.Column="2" CornerRadius="4" Padding="5,1" Margin="6,0,4,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource SidebarActiveBrush}"
+                                    Visibility="{Binding IsFree, Converter={StaticResource BoolToVisible}}">
+                                <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </Grid>
+                    </RadioButton>
+
+                    <!-- Billing -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 GroupName="ResourceNav"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=Billing}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="{x:Static vm:NavigationPage.Billing}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Style="{StaticResource Icon}" Width="15" Height="15"
+                                  Data="{StaticResource Icon.CreditCard}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            <TextBlock Grid.Column="1" Text="Billing" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <Border Grid.Column="2" CornerRadius="4" Padding="5,1" Margin="6,0,4,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource SidebarActiveBrush}"
+                                    Visibility="{Binding IsFree, Converter={StaticResource BoolToVisible}}">
+                                <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </Grid>
+                    </RadioButton>
+
+                    <!-- CloudWatch -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 GroupName="ResourceNav"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=CloudWatch}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="{x:Static vm:NavigationPage.CloudWatch}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Style="{StaticResource Icon}" Width="15" Height="15"
+                                  Data="{StaticResource Icon.Activity}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            <TextBlock Grid.Column="1" Text="CloudWatch" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <Border Grid.Column="2" CornerRadius="4" Padding="5,1" Margin="6,0,4,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource SidebarActiveBrush}"
+                                    Visibility="{Binding IsFree, Converter={StaticResource BoolToVisible}}">
+                                <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </Grid>
+                    </RadioButton>
+
+                    <!-- GuardDuty -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 GroupName="ResourceNav"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource PageCheck}, ConverterParameter=GuardDuty}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="{x:Static vm:NavigationPage.GuardDuty}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Style="{StaticResource Icon}" Width="15" Height="15"
+                                  Data="{StaticResource Icon.Shield}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                            <TextBlock Grid.Column="1" Text="GuardDuty" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <Border Grid.Column="2" CornerRadius="4" Padding="5,1" Margin="6,0,4,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource SidebarActiveBrush}"
+                                    Visibility="{Binding IsFree, Converter={StaticResource BoolToVisible}}">
+                                <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                        </Grid>
+                    </RadioButton>
+
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════════════════
+             MAIN CONTENT  (Column 3, Row 1)
+        ════════════════════════════════════════════════════════════ -->
+        <ContentPresenter Grid.Row="1" Grid.Column="3"
                           Content="{Binding CurrentViewModel}"/>
 
         <!-- ══════════════════════════════════════════════════════════
@@ -728,7 +802,7 @@
              Inner card DataContext is the LicenseViewModel for activation.
         ════════════════════════════════════════════════════════════ -->
         <Border Grid.Row="0" Grid.Column="0"
-                Grid.RowSpan="2" Grid.ColumnSpan="3"
+                Grid.RowSpan="2" Grid.ColumnSpan="4"
                 Panel.ZIndex="1000"
                 Background="#F20C0C0C"
                 Visibility="{Binding IsUpgradeOpen, Converter={StaticResource BoolToVisible}}">
@@ -828,8 +902,9 @@
                             Style="{StaticResource PrimaryButton}"
                             Height="42" Margin="0,0,0,20">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                       VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                            <Path Style="{StaticResource Icon}" Width="14" Height="14"
+                                  Data="{StaticResource Icon.Star}"
+                                  Stroke="White" Margin="0,0,8,0"/>
                             <TextBlock Text="Get Atlas Pro" FontSize="14" FontWeight="SemiBold"
                                        VerticalAlignment="Center" Foreground="White"/>
                         </StackPanel>
@@ -930,7 +1005,7 @@
         ════════════════════════════════════════════════════════════ -->
         <Border x:Name="PaletteBackdrop"
                 Grid.Row="0" Grid.Column="0"
-                Grid.RowSpan="2" Grid.ColumnSpan="3"
+                Grid.RowSpan="2" Grid.ColumnSpan="4"
                 Panel.ZIndex="2000"
                 Background="#CC050505"
                 Visibility="{Binding Palette.IsOpen, Converter={StaticResource BoolToVisible}}"
@@ -967,10 +1042,11 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Search glyph -->
-                        <TextBlock Grid.Column="0"
-                                   Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="16"
-                                   Foreground="{DynamicResource TextMutedBrush}"
-                                   VerticalAlignment="Center" Margin="0,0,13,0"/>
+                        <Path Grid.Column="0"
+                              Style="{StaticResource Icon}" Width="16" Height="16"
+                              Data="{StaticResource Icon.Search}"
+                              Stroke="{DynamicResource TextMutedBrush}"
+                              Margin="0,0,13,0"/>
 
                         <!-- Search TextBox (borderless — card provides the frame) -->
                         <Grid Grid.Column="1" VerticalAlignment="Center">
@@ -1130,17 +1206,25 @@
                             Visibility="{Binding Palette.FilteredCommands.Count,
                                          Converter={StaticResource ZeroToCollapsed}}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock FontSize="11" Foreground="{DynamicResource TextMutedBrush}">
-                                <Run Text="&#xE74A;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                                <Run Text=" &#xE74B;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                                <Run Text=" to navigate"/>
-                            </TextBlock>
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource Icon}" Width="10" Height="10"
+                                      Data="{StaticResource Icon.ArrowUp}"
+                                      Stroke="{DynamicResource TextMutedBrush}"/>
+                                <Path Style="{StaticResource Icon}" Width="10" Height="10"
+                                      Data="{StaticResource Icon.ArrowDown}"
+                                      Stroke="{DynamicResource TextMutedBrush}" Margin="4,0,0,0"/>
+                                <TextBlock Text=" to navigate" FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}" Margin="4,0,0,0"/>
+                            </StackPanel>
                             <TextBlock Text=" · " FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        Margin="8,0"/>
-                            <TextBlock FontSize="11" Foreground="{DynamicResource TextMutedBrush}">
-                                <Run Text="&#xE751;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                                <Run Text=" to execute"/>
-                            </TextBlock>
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource Icon}" Width="10" Height="10"
+                                      Data="{StaticResource Icon.CornerDownLeft}"
+                                      Stroke="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text=" to execute" FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}" Margin="4,0,0,0"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Grid>

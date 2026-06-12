@@ -52,6 +52,19 @@ public sealed class DatabaseContext : IDisposable
                 CreatedAt         TEXT NOT NULL,
                 IsInitialized     INTEGER NOT NULL DEFAULT 0
             );
+
+            CREATE TABLE IF NOT EXISTS StackEnvVars (
+                Id             TEXT PRIMARY KEY,
+                StackName      TEXT NOT NULL,
+                TfVarName      TEXT NOT NULL,
+                EnvKey         TEXT NOT NULL,
+                EncryptedValue TEXT NOT NULL,
+                ResourceType   TEXT NOT NULL DEFAULT '',
+                ResourceName   TEXT NOT NULL DEFAULT '',
+                SourceFile     TEXT NOT NULL DEFAULT '',
+                UpdatedAt      TEXT NOT NULL,
+                UNIQUE(StackName, TfVarName)
+            );
             """;
         cmd.ExecuteNonQuery();
     }

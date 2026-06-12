@@ -9,6 +9,8 @@ using Atlas.Infrastructure.Security;
 using Atlas.Services;
 using Atlas.Services.AWS;
 using Atlas.Services.Terraform;
+using Atlas.Services.Terraform.Hcl;
+using Atlas.Services.Terraform.Import;
 using Atlas.ViewModels;
 
 namespace Atlas;
@@ -57,12 +59,28 @@ public partial class App : Application
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IAwsSessionFactory, AwsSessionFactory>();
         services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<IStackRepository, StackRepository>();
+        services.AddSingleton<IStackEnvVarRepository, StackEnvVarRepository>();
         services.AddSingleton<ITerraformCliWrapper, TerraformCliWrapper>();
         services.AddSingleton<ITerraformProjectManager, TerraformProjectManager>();
+        services.AddSingleton<ITerraformHclGenerator, HclGenerator>();
+        services.AddSingleton<IImportService, ImportService>();
+        services.AddSingleton<ITerraformService, TerraformService>();
 
         // ── AWS Services ──────────────────────────────────────────
-        services.AddTransient<IEc2Service, Ec2Service>();
-        services.AddTransient<IS3Service, S3Service>();
+        // Concrete types registados separadamente para permitir decoração
+        services.AddTransient<Ec2Service>();
+        services.AddTransient<S3Service>();
+
+        // Decorators com integração Terraform (wrappam os serviços originais)
+        services.AddTransient<IEc2Service>(sp =>
+            new TerraformAwareEc2Service(
+                sp.GetRequiredService<Ec2Service>(),
+                sp.GetRequiredService<ITerraformService>()));
+        services.AddTransient<IS3Service>(sp =>
+            new TerraformAwareS3Service(
+                sp.GetRequiredService<S3Service>(),
+                sp.GetRequiredService<ITerraformService>()));
         services.AddTransient<IDashboardService, DashboardService>();
         services.AddTransient<ISearchService, SearchService>();
         services.AddTransient<IIamService, IamService>();
@@ -78,6 +96,8 @@ public partial class App : Application
 
         // ── Updates ───────────────────────────────────────────────
         services.AddSingleton<IUpdateService, UpdateService>();
+        services.AddSingleton<IStartupService, StartupService>();
+        services.AddSingleton<IPreferencesService, PreferencesService>();
 
         // ── ViewModels ────────────────────────────────────────────
         services.AddSingleton<CommandPaletteViewModel>();
@@ -89,6 +109,7 @@ public partial class App : Application
         services.AddSingleton<CloudWatchViewModel>();
         services.AddSingleton<GuardDutyViewModel>();
         services.AddSingleton<TerraformViewModel>();
+        services.AddSingleton<StacksViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<ContactViewModel>();
         services.AddSingleton<MainViewModel>();

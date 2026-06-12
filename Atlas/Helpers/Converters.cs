@@ -52,6 +52,15 @@ public sealed class ZeroToVisibleConverter : IValueConverter
 }
 
 /// <summary>Inverts a bool</summary>
+/// <summary>true → Hidden (space preserved), false → Visible</summary>
+public sealed class BoolToHiddenConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) =>
+        value is true ? Visibility.Hidden : Visibility.Visible;
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) =>
+        value is Visibility.Hidden;
+}
+
 public sealed class BoolInvertConverter : IValueConverter
 {
     public object Convert(object value, Type t, object p, CultureInfo c) =>
@@ -114,6 +123,22 @@ public sealed class ResourceTypeToIconConverter : IValueConverter
             SearchResultType.S3Bucket    => GlyphBucket,
             _                            => GlyphFolder
         } : string.Empty;
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Converts a hex color string ("#RRGGBB" or "#AARRGGBB") to a SolidColorBrush.</summary>
+public sealed class HexStringToBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c)
+    {
+        if (value is string hex)
+        {
+            try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
+            catch { }
+        }
+        return new SolidColorBrush(Colors.Transparent);
+    }
     public object ConvertBack(object value, Type t, object p, CultureInfo c) =>
         throw new NotSupportedException();
 }

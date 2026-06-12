@@ -181,8 +181,10 @@ public partial class DashboardViewModel : AsyncViewModel
     [ObservableProperty] private string? _searchErrorMessage;
     [ObservableProperty] private ObservableCollection<SearchResult> _searchResults = [];
 
-    public Action<SearchResult>? NavigateToResultRequested { get; set; }
-    public Action<NavigationPage>? NavigateToPageRequested { get; set; }
+    public Action<SearchResult>? NavigateToResultRequested  { get; set; }
+    public Action<NavigationPage>? NavigateToPageRequested  { get; set; }
+    /// <summary>Fired when the user completes "Import from AWS" in the onboarding wizard.</summary>
+    public Action<string, string>? ImportFromAwsRequested   { get; set; }
 
     // ── Onboarding (first run — no accounts configured) ───────────────────────
     public bool IsFirstRun => _accounts.Accounts.Count == 0;
@@ -285,11 +287,18 @@ public partial class DashboardViewModel : AsyncViewModel
     [RelayCommand]
     private void OpenAddAccountDialog()
     {
-        var added = _dialog.ShowAddAccountDialog();
-        if (added)
+        var result = _dialog.ShowAddAccountDialog();
+        if (!result.Added) return;
+
+        ShowNextSteps     = true;
+        ShowTerraformStep = true;
+
+        if (result.NextAction == "import"
+            && result.StackName    is { Length: > 0 }
+            && result.ProjectPath  is { Length: > 0 })
         {
-            ShowNextSteps    = true;
-            ShowTerraformStep = true;
+            NavigateToPageRequested?.Invoke(NavigationPage.Stacks);
+            ImportFromAwsRequested?.Invoke(result.StackName, result.ProjectPath);
         }
     }
 

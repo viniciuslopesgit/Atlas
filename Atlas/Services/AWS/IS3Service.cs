@@ -11,4 +11,6 @@ public interface IS3Service
     Task DownloadFileAsync(string bucketName, string key, string localPath, IProgress<int>? progress = null, CancellationToken ct = default);
     Task CreateBucketAsync(CreateBucketOptions opts, CancellationToken ct = default);
     Task DeleteBucketAsync(string bucketName, CancellationToken ct = default);
+    Task<string> GetFileContentAsync(string bucketName, string key, CancellationToken ct = default);
+    Task PutFileContentAsync(string bucketName, string key, string content, CancellationToken ct = default);
 }

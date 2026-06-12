@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'   # dispara em tags tipo 0.0.8
+      - '[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   build-sign-release:
@@ -26,7 +26,6 @@ jobs:
         run: |
           $version = $env:GITHUB_REF -replace 'refs/tags/', ''
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-          echo "Version: $version"
 
       - name: Override nuget.config for CI
         shell: pwsh
@@ -59,7 +58,7 @@ jobs:
             --msi `
             --instLocation PerMachine
 
-      - name: Upload to GitHub Releases (public repo)
+      - name: Upload to GitHub Releases
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
@@ -73,13 +72,3 @@ jobs:
         shell: bash
         run: |
           sed -i "s/__VERSION__/${{ steps.version.outputs.VERSION }}/g" cloud-atlas.io/index.html
-
-      - name: Deploy site to Netlify
-        uses: nwtgck/actions-netlify@v3
-        with:
-          publish-dir: cloud-atlas.io
-          production-branch: main
-          production-deploy: true
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

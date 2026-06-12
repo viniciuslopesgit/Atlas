@@ -4,7 +4,6 @@
 4. remover site do Netflify
 
 
-
 Funcionalidades da Versão FREE
 
 1. DashboardVisão geral básica

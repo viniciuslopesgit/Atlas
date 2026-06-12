@@ -4,6 +4,8 @@ using Atlas.Infrastructure.Logging;
 using Atlas.Models;
 using Atlas.Services;
 using Atlas.Services.AWS;
+using Atlas.Services.Terraform;
+using Atlas.Services.Terraform.Hcl.Models;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -12,11 +14,12 @@ namespace Atlas.ViewModels;
 
 public partial class S3ViewModel : AsyncViewModel
 {
-    private readonly IS3Service _s3;
-    private readonly IAccountService _accounts;
-    private readonly IDialogService _dialog;
-    private readonly ILicenseService _license;
-    private readonly IUpgradeService _upgrade;
+    private readonly IS3Service         _s3;
+    private readonly IAccountService    _accounts;
+    private readonly IDialogService     _dialog;
+    private readonly ILicenseService    _license;
+    private readonly IUpgradeService    _upgrade;
+    private readonly ITerraformService  _terraform;
 
     [ObservableProperty] private ObservableCollection<S3BucketModel> _buckets = [];
     [ObservableProperty] private ObservableCollection<S3ObjectModel> _objects = [];
@@ -81,6 +84,13 @@ public partial class S3ViewModel : AsyncViewModel
     }
 
     public bool HasActiveAccount => _accounts.ActiveAccount != null;
+
+    // ── Terraform Sync ────────────────────────────────────────────
+    [ObservableProperty] private bool    _isTerraformSyncing;
+    [ObservableProperty] private string? _terraformSyncMessage;
+    [ObservableProperty] private bool    _terraformSyncSuccess;
+
+    public bool HasTerraformProject => _terraform.ActiveProject is not null;
 
     // ── Create-bucket dialog ──────────────────────────────────────
     [ObservableProperty] private bool   _isCreateBucketOpen;
@@ -188,13 +198,15 @@ public partial class S3ViewModel : AsyncViewModel
     };
 
     public S3ViewModel(IS3Service s3, IAccountService accounts, IDialogService dialog,
-                       ILicenseService license, IUpgradeService upgrade)
+                       ILicenseService license, IUpgradeService upgrade,
+                       ITerraformService terraform)
     {
-        _s3 = s3;
+        _s3       = s3;
         _accounts = accounts;
-        _dialog = dialog;
-        _license = license;
-        _upgrade = upgrade;
+        _dialog   = dialog;
+        _license  = license;
+        _upgrade  = upgrade;
+        _terraform = terraform;
         _accounts.ActiveAccountChanged += OnAccountChanged;
     }
 
@@ -563,7 +575,173 @@ public partial class S3ViewModel : AsyncViewModel
     private bool CanDownload() => SelectedObjects.Count > 0;
 
     partial void OnSelectedObjectChanged(S3ObjectModel? value)
-        => DownloadFileCommand.NotifyCanExecuteChanged();
+    {
+        DownloadFileCommand.NotifyCanExecuteChanged();
+        OpenFileEditorCommand.NotifyCanExecuteChanged();
+    }
+
+    // ── Inline text editor ────────────────────────────────────────────
+
+    private static readonly HashSet<string> _editableExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".txt", ".json", ".yaml", ".yml", ".xml", ".html", ".htm", ".css",
+        ".js", ".ts", ".jsx", ".tsx", ".md", ".markdown", ".csv",
+        ".sh", ".bash", ".zsh", ".fish", ".conf", ".config",
+        ".toml", ".ini", ".env", ".log", ".sql",
+        ".py", ".rb", ".php", ".go", ".java", ".cs", ".cpp", ".c",
+        ".h", ".hpp", ".rs", ".swift", ".kt",
+        ".tf", ".tfvars", ".hcl", ".properties",
+        ".editorconfig", ".eslintrc", ".prettierrc", ".babelrc", ".npmrc"
+    };
+
+    private static readonly HashSet<string> _editableFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Dockerfile", "Makefile", "Rakefile", "Gemfile", "Procfile",
+        "LICENSE", "NOTICE", "README", "CHANGELOG", "AUTHORS",
+        ".gitignore", ".gitattributes", ".env", ".editorconfig"
+    };
+
+    public static bool IsTextEditable(S3ObjectModel obj)
+    {
+        if (obj.IsFolder || obj.SizeBytes > 5 * 1024 * 1024) return false;
+        var ext = System.IO.Path.GetExtension(obj.DisplayName);
+        if (!string.IsNullOrEmpty(ext) && _editableExtensions.Contains(ext)) return true;
+        return _editableFileNames.Contains(obj.DisplayName);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenFileEditor))]
+    private async Task OpenFileEditor(S3ObjectModel? item)
+    {
+        if (item == null || SelectedBucket == null) return;
+
+        var bucket      = SelectedBucket.Name;
+        var key         = item.Key;
+        var displayName = item.DisplayName;
+
+        ErrorMessage  = null;
+        StatusMessage = $"Loading {displayName}…";
+
+        string content;
+        try
+        {
+            content       = await _s3.GetFileContentAsync(bucket, key);
+            StatusMessage = null;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Error($"S3ViewModel.OpenFileEditor load '{key}'", ex);
+            ErrorMessage  = $"Failed to load: {ex.Message}";
+            StatusMessage = null;
+            return;
+        }
+
+        // The dialog calls this callback when the user saves.
+        // Returning null = success (dialog closes); returning a string = error (dialog stays open).
+        var saved = _dialog.ShowS3FileEditor(key, content, async (newContent) =>
+        {
+            try
+            {
+                await _s3.PutFileContentAsync(bucket, key, newContent);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Error($"S3ViewModel.OpenFileEditor save '{key}'", ex);
+                return ex.Message;
+            }
+        });
+
+        if (saved)
+        {
+            StatusMessage = $"✓ {displayName} saved.";
+            await LoadObjectsAsync(bucket);
+        }
+        else
+        {
+            StatusMessage = null;
+        }
+    }
+
+    private bool CanOpenFileEditor() =>
+        SelectedObject != null && IsTextEditable(SelectedObject);
+
+    // ── Terraform Sync ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Gera HCL Terraform para os buckets seleccionados (ou todos carregados
+    /// se nada estiver seleccionado) e escreve no projecto IaC activo.
+    /// </summary>
+    [RelayCommand]
+    private async Task SyncToTerraform()
+    {
+        if (_terraform.ActiveProject is null)
+        {
+            TerraformSyncMessage = "No Terraform project configured — add one in the IaC page.";
+            TerraformSyncSuccess = false;
+            return;
+        }
+
+        var targets = SelectedBuckets.Count > 0
+            ? SelectedBuckets.ToList()
+            : _allBuckets.Take(100).ToList();
+
+        if (targets.Count == 0)
+        {
+            TerraformSyncMessage = "No buckets to sync.";
+            TerraformSyncSuccess = false;
+            return;
+        }
+
+        IsTerraformSyncing   = true;
+        TerraformSyncMessage = $"Syncing {targets.Count} bucket(s)…";
+        TerraformSyncSuccess = true;
+        ErrorMessage         = null;
+
+        try
+        {
+            var failed      = 0;
+            var writtenFile = string.Empty;
+
+            foreach (var bucket in targets)
+            {
+                var model  = S3BucketHclModel.FromAtlasBucket(bucket);
+                var result = await _terraform.GenerateS3ResourceAsync(model);
+
+                if (!result.Success)
+                {
+                    failed++;
+                    FileLogger.Warning($"[S3ViewModel] Terraform sync failed for {bucket.Name}: {result.ErrorMessage}");
+                }
+                else if (string.IsNullOrEmpty(writtenFile))
+                {
+                    writtenFile = result.WrittenFiles.FirstOrDefault() ?? string.Empty;
+                }
+            }
+
+            if (failed == 0)
+            {
+                var fileName = System.IO.Path.GetFileName(writtenFile);
+                TerraformSyncMessage = $"✓ {targets.Count} bucket(s) synced"
+                                     + (string.IsNullOrEmpty(fileName) ? "." : $" → {fileName}");
+                TerraformSyncSuccess = true;
+            }
+            else
+            {
+                TerraformSyncMessage = $"{targets.Count - failed} synced, {failed} failed — check logs.";
+                TerraformSyncSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Error("S3ViewModel.SyncToTerraform", ex);
+            TerraformSyncMessage = $"Sync error: {ex.Message}";
+            TerraformSyncSuccess = false;
+        }
+        finally
+        {
+            IsTerraformSyncing = false;
+        }
+    }
 
     protected override void Dispose(bool disposing)
     {

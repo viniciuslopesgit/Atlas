@@ -7,12 +7,18 @@ using System.Collections.ObjectModel;
 
 namespace Atlas.ViewModels;
 
+public enum SettingsTab { General, Accounts }
+
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly IAccountService _accounts;
     private readonly IThemeService _theme;
     private readonly ILicenseService _license;
     private readonly IUpgradeService _upgrade;
+    private readonly IStartupService _startup;
+    private readonly IPreferencesService _prefs;
+
+    [ObservableProperty] private SettingsTab _activeTab = SettingsTab.General;
 
     [ObservableProperty] private string _newAccountName = string.Empty;
     [ObservableProperty] private string _newAccessKeyId = string.Empty;
@@ -21,7 +27,29 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isValidating;
     [ObservableProperty] private string? _validationMessage;
     [ObservableProperty] private bool _validationSuccess;
-    [ObservableProperty] private bool _isDarkMode;
+    [ObservableProperty] private bool   _isDarkMode;
+    [ObservableProperty] private bool   _isStartOnLogin;
+    [ObservableProperty] private string _selectedTimezone = "UTC";
+
+    public string[] Timezones { get; } =
+    [
+        "UTC",
+        "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+        "America/Anchorage", "America/Sao_Paulo", "America/Argentina/Buenos_Aires",
+        "America/Bogota", "America/Lima", "America/Mexico_City", "America/Toronto",
+        "Europe/London", "Europe/Lisbon",
+        "Europe/Paris", "Europe/Berlin", "Europe/Rome", "Europe/Madrid",
+        "Europe/Amsterdam", "Europe/Brussels", "Europe/Zurich",
+        "Europe/Warsaw", "Europe/Prague", "Europe/Vienna", "Europe/Budapest",
+        "Europe/Bucharest", "Europe/Athens", "Europe/Helsinki",
+        "Europe/Moscow", "Europe/Kiev",
+        "Africa/Cairo", "Africa/Johannesburg", "Africa/Lagos", "Africa/Nairobi",
+        "Asia/Dubai", "Asia/Karachi", "Asia/Kolkata", "Asia/Dhaka",
+        "Asia/Bangkok", "Asia/Singapore", "Asia/Shanghai", "Asia/Tokyo",
+        "Asia/Seoul", "Asia/Jakarta", "Asia/Hong_Kong", "Asia/Taipei",
+        "Australia/Sydney", "Australia/Melbourne", "Australia/Brisbane", "Australia/Perth",
+        "Pacific/Auckland", "Pacific/Fiji", "Pacific/Honolulu"
+    ];
 
     // ── License / Subscription ────────────────────────────────────────
     [ObservableProperty] private bool    _hasLicense;
@@ -50,18 +78,30 @@ public partial class SettingsViewModel : ObservableObject
     ];
 
     public SettingsViewModel(IAccountService accounts, IThemeService theme,
-                             ILicenseService license, IUpgradeService upgrade)
+                             ILicenseService license, IUpgradeService upgrade,
+                             IStartupService startup, IPreferencesService prefs)
     {
         _accounts = accounts;
-        _theme = theme;
-        _license = license;
-        _upgrade = upgrade;
-        _isDarkMode = _theme.CurrentTheme == AppTheme.Dark;
+        _theme    = theme;
+        _license  = license;
+        _upgrade  = upgrade;
+        _startup  = startup;
+        _prefs    = prefs;
+        _isDarkMode      = _theme.CurrentTheme == AppTheme.Dark;
+        _isStartOnLogin  = _startup.IsEnabled;
+        _selectedTimezone = _prefs.Get("LocaleTimezone") ?? DetectSystemTimezone();
         _theme.ThemeChanged += (_, t) => IsDarkMode = t == AppTheme.Dark;
         _accounts.ActiveAccountChanged += (_, _) => RefreshAccounts();
         _license.ProStatusChanged += (_, _) => RefreshLicenseDisplay();
         RefreshAccounts();
         RefreshLicenseDisplay();
+    }
+
+    [RelayCommand]
+    private void SelectTab(string tab)
+    {
+        if (Enum.TryParse<SettingsTab>(tab, out var parsed))
+            ActiveTab = parsed;
     }
 
     [RelayCommand]
@@ -74,6 +114,56 @@ public partial class SettingsViewModel : ObservableObject
         if (_theme.CurrentTheme != target)
             _theme.Apply(target);
     }
+
+    partial void OnIsStartOnLoginChanged(bool value) => _startup.Set(value);
+
+    partial void OnSelectedTimezoneChanged(string value) => _prefs.Set("LocaleTimezone", value);
+
+    private static string DetectSystemTimezone()
+    {
+        var winId = TimeZoneInfo.Local.Id;
+        return WindowsToIana.TryGetValue(winId, out var iana) ? iana : "UTC";
+    }
+
+    private static readonly Dictionary<string, string> WindowsToIana = new()
+    {
+        ["Eastern Standard Time"]        = "America/New_York",
+        ["Central Standard Time"]        = "America/Chicago",
+        ["Mountain Standard Time"]       = "America/Denver",
+        ["Pacific Standard Time"]        = "America/Los_Angeles",
+        ["Alaskan Standard Time"]        = "America/Anchorage",
+        ["Hawaiian Standard Time"]       = "Pacific/Honolulu",
+        ["SA Eastern Standard Time"]     = "America/Sao_Paulo",
+        ["E. South America Standard Time"] = "America/Sao_Paulo",
+        ["Argentina Standard Time"]      = "America/Argentina/Buenos_Aires",
+        ["SA Pacific Standard Time"]     = "America/Bogota",
+        ["Mexico Standard Time"]         = "America/Mexico_City",
+        ["Canada Central Standard Time"] = "America/Regina",
+        ["GMT Standard Time"]            = "Europe/Lisbon",
+        ["W. Europe Standard Time"]      = "Europe/Berlin",
+        ["Romance Standard Time"]        = "Europe/Paris",
+        ["Central Europe Standard Time"] = "Europe/Warsaw",
+        ["Central European Standard Time"] = "Europe/Budapest",
+        ["Russian Standard Time"]        = "Europe/Moscow",
+        ["FLE Standard Time"]            = "Europe/Kiev",
+        ["GTB Standard Time"]            = "Europe/Athens",
+        ["Arabic Standard Time"]         = "Asia/Dubai",
+        ["Arabian Standard Time"]        = "Asia/Dubai",
+        ["Pakistan Standard Time"]       = "Asia/Karachi",
+        ["India Standard Time"]          = "Asia/Kolkata",
+        ["Bangladesh Standard Time"]     = "Asia/Dhaka",
+        ["SE Asia Standard Time"]        = "Asia/Bangkok",
+        ["Singapore Standard Time"]      = "Asia/Singapore",
+        ["China Standard Time"]          = "Asia/Shanghai",
+        ["Tokyo Standard Time"]          = "Asia/Tokyo",
+        ["Korea Standard Time"]          = "Asia/Seoul",
+        ["AUS Eastern Standard Time"]    = "Australia/Sydney",
+        ["New Zealand Standard Time"]    = "Pacific/Auckland",
+        ["South Africa Standard Time"]   = "Africa/Johannesburg",
+        ["Egypt Standard Time"]          = "Africa/Cairo",
+        ["E. Africa Standard Time"]      = "Africa/Nairobi",
+        ["UTC"]                          = "UTC",
+    };
 
     [RelayCommand]
     private async Task AddAccount()

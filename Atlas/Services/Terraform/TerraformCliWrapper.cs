@@ -25,6 +25,7 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
                 workingDir:  Directory.GetCurrentDirectory(),
                 args:        "version -json",
                 credentials: null,
+                tfVars:      null,
                 progress:    null,
                 timeout:     TimeSpan.FromSeconds(10),
                 ct:          ct).ConfigureAwait(false);
@@ -54,7 +55,7 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
             : "init -no-color";
 
         FileLogger.Info($"[TerraformCLI] init  dir={workingDir}");
-        return RunCoreAsync(workingDir, args, credentials, progress, DefaultTimeout, ct);
+        return RunCoreAsync(workingDir, args, credentials, null, progress, DefaultTimeout, ct);
     }
 
     /// <inheritdoc/>
@@ -64,27 +65,27 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
         CancellationToken  ct       = default)
     {
         FileLogger.Info($"[TerraformCLI] validate  dir={workingDir}");
-        return RunCoreAsync(workingDir, "validate -no-color", null, progress, DefaultTimeout, ct);
+        return RunCoreAsync(workingDir, "validate -no-color", null, null, progress, DefaultTimeout, ct);
     }
 
     /// <inheritdoc/>
     public Task<TerraformResult> PlanAsync(
-        string                   workingDir,
-        bool                     detailed    = false,
-        string?                  planOutFile = null,
-        TerraformAwsCredentials? credentials = null,
-        IProgress<string>?       progress    = null,
-        CancellationToken        ct          = default)
+        string                                workingDir,
+        bool                                  detailed    = false,
+        string?                               planOutFile = null,
+        TerraformAwsCredentials?              credentials = null,
+        IReadOnlyDictionary<string, string>?  tfVars      = null,
+        IProgress<string>?                    progress    = null,
+        CancellationToken                     ct          = default)
     {
         var sb = new StringBuilder("plan -no-color -detailed-exitcode");
         if (planOutFile is not null)
             sb.Append($" -out=\"{planOutFile}\"");
 
-        FileLogger.Info($"[TerraformCLI] plan  dir={workingDir}  detailed={detailed}");
-        return RunCoreAsync(workingDir, sb.ToString(), credentials, progress, DefaultTimeout, ct,
+        FileLogger.Info($"[TerraformCLI] plan  dir={workingDir}  detailed={detailed}  tfVars={tfVars?.Count ?? 0}");
+        return RunCoreAsync(workingDir, sb.ToString(), credentials, tfVars, progress, DefaultTimeout, ct,
             postProcess: static result =>
             {
-                // exit 0 = no changes, exit 2 = changes present (not an error for plan)
                 if (result.ExitCode == 2)
                     return result with
                     {
@@ -99,19 +100,19 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
 
     /// <inheritdoc/>
     public Task<TerraformResult> ApplyAsync(
-        string                   workingDir,
-        string?                  planFile    = null,
-        TerraformAwsCredentials? credentials = null,
-        IProgress<string>?       progress    = null,
-        CancellationToken        ct          = default)
+        string                                workingDir,
+        string?                               planFile    = null,
+        TerraformAwsCredentials?              credentials = null,
+        IReadOnlyDictionary<string, string>?  tfVars      = null,
+        IProgress<string>?                    progress    = null,
+        CancellationToken                     ct          = default)
     {
-        // Sem planFile → -auto-approve obrigatório para não travar aguardando input.
         var args = planFile is null
             ? "apply -no-color -auto-approve"
             : $"apply -no-color \"{planFile}\"";
 
-        FileLogger.Info($"[TerraformCLI] apply  dir={workingDir}  plan={planFile ?? "(none)"}");
-        return RunCoreAsync(workingDir, args, credentials, progress, DefaultTimeout, ct);
+        FileLogger.Info($"[TerraformCLI] apply  dir={workingDir}  plan={planFile ?? "(none)"}  tfVars={tfVars?.Count ?? 0}");
+        return RunCoreAsync(workingDir, args, credentials, tfVars, progress, DefaultTimeout, ct);
     }
 
     /// <inheritdoc/>
@@ -130,7 +131,38 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
 
         var args = $"import -no-color \"{resourceAddress}\" \"{resourceId}\"";
         FileLogger.Info($"[TerraformCLI] import  dir={workingDir}  addr={resourceAddress}  id={resourceId}");
-        return RunCoreAsync(workingDir, args, credentials, progress, DefaultTimeout, ct);
+        return RunCoreAsync(workingDir, args, credentials, null, progress, DefaultTimeout, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<TerraformResult> PlanWithGenerateConfigAsync(
+        string                                workingDir,
+        string                                generateConfigOut,
+        TerraformAwsCredentials?              credentials = null,
+        IReadOnlyDictionary<string, string>?  tfVars      = null,
+        IProgress<string>?                    progress    = null,
+        CancellationToken                     ct          = default)
+    {
+        if (File.Exists(generateConfigOut))
+            File.Delete(generateConfigOut);
+
+        var safeOut = generateConfigOut.Replace("\\", "/");
+        var args    = $"plan -no-color -generate-config-out=\"{safeOut}\"";
+        FileLogger.Info($"[TerraformCLI] plan -generate-config-out  dir={workingDir}  out={generateConfigOut}  tfVars={tfVars?.Count ?? 0}");
+        return RunCoreAsync(workingDir, args, credentials, tfVars, progress, DefaultTimeout, ct,
+            postProcess: static result =>
+            {
+                // exit 2 = changes planned (import blocks ready to apply) — não é erro
+                if (result.ExitCode == 2)
+                    return result with
+                    {
+                        Status            = TerraformResultStatus.PlanHasChanges,
+                        DiagnosticMessage = "Plan concluído — imports prontos para aplicar.",
+                    };
+                if (result.ExitCode == 0 && result.IsSuccess)
+                    return result with { Status = TerraformResultStatus.NoChanges };
+                return result;
+            });
     }
 
     /// <inheritdoc/>
@@ -142,23 +174,23 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
     {
         var args = json ? "output -no-color -json" : "output -no-color";
         FileLogger.Info($"[TerraformCLI] output  dir={workingDir}  json={json}");
-        return RunCoreAsync(workingDir, args, null, progress, DefaultTimeout, ct);
+        return RunCoreAsync(workingDir, args, null, null, progress, DefaultTimeout, ct);
     }
 
     // ── Núcleo: execução do processo ──────────────────────────────────────
 
     private static async Task<TerraformResult> RunCoreAsync(
-        string                              workingDir,
-        string                              args,
-        TerraformAwsCredentials?            credentials,
-        IProgress<string>?                  progress,
-        TimeSpan                            timeout,
-        CancellationToken                   ct,
+        string                                  workingDir,
+        string                                  args,
+        TerraformAwsCredentials?                credentials,
+        IReadOnlyDictionary<string, string>?    tfVars,
+        IProgress<string>?                      progress,
+        TimeSpan                                timeout,
+        CancellationToken                       ct,
         Func<TerraformResult, TerraformResult>? postProcess = null)
     {
         var sw = Stopwatch.StartNew();
 
-        // CTS combinado: respeita ct do chamador + timeout local
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var linkedCts  = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
@@ -168,7 +200,7 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
         ProcessStartInfo psi;
         try
         {
-            psi = BuildProcessStartInfo(workingDir, args, credentials);
+            psi = BuildProcessStartInfo(workingDir, args, credentials, tfVars);
         }
         catch (Exception ex)
         {
@@ -226,6 +258,12 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
             try
             {
                 await process.WaitForExitAsync(linkedCts.Token).ConfigureAwait(false);
+
+                // BUG FIX: Em .NET, WaitForExitAsync pode retornar antes de todos os dados
+                // de BeginOutputReadLine / BeginErrorReadLine serem entregues ao handler.
+                // WaitForExit() síncrono (com timeout 0) garante que os buffers async
+                // são completamente drenados antes de ler stdoutSb / stderrSb.
+                process.WaitForExit();
             }
             catch (OperationCanceledException)
             {
@@ -248,10 +286,14 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
             var stderr   = stderrSb.ToString();
             var exitCode = process.ExitCode;
 
-            FileLogger.Info($"[TerraformCLI] exit={exitCode}  duration={sw.Elapsed.TotalSeconds:0.0}s  args={args}");
-
             var errors  = ParseTerraformErrors(stdout, stderr);
             var result  = BuildResult(exitCode, stdout, stderr, errors, sw.Elapsed);
+
+            FileLogger.Info($"[TerraformCLI] exit={exitCode}  duration={sw.Elapsed.TotalSeconds:0.0}s  args={args}");
+            if (exitCode != 0 && !string.IsNullOrEmpty(result.DiagnosticMessage))
+                FileLogger.Warning($"[TerraformCLI] diagnostic={result.DiagnosticMessage}");
+            if (errors.Count > 0)
+                FileLogger.Warning($"[TerraformCLI] first_error={errors[0][..Math.Min(200, errors[0].Length)]}");
 
             return postProcess is not null ? postProcess(result) : result;
         }
@@ -260,9 +302,10 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
     // ── Helpers de construção ─────────────────────────────────────────────
 
     private static ProcessStartInfo BuildProcessStartInfo(
-        string                   workingDir,
-        string                   args,
-        TerraformAwsCredentials? credentials)
+        string                                workingDir,
+        string                                args,
+        TerraformAwsCredentials?              credentials,
+        IReadOnlyDictionary<string, string>?  tfVars = null)
     {
         var psi = new ProcessStartInfo("terraform", args)
         {
@@ -287,6 +330,14 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
 
             if (credentials.SessionToken is not null)
                 psi.Environment["AWS_SESSION_TOKEN"] = credentials.SessionToken;
+        }
+
+        // Injeta variáveis Terraform como TF_VAR_* — valores nunca escritos em disco.
+        // Equivalente a terraform.tfvars mas em memória apenas.
+        if (tfVars is not null)
+        {
+            foreach (var (name, value) in tfVars)
+                psi.Environment[$"TF_VAR_{name}"] = value;
         }
 
         return psi;

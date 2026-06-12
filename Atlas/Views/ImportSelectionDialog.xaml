@@ -1,0 +1,348 @@
+<Window x:Class="Atlas.Views.ImportSelectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:Atlas.Views"
+        WindowStyle="None"
+        Background="{DynamicResource SurfaceBrush}"
+        ResizeMode="NoResize"
+        Width="640" Height="680"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <!-- Checkbox that also renders the indeterminate (partial) state -->
+        <Style x:Key="TriStateCheckBox" TargetType="CheckBox">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Bd" Width="16" Height="16" CornerRadius="4"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1.5"
+                                Background="Transparent"
+                                SnapsToDevicePixels="True">
+                            <Grid>
+                                <Viewbox x:Name="CheckMark" Width="9" Height="9" Visibility="Collapsed">
+                                    <Canvas Width="12" Height="12">
+                                        <Polyline Points="1,6 4.5,10 11,2"
+                                                  Stroke="White" StrokeThickness="2"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"/>
+                                    </Canvas>
+                                </Viewbox>
+                                <Rectangle x:Name="PartialMark" Width="8" Height="2.5" RadiusX="1" RadiusY="1"
+                                           Fill="White" Visibility="Collapsed"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="{x:Null}">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="PartialMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="14"
+            Padding="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- header -->
+                <RowDefinition Height="Auto"/>   <!-- toolbar -->
+                <RowDefinition Height="*"/>      <!-- list -->
+                <RowDefinition Height="Auto"/>   <!-- footer -->
+            </Grid.RowDefinitions>
+
+            <!-- ── Header ──────────────────────────────────────────────────── -->
+            <Border Grid.Row="0" x:Name="DragHandle" Padding="24,20,20,16"
+                    MouseLeftButtonDown="DragHandle_MouseLeftButtonDown"
+                    Cursor="SizeAll">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <Border.Background>
+                                <SolidColorBrush Color="{DynamicResource AccentColor}" Opacity="0.15"/>
+                            </Border.Background>
+                            <Path Style="{StaticResource Icon}" Width="16" Height="16"
+                                  Data="{StaticResource Icon.Layers}"
+                                  Stroke="{DynamicResource AccentBrush}"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Select Resources to Import" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Choose which discovered AWS resources Terraform should manage"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Grid.Column="1" Click="Cancel_Click"
+                            Style="{StaticResource GhostButton}"
+                            Padding="8" VerticalAlignment="Top">
+                        <TextBlock Text="✕" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ── Toolbar ─────────────────────────────────────────────────── -->
+            <Border Grid.Row="1" BorderThickness="0,1,0,1"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    Background="{DynamicResource SidebarActiveBrush}"
+                    Padding="24,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Click="SelectAll_Click"
+                            Style="{StaticResource GhostButton}" Padding="10,4">
+                        <TextBlock Text="Select all" FontSize="11"
+                                   Foreground="{DynamicResource AccentBrush}"/>
+                    </Button>
+                    <Button Grid.Column="1" Click="DeselectAll_Click"
+                            Style="{StaticResource GhostButton}" Padding="10,4" Margin="4,0,0,0">
+                        <TextBlock Text="Deselect all" FontSize="11"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Button>
+
+                    <Border Grid.Column="2" Width="1" Margin="10,4"
+                            Background="{DynamicResource BorderBrush}"/>
+
+                    <Button Grid.Column="3" Click="ExpandAll_Click"
+                            Style="{StaticResource GhostButton}" Padding="10,4">
+                        <TextBlock Text="Expand all" FontSize="11"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Button>
+                    <Button Grid.Column="4" Click="CollapseAll_Click"
+                            Style="{StaticResource GhostButton}" Padding="10,4" Margin="4,0,0,0">
+                        <TextBlock Text="Collapse all" FontSize="11"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Button>
+
+                    <TextBlock Grid.Column="6" x:Name="SummaryText"
+                               FontSize="11" FontWeight="Medium"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <!-- ── Category list ───────────────────────────────────────────── -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="24,14,24,6">
+                <ItemsControl ItemsSource="{Binding Categories}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type views:ImportCategoryVm}">
+                            <Border Background="{DynamicResource BackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Margin="0,0,0,10" Padding="0">
+                                <StackPanel>
+
+                                    <!-- Category header -->
+                                    <Border Padding="14,10"
+                                            Background="{DynamicResource SidebarActiveBrush}"
+                                            CornerRadius="10,10,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <CheckBox Grid.Column="0"
+                                                      Style="{StaticResource TriStateCheckBox}"
+                                                      IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                                      IsThreeState="False"/>
+
+                                            <!-- Expand / collapse: chevron + category name -->
+                                            <Button Grid.Column="1"
+                                                    Command="{Binding ToggleExpandCommand}"
+                                                    Cursor="Hand" FocusVisualStyle="{x:Null}"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Left"
+                                                    Padding="0" Margin="10,0,0,0">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="Transparent"
+                                                                Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Width="10" Height="10" VerticalAlignment="Center"
+                                                          Data="{StaticResource Icon.ChevronRight}"
+                                                          Stroke="{DynamicResource TextMutedBrush}"
+                                                          StrokeThickness="1.5"
+                                                          Stretch="Uniform" Fill="Transparent"
+                                                          RenderTransformOrigin="0.5,0.5">
+                                                        <Path.Style>
+                                                            <Style TargetType="Path">
+                                                                <Setter Property="RenderTransform">
+                                                                    <Setter.Value><RotateTransform Angle="0"/></Setter.Value>
+                                                                </Setter>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                        <Setter Property="RenderTransform">
+                                                                            <Setter.Value><RotateTransform Angle="90"/></Setter.Value>
+                                                                        </Setter>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Path.Style>
+                                                    </Path>
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="13" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Border Grid.Column="2" CornerRadius="9" Padding="8,2"
+                                                    Background="{DynamicResource SurfaceBrush}"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding CountLabel}"
+                                                           FontSize="10" FontWeight="Medium" FontFamily="Consolas"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Resource rows (visible when category is expanded) -->
+                                    <ItemsControl ItemsSource="{Binding Items}"
+                                                  Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisible}}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type views:ImportResourceItemVm}">
+                                                <Border Padding="14,7" BorderThickness="0,1,0,0"
+                                                        BorderBrush="{DynamicResource BorderBrush}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="150"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <CheckBox Grid.Column="0"
+                                                                  Style="{StaticResource TriStateCheckBox}"
+                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+
+                                                        <!-- Resource type badge -->
+                                                        <Border Grid.Column="1" CornerRadius="5" Padding="7,2"
+                                                                Margin="10,0,0,0"
+                                                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                Background="{DynamicResource SidebarActiveBrush}">
+                                                            <TextBlock Text="{Binding TypeLabel}"
+                                                                       FontSize="10" FontWeight="Medium"
+                                                                       Foreground="{DynamicResource AccentBrush}"/>
+                                                        </Border>
+
+                                                        <!-- Name + AWS id -->
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                                    Margin="10,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding DisplayName}"
+                                                                       FontSize="12"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       MaxWidth="220"/>
+                                                            <TextBlock Text="{Binding AwsIdLabel}"
+                                                                       FontSize="11" FontFamily="Consolas"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Margin="8,0,0,0"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       MaxWidth="180"
+                                                                       VerticalAlignment="Center"
+                                                                       Visibility="{Binding ShowAwsId, Converter={StaticResource BoolToVisible}}"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- ── Footer ──────────────────────────────────────────────────── -->
+            <Border Grid.Row="3" BorderThickness="0,1,0,0"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    Padding="20,14,20,18">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="Deselected resources stay untouched in AWS — they are simply not imported."
+                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                               VerticalAlignment="Center" TextWrapping="Wrap" Margin="4,0,12,0"/>
+
+                    <Button Grid.Column="1" Click="Cancel_Click"
+                            Style="{StaticResource GhostButton}"
+                            Padding="16,8" Margin="0,0,8,0">
+                        <TextBlock Text="Cancel" FontSize="13"/>
+                    </Button>
+
+                    <Button Grid.Column="2" x:Name="BtnImport"
+                            Click="Import_Click" Padding="16,8"
+                            Background="{DynamicResource AccentBrush}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                        CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                       Foreground="White" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock x:Name="BtnImportText" Text="Import"
+                                       FontSize="13" FontWeight="Medium" Foreground="White"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+        </Grid>
+    </Border>
+</Window>

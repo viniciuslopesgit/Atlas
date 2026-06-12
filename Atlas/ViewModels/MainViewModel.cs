@@ -9,7 +9,7 @@ using System.Reflection;
 
 namespace Atlas.ViewModels;
 
-public enum NavigationPage { Dashboard, EC2, S3, IAM, Billing, CloudWatch, GuardDuty, IaC, Settings, Contact }
+public enum NavigationPage { Dashboard, EC2, S3, IAM, Billing, CloudWatch, GuardDuty, IaC, Stacks, Settings, Contact }
 
 public partial class MainViewModel : ObservableObject
 {
@@ -28,6 +28,7 @@ public partial class MainViewModel : ObservableObject
     public CloudWatchViewModel  CloudWatchVM   { get; }
     public GuardDutyViewModel   GuardDutyVM    { get; }
     public TerraformViewModel   TerraformVM    { get; }
+    public StacksViewModel      StacksVM       { get; }
     public SettingsViewModel    SettingsVM     { get; }
     public ContactViewModel     ContactVM      { get; }
 
@@ -55,7 +56,20 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Convenience inverse of <see cref="IsPro"/> for badge/CTA visibility.</summary>
     public bool IsFree => !IsPro;
 
+    /// <summary>True when the current page is an AWS resource view (EC2, S3, IAM, Billing, CloudWatch, GuardDuty).</summary>
+    public bool IsInResourcesGroup => CurrentPage is NavigationPage.EC2 or NavigationPage.S3
+        or NavigationPage.IAM or NavigationPage.Billing or NavigationPage.CloudWatch or NavigationPage.GuardDuty;
+
+    /// <summary>True when the IaC secondary (Resources) sidebar should be visible.</summary>
+    public bool IsIacSecondaryNavVisible => IsInResourcesGroup;
+
     partial void OnIsProChanged(bool value) => OnPropertyChanged(nameof(IsFree));
+
+    partial void OnCurrentPageChanged(NavigationPage value)
+    {
+        OnPropertyChanged(nameof(IsInResourcesGroup));
+        OnPropertyChanged(nameof(IsIacSecondaryNavVisible));
+    }
 
     /// <summary>Current application version, e.g. "v0.0.23 beta".</summary>
     public static string AppVersion { get; } =
@@ -137,6 +151,7 @@ public partial class MainViewModel : ObservableObject
         CloudWatchViewModel cloudWatchVM,
         GuardDutyViewModel guardDutyVM,
         TerraformViewModel terraformVM,
+        StacksViewModel stacksVM,
         SettingsViewModel settingsVM,
         ContactViewModel contactVM)
     {
@@ -157,6 +172,7 @@ public partial class MainViewModel : ObservableObject
         CloudWatchVM = cloudWatchVM;
         GuardDutyVM  = guardDutyVM;
         TerraformVM  = terraformVM;
+        StacksVM     = stacksVM;
         SettingsVM   = settingsVM;
         ContactVM    = contactVM;
 
@@ -185,6 +201,11 @@ public partial class MainViewModel : ObservableObject
 
         DashboardVM.NavigateToResultRequested = OnSearchResultNavigated;
         DashboardVM.NavigateToPageRequested   = NavigateTo;
+        DashboardVM.ImportFromAwsRequested    = (name, path) =>
+        {
+            NavigateTo(NavigationPage.Stacks);
+            _ = StacksVM.BeginImportAsync(name, path);
+        };
 
         _ = CheckForUpdatesAsync();
     }
@@ -318,6 +339,7 @@ public partial class MainViewModel : ObservableObject
             NavigationPage.CloudWatch  => CloudWatchVM,
             NavigationPage.GuardDuty   => GuardDutyVM,
             NavigationPage.IaC         => TerraformVM,
+            NavigationPage.Stacks      => StacksVM,
             NavigationPage.Settings    => SettingsVM,
             NavigationPage.Contact     => ContactVM,
             _                          => DashboardVM
@@ -402,6 +424,11 @@ public partial class MainViewModel : ObservableObject
                     Subtitle = "Manage Terraform projects",
                     Keywords = ["terraform", "iac", "infrastructure", "code", "init", "workspace"],
                     Execute = () => NavigateTo(NavigationPage.IaC) },
+
+            new() { Title = "Go to Stacks",           Category = "Navigate", Icon = "",
+                    Subtitle = "View stack run history and status",
+                    Keywords = ["stacks", "terraform", "runs", "import", "plan", "apply", "history"],
+                    Execute = () => NavigateTo(NavigationPage.Stacks) },
 
             new() { Title = "Contact & Feedback",    Category = "Navigate", Icon = "",
                     Subtitle = "Report a bug or send a suggestion",

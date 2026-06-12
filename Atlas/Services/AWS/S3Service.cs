@@ -310,4 +310,52 @@ public sealed class S3Service : IS3Service
 
         await transfer.DownloadAsync(request, ct);
     }
+
+    public async Task<string> GetFileContentAsync(
+        string bucketName, string key, CancellationToken ct = default)
+    {
+        var client   = _clients.GetS3(_session.GetCredentials(), _session.GetRegion());
+        var response = await client.GetObjectAsync(bucketName, key, ct);
+        using var reader = new StreamReader(
+            response.ResponseStream,
+            System.Text.Encoding.UTF8,
+            detectEncodingFromByteOrderMarks: true);
+        return await reader.ReadToEndAsync(ct);
+    }
+
+    public async Task PutFileContentAsync(
+        string bucketName, string key, string content, CancellationToken ct = default)
+    {
+        var client = _clients.GetS3(_session.GetCredentials(), _session.GetRegion());
+
+        // Delete the existing object first; S3 returns 204 even when the key does not exist.
+        await client.DeleteObjectAsync(bucketName, key, ct);
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        using var stream = new MemoryStream(bytes);
+
+        var ext         = Path.GetExtension(key).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".json"              => "application/json",
+            ".xml"               => "application/xml",
+            ".html" or ".htm"    => "text/html",
+            ".css"               => "text/css",
+            ".js"                => "application/javascript",
+            ".ts"                => "text/typescript",
+            ".md" or ".markdown" => "text/markdown",
+            ".csv"               => "text/csv",
+            ".yaml" or ".yml"    => "application/yaml",
+            ".sh" or ".bash"     => "text/x-shellscript",
+            _                    => "text/plain"
+        };
+
+        await client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName  = bucketName,
+            Key         = key,
+            InputStream = stream,
+            ContentType = contentType
+        }, ct);
+    }
 }

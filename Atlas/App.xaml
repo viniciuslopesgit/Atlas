@@ -10,11 +10,14 @@
                 <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
                 <!-- Control styles reference theme brushes dynamically -->
                 <ResourceDictionary Source="Themes/ControlStyles.xaml"/>
+                <!-- Lucide icon geometries + base Path style -->
+                <ResourceDictionary Source="Resources/LucideIcons.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Converters (global) -->
             <helpers:BoolToVisibleConverter    x:Key="BoolToVisible"/>
             <helpers:BoolToInvisibleConverter  x:Key="BoolToInvisible"/>
+            <helpers:BoolToHiddenConverter     x:Key="BoolToHidden"/>
             <helpers:NullToCollapsedConverter  x:Key="NullToCollapsed"/>
             <helpers:NullToVisibleConverter    x:Key="NullToVisible"/>
             <helpers:ZeroToVisibleConverter    x:Key="ZeroToVisible"/>
@@ -22,11 +25,13 @@
             <helpers:ZeroToCollapsedConverter       x:Key="ZeroToCollapsed"/>
             <helpers:ResourceTypeToIconConverter    x:Key="ResourceTypeToIcon"/>
             <helpers:PageCheckConverter             x:Key="PageCheck"/>
+            <helpers:SectionCheckConverter          x:Key="SectionCheck"/>
             <helpers:InitialsConverter         x:Key="InitialsConverter"/>
             <helpers:EqualityConverter              x:Key="EqualityToBool"/>
             <helpers:EqualToVisibleConverter        x:Key="EqualToVisible"/>
             <helpers:MultiValueEqualityConverter   x:Key="MultiEq"/>
             <helpers:SparklineConverter            x:Key="Sparkline"/>
+            <helpers:HexStringToBrushConverter     x:Key="HexToBrush"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

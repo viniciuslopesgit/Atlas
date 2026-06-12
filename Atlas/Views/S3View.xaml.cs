@@ -76,8 +76,12 @@ public partial class S3View : UserControl
 
     private void ObjectGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (DataContext is S3ViewModel vm && vm.SelectedObject?.IsFolder == true)
+        if (DataContext is not S3ViewModel vm || vm.SelectedObject is null) return;
+
+        if (vm.SelectedObject.IsFolder)
             vm.EnterFolderCommand.Execute(vm.SelectedObject);
+        else if (S3ViewModel.IsTextEditable(vm.SelectedObject))
+            vm.OpenFileEditorCommand.Execute(vm.SelectedObject);
     }
 
     private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject

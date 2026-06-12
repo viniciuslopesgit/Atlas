@@ -17,19 +17,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-tags: true
+          fetch-depth: 0
 
       - name: Inject latest version into website
         run: |
           LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.1")
           sed -i "s/__VERSION__/$LATEST/g" cloud-atlas.io/index.html
 
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v3
-        with:
-          publish-dir: cloud-atlas.io
-          production-branch: main
-          production-deploy: true
+      - name: Deploy to atlas-site repo
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          rm -rf deploy-repo
+          git clone https://x-access-token:${DEPLOY_TOKEN}@github.com/viniciuslopesgit/atlas-site.git deploy-repo
+
+          rsync -av --delete cloud-atlas.io/ deploy-repo/
+
+          cd deploy-repo
+          git add .
+          git commit -m "Deploy site update from atlas-cloud" || echo "No changes to commit"
+          git push origin main

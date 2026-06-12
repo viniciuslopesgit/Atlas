@@ -11,9 +11,7 @@
             <!-- ── First-run onboarding (no accounts configured at all) ──── -->
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="400"
                         Visibility="{Binding IsFirstRun, Converter={StaticResource BoolToVisible}}">
-                <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets"
-                           FontSize="56" HorizontalAlignment="Center"
-                           Foreground="{DynamicResource AccentBrush}"/>
+
                 <TextBlock Text="Welcome to Atlas!" FontSize="26" FontWeight="SemiBold"
                            HorizontalAlignment="Center" Margin="0,16,0,0"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -35,9 +33,7 @@
             <!-- ── Accounts exist but none is active (e.g. switching accounts) ── -->
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding IsFirstRun, Converter={StaticResource BoolToInvisible}}">
-                <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets"
-                           FontSize="52" HorizontalAlignment="Center"
-                           Foreground="{DynamicResource TextMutedBrush}"/>
+
                 <TextBlock Text="No active account" FontSize="16"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
@@ -178,9 +174,9 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="14" VerticalAlignment="Center" Margin="0,0,10,0"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                            <Path Grid.Column="0" Style="{StaticResource Icon}" Width="15" Height="15"
+                                  Data="{StaticResource Icon.Search}"
+                                  Stroke="{DynamicResource TextMutedBrush}" Margin="0,0,10,0"/>
 
                             <Grid Grid.Column="1">
                                 <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
@@ -205,17 +201,18 @@
                             </Grid>
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="13" Margin="0,0,8,0"
-                                           Foreground="{DynamicResource AccentBrush}"
-                                           Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisible}}"/>
+                                <Path Style="{StaticResource Icon}" Width="13" Height="13"
+                                      Data="{StaticResource Icon.LoaderCircle}"
+                                      Stroke="{DynamicResource AccentBrush}" Margin="0,0,8,0"
+                                      Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisible}}"/>
                                 <Button Style="{StaticResource GhostButton}"
                                         Command="{Binding ClearSearchCommand}"
-                                        Padding="6,4" FontSize="13"
-                                        Foreground="{DynamicResource TextMutedBrush}"
-                                        Content="&#xE8BB;"
-                                        FontFamily="Segoe MDL2 Assets"
-                                        Visibility="{Binding SearchPanelVisible, Converter={StaticResource BoolToVisible}}"/>
+                                        Padding="6,4"
+                                        Visibility="{Binding SearchPanelVisible, Converter={StaticResource BoolToVisible}}">
+                                    <Path Style="{StaticResource Icon}" Width="13" Height="13"
+                                          Data="{StaticResource Icon.X}"
+                                          Stroke="{DynamicResource TextMutedBrush}"/>
+                                </Button>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -705,10 +702,11 @@
                                         <TextBlock Text="{Binding AuditStatusText}" FontSize="11"
                                                    Foreground="{DynamicResource TextMutedBrush}"
                                                    VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                        <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
-                                                   Margin="0,0,10,0"
-                                                   Visibility="{Binding IsAuditLoading, Converter={StaticResource BoolToVisible}}"/>
+                                        <Path Style="{StaticResource Icon}" Width="14" Height="14"
+                                              Data="{StaticResource Icon.LoaderCircle}"
+                                              Stroke="{DynamicResource AccentBrush}"
+                                              Margin="0,0,10,0"
+                                              Visibility="{Binding IsAuditLoading, Converter={StaticResource BoolToVisible}}"/>
                                         <Button Style="{StaticResource GhostButton}"
                                                 Command="{Binding RunAuditCommand}"
                                                 IsEnabled="{Binding IsAuditLoading, Converter={StaticResource BoolToInvisible}}"

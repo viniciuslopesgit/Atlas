@@ -1,0 +1,195 @@
+<Window x:Class="Atlas.Views.S3FileEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        WindowStyle="None"
+        Background="#1e1e1e"
+        ResizeMode="CanResize"
+        Width="940" Height="660"
+        MinWidth="560" MinHeight="380"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="True"
+        StateChanged="Window_StateChanged">
+
+    <!-- WindowChrome: remove OS chrome, keep resize border, header = drag zone -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="34"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            CornerRadius="0"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="34"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="30"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Header (drag zone via WindowChrome) ───────────────────── -->
+        <Border Grid.Row="0"
+                Background="#2d2d30"
+                BorderBrush="#3e3e42" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- File info -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="12,0,0,0">
+                    <TextBlock Text="⊘" FontSize="12" Foreground="#569cd6"
+                               Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="FileNameText"
+                               FontSize="12" FontWeight="SemiBold"
+                               Foreground="#cccccc" VerticalAlignment="Center"
+                               FontFamily="Consolas"/>
+                    <TextBlock x:Name="FilePathText"
+                               FontSize="11" Foreground="#666666"
+                               Margin="6,0,0,0" VerticalAlignment="Center"
+                               FontFamily="Consolas"/>
+                    <TextBlock x:Name="ModifiedIndicator"
+                               FontSize="11" Foreground="#e2a860"
+                               Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Window controls — must be marked hit-test-visible in chrome area -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+
+                    <!-- Minimize -->
+                    <Button shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            Width="44" Height="34" Click="Minimize_Click"
+                            ToolTip="Minimize">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="Transparent">
+                                    <TextBlock Text="─" FontSize="10" Foreground="#cccccc"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Margin="0,2,0,0"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#3f3f46"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Maximize / Restore -->
+                    <Button x:Name="MaxRestoreButton"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            Width="44" Height="34" Click="MaxRestore_Click"
+                            ToolTip="Maximize">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="Transparent">
+                                    <TextBlock x:Name="Icon" Text="□" FontSize="11"
+                                               Foreground="#cccccc"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#3f3f46"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Close -->
+                    <Button shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            Width="44" Height="34" Click="Close_Click"
+                            ToolTip="Close">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="Transparent">
+                                    <TextBlock Text="✕" FontSize="10" Foreground="#cccccc"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#c42b1c"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── Monaco Editor ────────────────────────────────────────── -->
+        <wv2:WebView2 Grid.Row="1" x:Name="EditorWebView"/>
+
+        <!-- ── Status / footer bar ──────────────────────────────────── -->
+        <Border Grid.Row="2" Background="#007acc">
+            <Grid Margin="12,0,10,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left stats -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="CursorPositionText"
+                               FontSize="11" Foreground="White" Margin="0,0,18,0"/>
+                    <TextBlock x:Name="LineCountText"
+                               FontSize="11" Foreground="#cce4ff" Margin="0,0,16,0"/>
+                    <TextBlock x:Name="LanguageText"
+                               FontSize="11" Foreground="#cce4ff"/>
+                </StackPanel>
+
+                <!-- Encoding -->
+                <TextBlock Grid.Column="1" Text="UTF-8"
+                           FontSize="11" Foreground="#cce4ff"
+                           VerticalAlignment="Center" Margin="0,0,14,0"/>
+
+                <!-- Cancel -->
+                <Button Grid.Column="2" Click="Cancel_Click"
+                        Margin="0,0,6,0" Cursor="Hand">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="Transparent"
+                                    Padding="10,4" CornerRadius="3">
+                                <TextBlock Text="Cancel" FontSize="12" Foreground="White"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#0062a3"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <!-- Save -->
+                <Button Grid.Column="3" x:Name="SaveButton"
+                        Click="Save_Click" IsEnabled="False" Cursor="Hand">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="#0e639c"
+                                    Padding="10,4" CornerRadius="3">
+                                <TextBlock x:Name="Lbl" Text="Save"
+                                           FontSize="12" FontWeight="SemiBold" Foreground="White"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#1177bb"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
