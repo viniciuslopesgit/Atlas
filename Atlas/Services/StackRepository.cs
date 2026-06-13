@@ -13,6 +13,12 @@ public sealed class StackRepository : IStackRepository
     private List<StackEntry> _cache = [];
     private bool _loaded;
 
+    // Serializes all cache + file access. Drift detection reads/writes from
+    // background threads while the UI thread also saves; without this, an
+    // enumeration in GetAll could race a Save's _cache.Add and throw
+    // "Collection was modified", crashing on a background thread.
+    private readonly object _gate = new();
+
     private static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented           = true,
@@ -32,30 +38,44 @@ public sealed class StackRepository : IStackRepository
 
     public IReadOnlyList<StackEntry> GetAll()
     {
-        EnsureLoaded();
-        return _cache.AsReadOnly();
+        lock (_gate)
+        {
+            EnsureLoaded();
+            // Return a snapshot so callers can enumerate without holding the lock
+            // and without racing concurrent Save/Delete mutations of _cache.
+            return _cache.ToList();
+        }
     }
 
     public StackEntry? GetById(string id)
     {
-        EnsureLoaded();
-        return _cache.FirstOrDefault(s => s.Id == id);
+        lock (_gate)
+        {
+            EnsureLoaded();
+            return _cache.FirstOrDefault(s => s.Id == id);
+        }
     }
 
     public void Save(StackEntry stack)
     {
-        EnsureLoaded();
-        var idx = _cache.FindIndex(s => s.Id == stack.Id);
-        if (idx >= 0) _cache[idx] = stack;
-        else          _cache.Add(stack);
-        Persist();
+        lock (_gate)
+        {
+            EnsureLoaded();
+            var idx = _cache.FindIndex(s => s.Id == stack.Id);
+            if (idx >= 0) _cache[idx] = stack;
+            else          _cache.Add(stack);
+            Persist();
+        }
     }
 
     public void Delete(string id)
     {
-        EnsureLoaded();
-        _cache.RemoveAll(s => s.Id == id);
-        Persist();
+        lock (_gate)
+        {
+            EnsureLoaded();
+            _cache.RemoveAll(s => s.Id == id);
+            Persist();
+        }
     }
 
     private void EnsureLoaded()

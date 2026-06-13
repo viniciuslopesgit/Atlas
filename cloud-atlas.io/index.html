@@ -13,34 +13,34 @@
     gtag('config', 'G-R46JMXK61J');
   </script>
   <!-- ===== PRIMARY SEO ===== -->
-  <title>Atlas — AWS Console Alternative for Windows | Native Desktop AWS Manager</title>
-  <meta name="description" content="Atlas is the fastest AWS console alternative for Windows. Manage EC2, S3, IAM, CloudWatch alarms, GuardDuty findings and billing across multiple accounts — native WPF app, no browser needed.">
-  <meta name="keywords" content="AWS console alternative, AWS desktop manager, AWS management tool Windows, EC2 manager desktop, CloudWatch desktop app, AWS GUI client, manage AWS without browser, DevOps tool Windows, multi account AWS manager, AWS infrastructure manager, cloud management desktop app">
+  <title>Atlas — Infrastructure Management for DevOps | AWS Drift Detection & IaC</title>
+  <meta name="description" content="Atlas is a native Windows platform for cloud infrastructure management. Explore AWS resources visually, detect infrastructure drift between Terraform and reality, import existing resources into IaC, and govern multiple accounts. Azure support coming soon.">
+  <meta name="keywords" content="infrastructure as code, terraform drift detection, AWS drift detection, infrastructure management tool, IaC GUI, terraform desktop app, AWS resource explorer, devops platform Windows, multi account AWS, terraform import tool, cloud governance, infrastructure visibility, visual control plane AWS">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
   <meta name="author" content="Atlas">
   <link rel="canonical" href="https://cloud-atlas.io/">
   <link rel="icon" href="atlas.ico" sizes="any">
-  <link rel="icon" type="image/png" href="atlas.png">
+  <link rel="icon" type="image/png" href="assets/atlas.png">
   <link rel="shortcut icon" href="/favicon.ico">
 
   <!-- ===== OPEN GRAPH (LinkedIn, Facebook, Slack unfurls) ===== -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://cloud-atlas.io/">
   <meta property="og:site_name" content="Atlas">
-  <meta property="og:title" content="Atlas — AWS Console Alternative for Windows">
-  <meta property="og:description" content="Native Windows desktop app that replaces the slow AWS web console. Multi-account support, bulk EC2 actions, CloudWatch alarms, GuardDuty findings and cost insights — all in one place, offline-ready.">
+  <meta property="og:title" content="Atlas — Where Infrastructure as Code Meets Reality">
+  <meta property="og:description" content="A native desktop platform for DevOps teams. Explore AWS resources visually, detect infrastructure drift, import existing resources into Terraform and govern multiple accounts — all in one place. Azure coming soon.">
   <meta property="og:image" content="https://cloud-atlas.io/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Atlas AWS Desktop Manager — app screenshot">
+  <meta property="og:image:alt" content="Atlas — Infrastructure management & drift detection for DevOps">
   <meta property="og:locale" content="en_US">
 
   <!-- ===== TWITTER / X CARD ===== -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Atlas — AWS Console Alternative for Windows">
-  <meta name="twitter:description" content="Native Windows desktop app that replaces the AWS console. EC2, S3, CloudWatch, GuardDuty, IAM, Billing — fast, offline-ready, no Electron.">
+  <meta name="twitter:title" content="Atlas — Where Infrastructure as Code Meets Reality">
+  <meta name="twitter:description" content="Visualize AWS resources, detect infrastructure drift and keep your Terraform aligned with reality — a fast native desktop platform for DevOps and platform teams. Azure coming soon.">
   <meta name="twitter:image" content="https://cloud-atlas.io/og-image.png">
-  <meta name="twitter:image:alt" content="Atlas AWS Desktop Manager">
+  <meta name="twitter:image:alt" content="Atlas — Infrastructure management for DevOps teams">
 
   <!-- ===== JSON-LD: SoftwareApplication ===== -->
   <script type="application/ld+json">
@@ -48,25 +48,26 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Atlas",
-    "alternateName": "Atlas AWS Desktop Manager",
-    "description": "A native Windows desktop application that replaces the AWS Management Console. Manage EC2 instances, S3 buckets, CloudWatch alarms, GuardDuty findings, IAM users and billing across multiple AWS accounts.",
+    "alternateName": "Atlas — Infrastructure Management for DevOps",
+    "description": "A native Windows desktop platform for cloud infrastructure management. Explore AWS resources visually, detect infrastructure drift between Infrastructure as Code (Terraform) and what is actually deployed, import existing resources into Terraform, and govern multiple AWS accounts. Azure support coming soon.",
     "url": "https://cloud-atlas.io",
     "applicationCategory": "DeveloperApplication",
-    "applicationSubCategory": "Cloud Management",
+    "applicationSubCategory": "Infrastructure as Code / Cloud Management",
     "operatingSystem": "Windows 10, Windows 11",
     "softwareVersion": "0.0.7.2",
     "releaseNotes": "https://cloud-atlas.io/#features",
-    "downloadUrl": "https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi",
+    "downloadUrl": "https://github.com/viniciuslopesgit/atlas-cloud/releases/download/1.0.0/Atlas-win.msi",
     "screenshot": "https://cloud-atlas.io/og-image.png",
     "featureList": [
-      "EC2 instance management with bulk start/stop/reboot/terminate",
-      "S3 bucket browser with upload and download",
-      "CloudWatch alarm monitoring",
-      "GuardDuty security findings",
-      "IAM users and roles audit",
-      "AWS billing and cost insights",
+      "Visual infrastructure explorer for AWS resources",
+      "Infrastructure drift detection between Terraform and live cloud state",
+      "Import existing AWS resources into Terraform (35+ resource types)",
+      "Terraform-aware stacks: init, plan and apply with live streaming output",
+      "Infrastructure as Code generation (HCL) from live resources",
       "Multi-account AWS management",
-      "Native dark mode WPF interface"
+      "EC2, S3, CloudWatch, GuardDuty, IAM and billing visibility",
+      "Native dark mode WPF interface — no browser, no Electron",
+      "Azure support coming soon"
     ],
     "offers": [
       {
@@ -101,18 +102,42 @@
       },
       {
         "@type": "Question",
-        "name": "Is Atlas a free AWS console alternative?",
+        "name": "What is infrastructure drift and how does Atlas detect it?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. Atlas is completely free during the public beta. All features — EC2, S3, CloudWatch, GuardDuty, IAM and Billing — are available with no license key required."
+          "text": "Infrastructure drift is the gap between what your Infrastructure as Code (Terraform) declares and what is actually deployed in your cloud account. Atlas runs terraform plan against your live AWS environment and shows you exactly what was added, changed or removed outside of code — so you can keep your IaC aligned with reality and avoid surprises."
         }
       },
       {
         "@type": "Question",
-        "name": "How does Atlas compare to the AWS Management Console?",
+        "name": "Can Atlas import existing AWS resources into Terraform?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Atlas loads significantly faster than the AWS web console because it is a native WPF application with no browser overhead. It supports bulk EC2 actions in a single click, multi-account switching in milliseconds, and works without a browser tab open. The AWS web console requires a browser and re-authenticates frequently; Atlas stores credentials locally and reuses SDK connections."
+          "text": "Yes. Atlas discovers existing resources in your AWS account across 35+ resource types (EC2, S3, VPC, RDS, Lambda, IAM, ECS/EKS and more), lets you pick which ones to manage, then generates Terraform import blocks and HCL definitions automatically. It can also provision an S3 remote state backend for you."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Atlas support Azure?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Atlas currently focuses on AWS. Multi-cloud support, starting with Azure, is on the roadmap so DevOps teams can manage infrastructure across providers from a single interface."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Atlas a free infrastructure management tool?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Atlas is completely free during the public beta. All features — visual resource explorer, drift detection, Terraform import, IaC generation, multi-account management, CloudWatch, GuardDuty, IAM and Billing — are available with no license key required."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Atlas replace the AWS Management Console and Terraform CLI?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Atlas connects the two worlds. Cloud consoles show what is deployed; Infrastructure as Code shows the desired state. Atlas gives you a native desktop interface to explore live resources, detect drift between them and your Terraform, and run init/plan/apply — without jumping between dozens of console pages and IaC files."
         }
       },
       {
@@ -255,14 +280,14 @@
     <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
       <!-- Logo -->
       <a href="#" class="flex items-center gap-2.5 group">
-        <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+        <img src="assets/atlas.png" alt="Atlas — Infrastructure Management for DevOps" class="w-8 h-8 rounded-lg object-contain">
         <span class="text-xl font-bold tracking-tight">Atlas</span>
       </a>
 
       <!-- Links desktop -->
       <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
         <a href="#features" class="hover:text-white transition">Features</a>
-        <a href="#comparison" class="hover:text-white transition">vs AWS Console</a>
+        <a href="#comparison" class="hover:text-white transition">Why Atlas</a>
         <a href="#pricing" class="hover:text-white transition">Beta</a>
         <a href="#faq" class="hover:text-white transition">FAQ</a>
         <a href="/docs" class="hover:text-white transition">Docs</a>
@@ -271,7 +296,7 @@
 
       <!-- CTA -->
       <div class="flex items-center gap-3">
-        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-900/30 flex items-center gap-2">
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/1.0.0/Atlas-win.msi" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 px-5 py-2.5 rounded-xl font-medium text-sm transition shadow-lg shadow-blue-900/30 flex items-center gap-2">
           <i class="fa-solid fa-download text-xs"></i>
           Free Download
         </a>
@@ -286,12 +311,12 @@
     <div id="mobile-menu" class="hidden md:hidden border-t border-zinc-800 bg-zinc-950/95">
       <div class="px-6 py-4 flex flex-col gap-4 text-sm">
         <a href="#features" class="text-zinc-400 hover:text-white transition py-2">Features</a>
-        <a href="#comparison" class="text-zinc-400 hover:text-white transition py-2">vs AWS Console</a>
+        <a href="#comparison" class="text-zinc-400 hover:text-white transition py-2">Why Atlas</a>
         <a href="#pricing" class="text-zinc-400 hover:text-white transition py-2">Beta</a>
         <a href="#faq" class="text-zinc-400 hover:text-white transition py-2">FAQ</a>
         <a href="/docs" class="text-zinc-400 hover:text-white transition py-2">Docs</a>
         <a href="/contact" class="text-zinc-400 hover:text-white transition py-2">Contact</a>
-        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="bg-blue-600 hover:bg-blue-500 text-center py-3 rounded-xl font-medium transition">Free Download</a>
+        <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/1.0.0/Atlas-win.msi" class="bg-blue-600 hover:bg-blue-500 text-center py-3 rounded-xl font-medium transition">Free Download</a>
       </div>
     </div>
   </nav>
@@ -305,26 +330,28 @@
         <!-- Left: copy -->
         <div class="space-y-8 relative z-10">
           <!-- Badge -->
-          <div class="inline-flex items-center gap-2 bg-blue-950/60 border border-blue-800/50 text-blue-300 text-xs font-medium px-4 py-2 rounded-full">
-            <span class="status-dot dot-green shimmer"></span>
-            Available for Windows · v__VERSION__ beta release
+          <!-- Eyebrow -->
+          <div class="inline-flex items-center gap-2 text-blue-300 text-sm font-medium bg-blue-950/40 border border-blue-900/50 px-4 py-1.5 rounded-full">
+            <i class="fa-solid fa-layer-group text-blue-400 text-xs"></i>
+            Infrastructure management for DevOps teams
           </div>
 
           <h1 class="text-5xl md:text-6xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight">
-            The AWS Console<br>
-            <span class="text-blue-400">alternative</span><br>
-            for Windows
+            Where Infrastructure<br>
+            as Code meets<br>
+            <span class="text-blue-400">reality</span>
           </h1>
 
           <p class="text-lg text-zinc-400 leading-relaxed max-w-lg">
-            A native Windows desktop app that replaces the slow AWS web console.
-            Manage EC2, S3, CloudWatch, GuardDuty and costs across multiple accounts —
-            all in one place, fast and clean. No browser, no Electron.
+            Stop jumping between cloud consoles and IaC files. Atlas is a native desktop
+            platform to explore your AWS resources visually, detect infrastructure drift
+            between Terraform and what's actually deployed, and govern multiple accounts —
+            all in one place. Azure support coming soon.
           </p>
 
           <!-- CTA buttons -->
           <div class="flex flex-wrap gap-4">
-            <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" id="download" class="bg-blue-600 hover:bg-blue-500 active:scale-95 px-8 py-4 rounded-2xl font-semibold text-lg transition flex items-center gap-3 shadow-xl shadow-blue-900/40">
+            <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/1.0.0/Atlas-win.msi" id="download" class="bg-blue-600 hover:bg-blue-500 active:scale-95 px-8 py-4 rounded-2xl font-semibold text-lg transition flex items-center gap-3 shadow-xl shadow-blue-900/40">
               <i class="fa-brands fa-windows"></i>
               Download for Windows
             </a>
@@ -336,9 +363,9 @@
 
           <!-- Trust badges -->
           <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-zinc-500 pt-2">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Drift detection</span>
+            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Terraform-aware</span>
             <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Free — unlimited accounts</span>
-            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Native Dark Mode</span>
-            <span class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> No license key required</span>
           </div>
 
           <!-- Audience tags -->
@@ -365,7 +392,7 @@
               <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
               <span class="text-zinc-500 text-xs ml-3 flex items-center gap-1.5">
                 <i class="fa-solid fa-cloud text-blue-500"></i>
-                Atlas — AWS Desktop Manager
+                Atlas — Infrastructure Manager
               </span>
             </div>
 
@@ -384,8 +411,14 @@
                 </div>
                 <div class="section-divider mx-2 mb-2"></div>
 
+                <div class="app-nav-item">
+                  <i class="fa-solid fa-gauge-high text-zinc-500 w-3"></i> Dashboard
+                </div>
                 <div class="app-nav-item active">
-                  <i class="fa-solid fa-gauge-high text-blue-400 w-3"></i> Dashboard
+                  <i class="fa-solid fa-layer-group text-blue-400 w-3"></i> Stacks
+                </div>
+                <div class="app-nav-item">
+                  <i class="fa-solid fa-cubes text-zinc-500 w-3"></i> IaC
                 </div>
                 <div class="app-nav-item">
                   <i class="fa-solid fa-server text-zinc-500 w-3"></i> EC2
@@ -406,70 +439,58 @@
                 <div class="app-nav-item">
                   <i class="fa-solid fa-triangle-exclamation text-zinc-600 w-3"></i> GuardDuty
                 </div>
-                <div class="app-nav-item">
-                  <i class="fa-solid fa-dollar-sign text-zinc-600 w-3"></i> Billing
-                </div>
               </div>
 
               <!-- Main content -->
               <div class="flex-1 p-4 overflow-hidden">
                 <div class="flex items-center justify-between mb-4">
                   <div>
-                    <div class="text-white text-sm font-semibold">Dashboard</div>
-                    <div class="text-zinc-500 text-xs">us-east-1 · Last updated 2s ago</div>
+                    <div class="text-white text-sm font-semibold">prod-network · Drift detected</div>
+                    <div class="text-zinc-500 text-xs">us-east-1 · terraform plan · 3s ago</div>
                   </div>
                   <div class="flex items-center gap-2">
                     <div class="bg-blue-600/20 text-blue-300 text-[10px] px-2 py-1 rounded-lg border border-blue-700/30">
-                      <i class="fa-solid fa-rotate-right text-[9px] mr-1"></i>Refresh
+                      <i class="fa-solid fa-play text-[9px] mr-1"></i>Apply
                     </div>
                   </div>
                 </div>
 
-                <!-- KPI row -->
-                <div class="grid grid-cols-3 gap-2 mb-3">
+                <!-- Drift KPI row -->
+                <div class="grid grid-cols-4 gap-2 mb-3">
                   <div class="kpi-card">
-                    <div class="text-zinc-500 text-[10px] mb-1">EC2 Instances</div>
-                    <div class="text-white text-lg font-bold">24</div>
-                    <div class="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
-                      <span class="status-dot dot-green"></span> 18 running
-                    </div>
+                    <div class="text-zinc-500 text-[10px] mb-1">Resources</div>
+                    <div class="text-white text-lg font-bold">142</div>
+                    <div class="text-[10px] text-zinc-400 mt-0.5">managed</div>
                   </div>
                   <div class="kpi-card">
-                    <div class="text-zinc-500 text-[10px] mb-1">S3 Buckets</div>
-                    <div class="text-white text-lg font-bold">11</div>
-                    <div class="text-[10px] text-zinc-400 mt-0.5">3 public</div>
+                    <div class="text-zinc-500 text-[10px] mb-1">Add</div>
+                    <div class="text-emerald-400 text-lg font-bold">+4</div>
+                    <div class="text-[10px] text-zinc-400 mt-0.5">to create</div>
                   </div>
                   <div class="kpi-card">
-                    <div class="text-zinc-500 text-[10px] mb-1">Alarms</div>
-                    <div class="text-white text-lg font-bold">2</div>
-                    <div class="text-[10px] text-red-400 flex items-center gap-1 mt-0.5">
-                      <span class="status-dot dot-red"></span> ALARM
-                    </div>
+                    <div class="text-zinc-500 text-[10px] mb-1">Change</div>
+                    <div class="text-amber-400 text-lg font-bold">~2</div>
+                    <div class="text-[10px] text-zinc-400 mt-0.5">drifted</div>
+                  </div>
+                  <div class="kpi-card">
+                    <div class="text-zinc-500 text-[10px] mb-1">Destroy</div>
+                    <div class="text-red-400 text-lg font-bold">-1</div>
+                    <div class="text-[10px] text-zinc-400 mt-0.5">to remove</div>
                   </div>
                 </div>
 
-                <!-- Instance list -->
+                <!-- Plan diff -->
                 <div class="bg-white/[0.03] border border-white/[0.06] rounded-lg overflow-hidden">
                   <div class="px-3 py-2 border-b border-white/[0.04] flex items-center justify-between">
-                    <span class="text-zinc-400 text-[10px] font-medium">RECENT INSTANCES</span>
-                    <span class="text-zinc-600 text-[10px]">view all →</span>
+                    <span class="text-zinc-400 text-[10px] font-medium">PLAN OUTPUT</span>
+                    <span class="text-zinc-600 text-[10px]">aws_security_group.web</span>
                   </div>
-                  <div class="divide-y divide-white/[0.04]">
-                    <div class="px-3 py-2 flex items-center gap-2 text-[11px]">
-                      <span class="status-dot dot-green"></span>
-                      <span class="text-zinc-300 font-medium flex-1">api-server-prod</span>
-                      <span class="text-zinc-500">t3.medium</span>
-                    </div>
-                    <div class="px-3 py-2 flex items-center gap-2 text-[11px]">
-                      <span class="status-dot dot-green"></span>
-                      <span class="text-zinc-300 font-medium flex-1">worker-01</span>
-                      <span class="text-zinc-500">c5.xlarge</span>
-                    </div>
-                    <div class="px-3 py-2 flex items-center gap-2 text-[11px]">
-                      <span class="status-dot dot-yellow"></span>
-                      <span class="text-zinc-300 font-medium flex-1">staging-db</span>
-                      <span class="text-zinc-500">t3.large</span>
-                    </div>
+                  <div class="px-3 py-2.5 font-mono text-[10.5px] leading-relaxed space-y-1">
+                    <div class="text-amber-300">~ ingress.cidr_blocks: "10.0.0.0/16" → "0.0.0.0/0"</div>
+                    <div class="text-emerald-300">+ aws_s3_bucket.logs (will be created)</div>
+                    <div class="text-emerald-300">+ aws_cloudwatch_log_group.api</div>
+                    <div class="text-red-300">- aws_instance.legacy-worker (removed in console)</div>
+                    <div class="text-zinc-500">Plan: 4 to add, 2 to change, 1 to destroy.</div>
                   </div>
                 </div>
               </div>
@@ -486,16 +507,16 @@
     <div class="max-w-5xl mx-auto px-6">
       <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
         <div>
-          <div class="text-3xl font-extrabold text-white">8+</div>
-          <div class="text-zinc-500 text-sm mt-1">AWS Services</div>
+          <div class="text-3xl font-extrabold text-white">35+</div>
+          <div class="text-zinc-500 text-sm mt-1">AWS resource types</div>
         </div>
         <div>
           <div class="text-3xl font-extrabold text-white">∞</div>
           <div class="text-zinc-500 text-sm mt-1">AWS accounts supported</div>
         </div>
         <div>
-          <div class="text-3xl font-extrabold text-white">native</div>
-          <div class="text-zinc-500 text-sm mt-1">WPF Performance</div>
+          <div class="text-3xl font-extrabold text-white">drift</div>
+          <div class="text-zinc-500 text-sm mt-1">detection built in</div>
         </div>
         <div>
           <div class="text-3xl font-extrabold text-blue-400">$0</div>
@@ -511,101 +532,102 @@
     <div class="max-w-7xl mx-auto px-6">
       <div class="text-center max-w-2xl mx-auto mb-16">
         <div class="inline-block text-blue-400 text-sm font-medium bg-blue-950/50 border border-blue-900/50 px-4 py-1.5 rounded-full mb-4">Features</div>
-        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">AWS management tools<br>built for speed</h2>
-        <p class="text-zinc-400 text-lg">Everything you use in the AWS console, reimagined as a fast native desktop app for Windows. EC2, S3, CloudWatch, GuardDuty and more — without opening a browser.</p>
+        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Visibility, drift detection<br>and governance</h2>
+        <p class="text-zinc-400 text-lg">Cloud consoles show resources. Infrastructure as Code shows desired state. Atlas connects both worlds — so you know what's deployed, what changed, and what needs attention.</p>
       </div>
 
       <!-- Main feature grid -->
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-        <!-- EC2 -->
+        <!-- Drift detection -->
         <div class="feature-card rounded-2xl p-6">
-          <div class="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-server text-orange-400"></i>
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-wave-square text-amber-400"></i>
           </div>
-          <h3 class="text-lg font-semibold mb-2">EC2 Management</h3>
+          <h3 class="text-lg font-semibold mb-2">Drift Detection</h3>
           <p class="text-zinc-400 text-sm leading-relaxed">
-            List, filter and control instances by state, type or tag. Start, stop or restart
-            dozens of instances in a single bulk action.
+            See exactly where reality diverges from your Terraform. Atlas runs plans against
+            live AWS and surfaces what was added, changed or removed outside of code.
           </p>
           <div class="mt-4 flex flex-wrap gap-2">
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Bulk Actions</span>
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Advanced Filters</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">terraform plan</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Live diff</span>
           </div>
         </div>
 
-        <!-- S3 -->
+        <!-- Visual explorer -->
         <div class="feature-card rounded-2xl p-6">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-bucket text-emerald-400"></i>
+          <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-compass text-blue-400"></i>
           </div>
-          <h3 class="text-lg font-semibold mb-2">S3 Browser</h3>
+          <h3 class="text-lg font-semibold mb-2">Visual Infrastructure Explorer</h3>
           <p class="text-zinc-400 text-sm leading-relaxed">
-            Explore buckets and objects with a clean interface. Spot public buckets
-            at a glance and access object metadata instantly.
+            Navigate your AWS resources visually — EC2, S3, IAM, CloudWatch and more —
+            without jumping across dozens of cloud-provider screens.
           </p>
           <div class="mt-4 flex flex-wrap gap-2">
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Visual Permissions</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">35+ Resource Types</span>
             <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Multi-Region</span>
           </div>
         </div>
 
-        <!-- Dashboard -->
-        <div class="feature-card rounded-2xl p-6">
-          <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-gauge-high text-blue-400"></i>
-          </div>
-          <h3 class="text-lg font-semibold mb-2">Unified Dashboard</h3>
-          <p class="text-zinc-400 text-sm leading-relaxed">
-            Real-time overview of your infrastructure — resource counts,
-            active alarms and health status in a single pane.
-          </p>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Real-Time KPIs</span>
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Multi-Account</span>
-          </div>
-        </div>
-
-        <!-- Multi-conta -->
+        <!-- Terraform import / Stacks -->
         <div class="feature-card rounded-2xl p-6">
           <div class="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-layer-group text-violet-400"></i>
+            <i class="fa-solid fa-cubes text-violet-400"></i>
           </div>
-          <h3 class="text-lg font-semibold mb-2">Multi-Account AWS</h3>
+          <h3 class="text-lg font-semibold mb-2">Terraform Import &amp; Stacks</h3>
           <p class="text-zinc-400 text-sm leading-relaxed">
-            Register multiple accounts with different access keys and switch
-            between them instantly. Everything stored securely on your machine.
+            Discover existing resources, pick what to manage, and Atlas writes the import
+            blocks for you. Run init, plan and apply with live streaming output.
           </p>
           <div class="mt-4 flex flex-wrap gap-2">
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Local SQLite</span>
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Instant Switching</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Resource Selection</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">S3 Remote State</span>
           </div>
         </div>
 
-        <!-- Command Palette -->
+        <!-- IaC generation -->
+        <div class="feature-card rounded-2xl p-6">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-code text-emerald-400"></i>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Infrastructure as Code Generation</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">
+            Generate clean, ready-to-use HCL from your live resources. Atlas-managed
+            markers let you regenerate safely without touching your hand-written code.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">HCL Templates</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Safe Merge</span>
+          </div>
+        </div>
+
+        <!-- Multi-account -->
         <div class="feature-card rounded-2xl p-6">
           <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-magnifying-glass text-cyan-400"></i>
+            <i class="fa-solid fa-layer-group text-cyan-400"></i>
           </div>
-          <h3 class="text-lg font-semibold mb-2">Global Search</h3>
+          <h3 class="text-lg font-semibold mb-2">Multi-Account &amp; Multi-Cloud</h3>
           <p class="text-zinc-400 text-sm leading-relaxed">
-            Find any resource across all accounts and regions in milliseconds.
-            Filter by text, state and type without reloading the page.
+            Register multiple AWS accounts and switch between them instantly. Credentials
+            are encrypted locally. Azure support is coming soon.
           </p>
           <div class="mt-4 flex flex-wrap gap-2">
-            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Real-Time Filters</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Instant Switching</span>
+            <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">Azure soon</span>
           </div>
         </div>
 
-        <!-- Dark Mode -->
+        <!-- Native interface -->
         <div class="feature-card rounded-2xl p-6">
           <div class="w-10 h-10 rounded-xl bg-zinc-600/20 border border-zinc-600/30 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-moon text-zinc-300"></i>
+            <i class="fa-solid fa-bolt text-zinc-300"></i>
           </div>
-          <h3 class="text-lg font-semibold mb-2">Native Interface</h3>
+          <h3 class="text-lg font-semibold mb-2">Fast Native Desktop</h3>
           <p class="text-zinc-400 text-sm leading-relaxed">
-            Pure WPF with full dark mode. No Electron, no browser. Native
-            performance and minimal memory footprint.
+            Pure WPF with full dark mode. No Electron, no browser. Native performance,
+            minimal memory footprint and an integrated Monaco code editor.
           </p>
           <div class="mt-4 flex flex-wrap gap-2">
             <span class="text-[11px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg">WPF .NET 9</span>
@@ -620,13 +642,13 @@
   <section id="comparison" class="py-24 bg-zinc-900/40">
     <div class="max-w-5xl mx-auto px-6">
       <div class="text-center max-w-2xl mx-auto mb-16">
-        <div class="inline-block text-blue-400 text-sm font-medium bg-blue-950/50 border border-blue-900/50 px-4 py-1.5 rounded-full mb-4">Atlas vs AWS Console</div>
-        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Why DevOps teams switch to Atlas</h2>
-        <p class="text-zinc-400 text-lg">The AWS Management Console gets the job done — but it was built for everyone. Atlas was built for people who manage infrastructure every day.</p>
+        <div class="inline-block text-blue-400 text-sm font-medium bg-blue-950/50 border border-blue-900/50 px-4 py-1.5 rounded-full mb-4">Why Atlas</div>
+        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Stop jumping between<br>consoles and IaC files</h2>
+        <p class="text-zinc-400 text-lg">The console shows what's deployed. Your Terraform shows what should be deployed. Reconciling the two means tabs, terminals and guesswork. Atlas brings them into one view.</p>
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full text-sm table-fixed" role="table" aria-label="Atlas vs AWS Console comparison">
+        <table class="w-full text-sm table-fixed" role="table" aria-label="Atlas vs Console and CLI comparison">
           <colgroup>
             <col class="w-2/5">
             <col class="w-[30%]">
@@ -637,53 +659,53 @@
               <th class="text-left py-4 px-6 text-zinc-500 font-medium"></th>
               <th class="py-4 px-6 text-center">
                 <div class="inline-flex items-center gap-2 text-blue-300 font-semibold text-base">
-                  <img src="atlas.png" alt="Atlas" class="w-5 h-5 rounded object-contain">
+                  <img src="assets/atlas.png" alt="Atlas" class="w-5 h-5 rounded object-contain">
                   Atlas
                 </div>
               </th>
-              <th class="py-4 px-6 text-center text-zinc-500 font-semibold text-base">AWS Console</th>
+              <th class="py-4 px-6 text-center text-zinc-500 font-semibold text-base">Console + CLI</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-800/60">
             <tr class="group">
-              <td class="py-4 px-6 text-zinc-300 font-medium">Load time</td>
-              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Instant (native app)</span></td>
-              <td class="py-4 px-6 text-center text-zinc-500">3–8 s browser load</td>
+              <td class="py-4 px-6 text-zinc-300 font-medium">Drift detection</td>
+              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Visual plan diff</span></td>
+              <td class="py-4 px-6 text-center text-zinc-500">Manual terraform plan</td>
             </tr>
             <tr class="group">
-              <td class="py-4 px-6 text-zinc-300 font-medium">Bulk EC2 actions</td>
+              <td class="py-4 px-6 text-zinc-300 font-medium">Live state vs IaC</td>
+              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Side by side</span></td>
+              <td class="py-4 px-6 text-center text-zinc-500">Separate tools</td>
+            </tr>
+            <tr class="group">
+              <td class="py-4 px-6 text-zinc-300 font-medium">Import existing resources to Terraform</td>
+              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Guided, auto-generated</span></td>
+              <td class="py-4 px-6 text-center text-zinc-500">Hand-written blocks</td>
+            </tr>
+            <tr class="group">
+              <td class="py-4 px-6 text-zinc-300 font-medium">Visual resource explorer</td>
               <td class="py-4 px-6 text-center"><i class="fa-solid fa-check text-emerald-400"></i></td>
-              <td class="py-4 px-6 text-center"><i class="fa-solid fa-xmark text-zinc-600"></i></td>
+              <td class="py-4 px-6 text-center text-zinc-500">Scattered across pages</td>
+            </tr>
+            <tr class="group">
+              <td class="py-4 px-6 text-zinc-300 font-medium">Run init / plan / apply</td>
+              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">In-app, live output</span></td>
+              <td class="py-4 px-6 text-center text-zinc-500">Terminal only</td>
             </tr>
             <tr class="group">
               <td class="py-4 px-6 text-zinc-300 font-medium">Multi-account switching</td>
               <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">1 click, instant</span></td>
-              <td class="py-4 px-6 text-center text-zinc-500">Re-login each account</td>
+              <td class="py-4 px-6 text-center text-zinc-500">Re-login / profile juggling</td>
             </tr>
             <tr class="group">
               <td class="py-4 px-6 text-zinc-300 font-medium">Credentials stored</td>
               <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">Local, DPAPI-encrypted</span></td>
-              <td class="py-4 px-6 text-center text-zinc-500">Browser session / SSO</td>
+              <td class="py-4 px-6 text-center text-zinc-500">Browser session / files</td>
             </tr>
             <tr class="group">
-              <td class="py-4 px-6 text-zinc-300 font-medium">Browser required</td>
-              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">No — native app</span></td>
-              <td class="py-4 px-6 text-center text-zinc-500">Yes</td>
-            </tr>
-            <tr class="group">
-              <td class="py-4 px-6 text-zinc-300 font-medium">Dark mode</td>
-              <td class="py-4 px-6 text-center"><i class="fa-solid fa-check text-emerald-400"></i></td>
-              <td class="py-4 px-6 text-center text-zinc-500">Limited (beta)</td>
-            </tr>
-            <tr class="group">
-              <td class="py-4 px-6 text-zinc-300 font-medium">CloudWatch alarms view</td>
-              <td class="py-4 px-6 text-center"><span class="text-blue-300 font-semibold">Unified + filtered</span></td>
-              <td class="py-4 px-6 text-center text-zinc-500">Scattered across pages</td>
-            </tr>
-            <tr class="group">
-              <td class="py-4 px-6 text-zinc-300 font-medium">GuardDuty findings by severity</td>
-              <td class="py-4 px-6 text-center"><i class="fa-solid fa-check text-emerald-400"></i></td>
-              <td class="py-4 px-6 text-center text-zinc-500">Requires navigation</td>
+              <td class="py-4 px-6 text-zinc-300 font-medium">Native desktop experience</td>
+              <td class="py-4 px-6 text-center"><span class="text-emerald-400 font-semibold">WPF, no browser</span></td>
+              <td class="py-4 px-6 text-center text-zinc-500">Browser + terminal</td>
             </tr>
             <tr class="group">
               <td class="py-4 px-6 text-zinc-300 font-medium">Cost</td>
@@ -694,7 +716,7 @@
         </table>
       </div>
 
-      <p class="text-center text-zinc-600 text-xs mt-6">Atlas complements the AWS console — it does not replace services like CloudFormation, CDK or the CLI. Best for day-to-day resource visibility and operations.</p>
+      <p class="text-center text-zinc-600 text-xs mt-6">Atlas works alongside Terraform and the AWS console — it gives DevOps teams a single place to see live state, detect drift and manage Infrastructure as Code. It does not replace your CI/CD pipeline.</p>
     </div>
   </section>
   <div class="section-divider"></div>
@@ -707,8 +729,8 @@
         <div class="inline-flex items-center gap-2 text-emerald-400 text-sm font-semibold bg-emerald-950/50 border border-emerald-900/50 px-4 py-1.5 rounded-full mb-4">
           <i class="fa-solid fa-flask text-emerald-300 text-xs"></i> All Free in Beta
         </div>
-        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Full-stack AWS visibility</h2>
-        <p class="text-zinc-400 text-lg">Every feature is available during the public beta — no license key, no limits.</p>
+        <h2 class="text-4xl md:text-5xl font-extrabold mb-4">Operations &amp; security in one place</h2>
+        <p class="text-zinc-400 text-lg">Beyond infrastructure state, Atlas centralizes the operational signals DevOps teams rely on. Every feature is free during the public beta — no license key, no limits.</p>
       </div>
 
       <div class="grid md:grid-cols-2 gap-6">
@@ -811,7 +833,7 @@
     <div class="max-w-4xl mx-auto px-6">
       <div class="text-center mb-16">
         <div class="inline-block text-blue-400 text-sm font-medium bg-blue-950/50 border border-blue-900/50 px-4 py-1.5 rounded-full mb-4">How it works</div>
-        <h2 class="text-4xl font-extrabold">Connect your AWS account in under 5 minutes</h2>
+        <h2 class="text-4xl font-extrabold">From cloud account to Infrastructure as Code in minutes</h2>
       </div>
 
       <div class="space-y-4">
@@ -825,15 +847,15 @@
         <div class="flex gap-6 items-start p-6 feature-card rounded-2xl">
           <div class="w-10 h-10 rounded-xl bg-blue-600/70 flex items-center justify-center font-bold text-lg shrink-0">2</div>
           <div>
-            <h3 class="font-semibold text-lg mb-1">Add your AWS account</h3>
-            <p class="text-zinc-400 text-sm">Paste your Access Key and Secret Key. Credentials are stored securely in a local SQLite database — they never leave your machine.</p>
+            <h3 class="font-semibold text-lg mb-1">Add your AWS account & explore</h3>
+            <p class="text-zinc-400 text-sm">Paste your Access Key and Secret Key — stored locally and DPAPI-encrypted, never leaving your machine. Your resources load instantly into a visual explorer.</p>
           </div>
         </div>
         <div class="flex gap-6 items-start p-6 feature-card rounded-2xl">
           <div class="w-10 h-10 rounded-xl bg-blue-600/50 flex items-center justify-center font-bold text-lg shrink-0">3</div>
           <div>
-            <h3 class="font-semibold text-lg mb-1">Manage at full speed</h3>
-            <p class="text-zinc-400 text-sm">Your infrastructure loads instantly. EC2, S3, CloudWatch, GuardDuty — all in a clean, fast panel.</p>
+            <h3 class="font-semibold text-lg mb-1">Import to Terraform & track drift</h3>
+            <p class="text-zinc-400 text-sm">Pick the resources to manage, let Atlas generate the import blocks and HCL, then run plan to see drift between your code and what's actually deployed — anytime.</p>
           </div>
         </div>
       </div>
@@ -860,44 +882,46 @@
         <ul class="space-y-3 text-sm">
           <li class="flex items-center gap-3">
             <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Infrastructure drift detection</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Visual resource explorer (35+ types)</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Terraform import & stacks (init / plan / apply)</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
+            <span class="text-zinc-300">Infrastructure as Code (HCL) generation</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
             <span class="text-zinc-300">Unlimited AWS accounts</span>
           </li>
           <li class="flex items-center gap-3">
             <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">Dashboard with KPIs</span>
+            <span class="text-zinc-300">EC2, S3 & multi-region browsing</span>
           </li>
           <li class="flex items-center gap-3">
             <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">EC2 management & bulk actions</span>
+            <span class="text-zinc-300">CloudWatch Alarms & GuardDuty Findings</span>
           </li>
           <li class="flex items-center gap-3">
             <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">S3 browser</span>
+            <span class="text-zinc-300">IAM Audit & Billing insights</span>
           </li>
           <li class="flex items-center gap-3">
             <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">CloudWatch Alarms</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">GuardDuty Findings</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">IAM & Security Audit</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">Billing & Cost Insights</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <i class="fa-solid fa-check text-emerald-400 w-4 shrink-0"></i>
-            <span class="text-zinc-300">Native Dark Mode</span>
+            <span class="text-zinc-300">Native Dark Mode — no browser, no Electron</span>
           </li>
         </ul>
       </div>
 
-      <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-500 active:scale-95 px-10 py-4 rounded-2xl font-bold text-lg transition shadow-xl shadow-blue-900/40">
+      <!-- <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-500 active:scale-95 px-10 py-4 rounded-2xl font-bold text-lg transition shadow-xl shadow-blue-900/40"> -->
+      <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/1.0.0/Atlas-win.msi" class="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-500 active:scale-95 px-10 py-4 rounded-2xl font-bold text-lg transition shadow-xl shadow-blue-900/40">
+      
         <i class="fa-brands fa-windows"></i>
         Download Free — No Key Required
       </a>
@@ -977,24 +1001,60 @@
 
         <div class="faq-item feature-card rounded-2xl overflow-hidden cursor-pointer">
           <div class="faq-trigger flex items-center justify-between px-6 py-5 select-none">
-            <span class="font-medium">Is Atlas a free AWS console alternative?</span>
+            <span class="font-medium">What is infrastructure drift and how does Atlas detect it?</span>
             <i class="fa-solid fa-plus text-zinc-400 faq-icon shrink-0"></i>
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Yes. Atlas is completely free during the public beta. All features — EC2, S3, CloudWatch, GuardDuty, IAM and Billing — are available with no license key required.
+              Infrastructure drift is the gap between what your Infrastructure as Code (Terraform) declares and what is actually deployed in your cloud account. Atlas runs terraform plan against your live AWS environment and shows you exactly what was added, changed or removed outside of code — so you can keep your IaC aligned with reality and avoid surprises.
             </p>
           </div>
         </div>
 
         <div class="faq-item feature-card rounded-2xl overflow-hidden cursor-pointer">
           <div class="faq-trigger flex items-center justify-between px-6 py-5 select-none">
-            <span class="font-medium">How does Atlas compare to the AWS Management Console?</span>
+            <span class="font-medium">Can Atlas import existing AWS resources into Terraform?</span>
             <i class="fa-solid fa-plus text-zinc-400 faq-icon shrink-0"></i>
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Atlas loads instantly as a native WPF app — no browser overhead. It supports bulk EC2 actions in a single click, multi-account switching in milliseconds, and a unified CloudWatch + GuardDuty view that the AWS console scatters across multiple pages. For day-to-day resource operations, Atlas is significantly faster. For IaC and advanced configurations, use the AWS console or CLI alongside Atlas.
+              Yes. Atlas discovers existing resources across 35+ types (EC2, S3, VPC, RDS, Lambda, IAM, ECS/EKS and more), lets you select which ones to manage, then generates Terraform import blocks and HCL definitions for you. It can also provision an S3 remote state backend automatically.
+            </p>
+          </div>
+        </div>
+
+        <div class="faq-item feature-card rounded-2xl overflow-hidden cursor-pointer">
+          <div class="faq-trigger flex items-center justify-between px-6 py-5 select-none">
+            <span class="font-medium">Does Atlas support Azure?</span>
+            <i class="fa-solid fa-plus text-zinc-400 faq-icon shrink-0"></i>
+          </div>
+          <div class="faq-answer">
+            <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
+              Atlas currently focuses on AWS. Multi-cloud support, starting with Azure, is on the roadmap so DevOps teams can manage infrastructure across providers from a single interface.
+            </p>
+          </div>
+        </div>
+
+        <div class="faq-item feature-card rounded-2xl overflow-hidden cursor-pointer">
+          <div class="faq-trigger flex items-center justify-between px-6 py-5 select-none">
+            <span class="font-medium">Is Atlas a free infrastructure management tool?</span>
+            <i class="fa-solid fa-plus text-zinc-400 faq-icon shrink-0"></i>
+          </div>
+          <div class="faq-answer">
+            <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
+              Yes. Atlas is completely free during the public beta. All features — visual resource explorer, drift detection, Terraform import, IaC generation, multi-account management, CloudWatch, GuardDuty, IAM and Billing — are available with no license key required.
+            </p>
+          </div>
+        </div>
+
+        <div class="faq-item feature-card rounded-2xl overflow-hidden cursor-pointer">
+          <div class="faq-trigger flex items-center justify-between px-6 py-5 select-none">
+            <span class="font-medium">Does Atlas replace the AWS Console and Terraform CLI?</span>
+            <i class="fa-solid fa-plus text-zinc-400 faq-icon shrink-0"></i>
+          </div>
+          <div class="faq-answer">
+            <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
+              Atlas connects the two worlds. Cloud consoles show what is deployed; Infrastructure as Code shows the desired state. Atlas gives you a native desktop interface to explore live resources, detect drift between them and your Terraform, and run init/plan/apply — without jumping between dozens of console pages and IaC files. It works alongside your existing CI/CD pipeline.
             </p>
           </div>
         </div>
@@ -1046,13 +1106,13 @@
 
     <div class="max-w-3xl mx-auto px-6 text-center relative z-10">
       <div class="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-8 shadow-xl shadow-blue-900/50">
-        <img src="atlas.png" alt="Atlas — AWS console alternative for Windows" class="w-full h-full object-contain">
+        <img src="assets/assets/atlas.png" alt="Atlas — Infrastructure management for DevOps teams" class="w-full h-full object-contain">
       </div>
       <h2 class="text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
-        Ready to leave the<br>AWS console behind?
+        Bring your infrastructure<br>and your code together
       </h2>
       <p class="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
-        Download Atlas for free and discover how managing your infrastructure can be fast and enjoyable.
+        Download Atlas for free and gain complete visibility across your cloud — explore resources, detect drift and manage Infrastructure as Code with confidence.
       </p>
       <div class="flex flex-wrap justify-center gap-4">
         <a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="bg-blue-600 hover:bg-blue-500 active:scale-95 px-10 py-5 rounded-2xl font-bold text-xl transition flex items-center gap-3 shadow-xl shadow-blue-900/40">
@@ -1076,11 +1136,11 @@
         <!-- Brand -->
         <div class="md:col-span-2">
           <div class="flex items-center gap-2.5 mb-4">
-            <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+            <img src="assets/atlas.png" alt="Atlas — Infrastructure Management for DevOps" class="w-8 h-8 rounded-lg object-contain">
             <span class="text-xl font-bold">Atlas</span>
           </div>
           <p class="text-zinc-500 text-sm leading-relaxed max-w-xs">
-            The AWS console alternative built for Windows. Native WPF desktop app for DevOps engineers, SREs and cloud infrastructure teams who manage AWS every day.
+            Infrastructure management for DevOps teams. A native Windows desktop platform to explore cloud resources, detect drift and manage Infrastructure as Code — where IaC meets reality. Azure coming soon.
           </p>
         </div>
 
@@ -1089,9 +1149,9 @@
           <h4 class="text-zinc-300 font-medium text-sm mb-4">Product</h4>
           <ul class="space-y-3 text-sm text-zinc-500">
             <li><a href="#features" class="hover:text-zinc-300 transition">Features</a></li>
-            <li><a href="#comparison" class="hover:text-zinc-300 transition">Atlas vs AWS Console</a></li>
+            <li><a href="#comparison" class="hover:text-zinc-300 transition">Why Atlas</a></li>
             <li><a href="#pricing" class="hover:text-zinc-300 transition">Beta</a></li>
-            <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="hover:text-zinc-300 transition">Download for Windows</a></li>
+            <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/1.0.0/Atlas-win.msi" class="hover:text-zinc-300 transition">Download for Windows</a></li>
           </ul>
         </div>
 
@@ -1110,7 +1170,7 @@
 
       <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-zinc-600 text-sm">
         <p>© 2026 Atlas · cloud-atlas.io</p>
-        <p>Made with <span class="text-red-500">♥</span> for those who manage AWS every day</p>
+        <p>Made with <span class="text-red-500">♥</span> for those who manage infrastructure every day</p>
       </div>
     </div>
   </footer>

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using Atlas.Infrastructure.Logging;
 
 namespace Atlas.Services.Terraform;
 
@@ -28,7 +29,7 @@ internal static class GeneratedHclFixer
         public IEnumerable<string> ToLines()
         {
             if (TagsAllFixes    > 0) yield return $"    tags_all removed (provider-managed): {TagsAllFixes}";
-            if (LambdaFixes     > 0) yield return $"    lambda deployment conflicts resolved: {LambdaFixes}";
+            if (LambdaFixes     > 0) yield return $"    lambda zip package placeholder + lifecycle applied: {LambdaFixes}";
             if (SubnetFixes     > 0) yield return $"    subnet attribute conflicts resolved: {SubnetFixes}";
             if (VpcFixes        > 0) yield return $"    vpc orphaned ipv6 attributes removed: {VpcFixes}";
             if (RouteTableFixes > 0) yield return $"    route table sanitized (list→block, empty attrs stripped): {RouteTableFixes}";
@@ -44,6 +45,14 @@ internal static class GeneratedHclFixer
     private static readonly Regex ResourceStartRx = new(
         @"^resource\s+""([^""]+)""", RegexOptions.Compiled);
 
+    /// <summary>
+    /// OS-neutral placeholder deployment package for imported Zip Lambdas.
+    /// Terraform must be able to read a real file to hash the package on plan;
+    /// a literal "/dev/null" breaks on Windows. The genuine code stays in AWS
+    /// and is excluded from drift via <c>lifecycle.ignore_changes</c>.
+    /// </summary>
+    internal const string LambdaPlaceholderFile = "lambda_placeholder.zip";
+
     // ─────────────────────────────────────────────────────────────────────────
 
     public static async Task<FixSummary> FixAsync(string filePath)
@@ -54,9 +63,39 @@ internal static class GeneratedHclFixer
         var (result, summary) = FixContent(original);
 
         if (summary.TotalFixes > 0)
+        {
             await File.WriteAllTextAsync(filePath, result, Encoding.UTF8);
 
+            // Drop the placeholder zip next to the .tf so `terraform plan` can hash it.
+            if (result.Contains(LambdaPlaceholderFile, StringComparison.Ordinal))
+                EnsureLambdaPlaceholderZip(Path.GetDirectoryName(filePath)!);
+        }
+
         return summary;
+    }
+
+    /// <summary>Writes a minimal valid (empty) .zip if one isn't already present.</summary>
+    private static void EnsureLambdaPlaceholderZip(string directory)
+    {
+        try
+        {
+            var path = Path.Combine(directory, LambdaPlaceholderFile);
+            if (File.Exists(path)) return;
+
+            // Empty-zip = a single End-Of-Central-Directory record (PK\x05\x06 + 18 zero bytes).
+            byte[] emptyZip =
+            [
+                0x50, 0x4B, 0x05, 0x06,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00,
+            ];
+            File.WriteAllBytes(path, emptyZip);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Warning($"[GeneratedHclFixer] Could not write {LambdaPlaceholderFile}: {ex.Message}");
+        }
     }
 
     internal static (string result, FixSummary summary) FixContent(string content)
@@ -174,9 +213,17 @@ internal static class GeneratedHclFixer
     }
 
     // ── Lambda ───────────────────────────────────────────────────────────────
-    // Terraform sometimes generates filename, image_uri, and s3_bucket together.
-    // Only one may be set; remove the null/empty ones. If all are null, fall back
-    // to a placeholder filename so the HCL is syntactically valid for import.
+    // Image-package functions (image_uri) deploy fine everywhere and are left as
+    // generated. Zip-package functions (filename / s3_bucket, or none — which is
+    // how Terraform emits console-deployed functions) are made valid + portable:
+    //   • the deployment source is pointed at an OS-neutral placeholder zip
+    //     (a literal "/dev/null" breaks `terraform plan` on Windows),
+    //   • the provider-managed `publish` attribute is dropped, and
+    //   • a lifecycle block tells Terraform to ignore the deployment package, so
+    //     the real code (managed outside Terraform, in AWS) never shows as drift.
+
+    private static readonly string[] LambdaIgnoredChanges =
+        ["filename", "source_code_hash", "last_modified", "publish"];
 
     private static IReadOnlyList<string> FixLambda(List<string> lines, Counters c)
     {
@@ -191,62 +238,77 @@ internal static class GeneratedHclFixer
 
         bool hasImage = IsRealValue(imageUri);
         bool hasS3    = IsRealValue(s3Bucket);
-        bool hasFile  = IsRealValue(filename);
 
-        bool imagePresent = imageUri != null;
-        bool s3Present    = s3Bucket != null;
-        bool filePresent  = filename != null;
-        int  presentCount = (imagePresent ? 1 : 0) + (s3Present ? 1 : 0) + (filePresent ? 1 : 0);
+        // ── Image-package function: leave untouched (only resolve a rare
+        //    image+filename/s3 conflict by dropping the non-image sources). ──
+        if (hasImage)
+        {
+            if (filename == null && s3Bucket == null) return lines;
 
-        if (presentCount < 2 && (hasImage || hasS3 || hasFile))
-            return lines; // no conflict — tags_all already stripped by pre-pass
+            var imgResult = new List<string>(lines.Count);
+            bool imgFix   = false;
+            foreach (var l in lines)
+            {
+                if (GetAttrName(l.TrimStart()) is "filename" or "s3_bucket" or "s3_key" or "s3_object_version")
+                { imgFix = true; continue; }
+                imgResult.Add(l);
+            }
+            if (imgFix) c.Lambda++;
+            return imgResult;
+        }
 
-        // Resolve conflict by priority: image > s3 > file
-        bool keepImage = hasImage;
-        bool keepS3    = !keepImage && hasS3;
-
-        var  result  = new List<string>(lines.Count);
-        bool didFix  = false;
-        bool filenamePlaceholderInserted = false;
+        // ── Zip-package function: keep s3_* when real, otherwise placeholder file. ──
+        bool keepS3        = hasS3;
+        bool hasLifecycle  = lines.Any(l => l.TrimStart().StartsWith("lifecycle"));
+        var  result        = new List<string>(lines.Count + 4);
+        bool didFix        = false;
+        bool filenameWritten = false;
 
         foreach (var l in lines)
         {
             var t    = l.TrimStart();
             var attr = GetAttrName(t);
 
-            if (keepImage)
+            // publish is decided by the provider for imported functions — drop it.
+            if (attr == "publish") { didFix = true; continue; }
+
+            if (keepS3)
             {
-                if (attr is "filename" or "s3_bucket" or "s3_key" or "s3_object_version")
-                { didFix = true; continue; }
-            }
-            else if (keepS3)
-            {
-                if (attr is "image_uri" or "filename")
-                { didFix = true; continue; }
+                if (attr is "image_uri" or "filename") { didFix = true; continue; }
             }
             else
             {
                 if (attr is "image_uri" or "s3_bucket" or "s3_key" or "s3_object_version")
                 { didFix = true; continue; }
 
-                if (!hasFile && !filenamePlaceholderInserted && filePresent &&
-                    attr is "filename")
+                if (attr == "filename")
                 {
-                    var indent = l.Length - t.Length;
-                    result.Add(new string(' ', indent) + "filename = \"/dev/null\"");
-                    filenamePlaceholderInserted = true;
-                    didFix = true;
+                    var indent  = l.Length - t.Length;
+                    var desired = new string(' ', indent) + $"filename = \"{LambdaPlaceholderFile}\"";
+                    if (l.TrimEnd() != desired) didFix = true;
+                    result.Add(desired);
+                    filenameWritten = true;
                     continue;
                 }
             }
 
-            if (!hasImage && !hasS3 && !hasFile && !filenamePlaceholderInserted &&
-                presentCount == 0 && t.StartsWith("}"))
+            // Just before the resource's closing brace, backfill a deployment
+            // source (if none survived) and the lifecycle block.
+            if (t.StartsWith("}") && (l.Length - t.Length) == 0)
             {
-                var indent = l.Length - t.Length;
-                result.Add(new string(' ', indent + 2) + "filename = \"/dev/null\"");
-                filenamePlaceholderInserted = true;
-                didFix = true;
+                if (!keepS3 && !filenameWritten)
+                {
+                    result.Add($"  filename = \"{LambdaPlaceholderFile}\"");
+                    filenameWritten = true;
+                    didFix = true;
+                }
+                if (!hasLifecycle)
+                {
+                    result.Add("  lifecycle {");
+                    result.Add($"    ignore_changes = [{string.Join(", ", LambdaIgnoredChanges)}]");
+                    result.Add("  }");
+                    didFix = true;
+                }
             }
 
             result.Add(l);

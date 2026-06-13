@@ -206,6 +206,7 @@ public sealed class ImportService : IImportService
                 Values = ["pending", "running", "shutting-down", "stopping", "stopped"],
             });
 
+        var instances = new List<Amazon.EC2.Model.Instance>();
         string? next = null;
         do
         {
@@ -214,31 +215,86 @@ public sealed class ImportService : IImportService
             foreach (var res in r.Reservations)
             foreach (var i in res.Instances)
             {
-                if (list.Count >= options.MaxResourcesPerType) break;
-                var name  = GetTag(i.Tags, "Name");
-                var tf    = SanitizeTfName(name, i.InstanceId);
-                var tags  = ToDictionary(i.Tags);
-                var model = new Ec2InstanceHclModel
-                {
-                    ResourceName      = tf,
-                    AmiId             = i.ImageId,
-                    InstanceType      = i.InstanceType.Value,
-                    SubnetId          = NullIfEmpty(i.SubnetId),
-                    KeyName           = NullIfEmpty(i.KeyName),
-                    AssociatePublicIp = !string.IsNullOrEmpty(i.PublicIpAddress),
-                    SecurityGroupIds  = i.SecurityGroups.Select(sg => sg.GroupId).ToList(),
-                    IamInstanceProfile = NullIfEmpty(i.IamInstanceProfile?.Arn?.Split('/').LastOrDefault()),
-                    Monitoring        = i.Monitoring?.State?.Value == "enabled",
-                    Tags              = tags.Select(kv => new HclTag(kv.Key, kv.Value)).Where(t => t.Key != "Name").ToList(),
-                };
-                list.Add(Resource(AwsResourceType.Ec2Instance, i.InstanceId, name, tf,
-                    "aws_instance", i.InstanceId, region, tags, model, BuildEc2Notes(i)));
+                if (instances.Count >= options.MaxResourcesPerType) break;
+                instances.Add(i);
             }
-            next = list.Count < options.MaxResourcesPerType ? r.NextToken : null;
+            next = instances.Count < options.MaxResourcesPerType ? r.NextToken : null;
         } while (next != null);
+
+        // Best-effort: read the live root volume size/type so the generated HCL
+        // never tries to shrink an existing EBS volume (AWS rejects that and the
+        // apply fails). Falls back to template defaults if DescribeVolumes is not
+        // permitted. The ec2_instance template also ignore_changes root_block_device.
+        var rootVolumes = await GetRootVolumeInfoAsync(ec2, instances, ct);
+
+        foreach (var i in instances)
+        {
+            var name  = GetTag(i.Tags, "Name");
+            var tf    = SanitizeTfName(name, i.InstanceId);
+            var tags  = ToDictionary(i.Tags);
+            rootVolumes.TryGetValue(i.InstanceId, out var rootVol);
+            var model = new Ec2InstanceHclModel
+            {
+                ResourceName      = tf,
+                AmiId             = i.ImageId,
+                InstanceType      = i.InstanceType.Value,
+                SubnetId          = NullIfEmpty(i.SubnetId),
+                KeyName           = NullIfEmpty(i.KeyName),
+                AssociatePublicIp = !string.IsNullOrEmpty(i.PublicIpAddress),
+                SecurityGroupIds  = i.SecurityGroups.Select(sg => sg.GroupId).ToList(),
+                IamInstanceProfile = NullIfEmpty(i.IamInstanceProfile?.Arn?.Split('/').LastOrDefault()),
+                Monitoring        = i.Monitoring?.State?.Value == "enabled",
+                RootVolumeGb      = rootVol.Size > 0 ? rootVol.Size : new Ec2InstanceHclModel().RootVolumeGb,
+                RootVolumeType    = !string.IsNullOrEmpty(rootVol.Type) ? rootVol.Type : new Ec2InstanceHclModel().RootVolumeType,
+                Tags              = tags.Select(kv => new HclTag(kv.Key, kv.Value)).Where(t => t.Key != "Name").ToList(),
+            };
+            list.Add(Resource(AwsResourceType.Ec2Instance, i.InstanceId, name, tf,
+                "aws_instance", i.InstanceId, region, tags, model, BuildEc2Notes(i)));
+        }
 
         progress?.Report($"[EC2] {list.Count} instances.");
         return list;
+    }
+
+    /// <summary>
+    /// Resolves each instance's live root EBS volume size (GB) and type via a
+    /// batched DescribeVolumes. Best-effort: returns an empty/partial map (so
+    /// callers fall back to defaults) if the call is denied or fails.
+    /// </summary>
+    private static async Task<Dictionary<string, (int Size, string? Type)>> GetRootVolumeInfoAsync(
+        Amazon.EC2.IAmazonEC2 ec2, List<Amazon.EC2.Model.Instance> instances, CancellationToken ct)
+    {
+        var map          = new Dictionary<string, (int, string?)>(StringComparer.OrdinalIgnoreCase);
+        var volToInstance = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var i in instances)
+        {
+            var root = i.BlockDeviceMappings.FirstOrDefault(
+                          b => string.Equals(b.DeviceName, i.RootDeviceName, StringComparison.OrdinalIgnoreCase))
+                       ?? i.BlockDeviceMappings.FirstOrDefault();
+            var volId = root?.Ebs?.VolumeId;
+            if (!string.IsNullOrEmpty(volId)) volToInstance[volId] = i.InstanceId;
+        }
+
+        if (volToInstance.Count == 0) return map;
+
+        try
+        {
+            foreach (var chunk in volToInstance.Keys.Chunk(200))
+            {
+                var r = await ec2.DescribeVolumesAsync(
+                    new DescribeVolumesRequest { VolumeIds = chunk.ToList() }, ct);
+                foreach (var v in r.Volumes)
+                    if (volToInstance.TryGetValue(v.VolumeId, out var instanceId))
+                        map[instanceId] = (Convert.ToInt32(v.Size), v.VolumeType?.Value);
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Warning($"[ImportService] DescribeVolumes failed — root volume sizes default to template: {ex.Message}");
+        }
+
+        return map;
     }
 
     private async Task<List<DiscoveredResource>> DiscoverAsgAsync(
@@ -1413,13 +1469,6 @@ public sealed class ImportService : IImportService
         var sanitized = Regex.Replace(SanitizeRegex.Replace(lower, "_"), "_+", "_").Trim('_');
         if (sanitized.Length > 0 && char.IsDigit(sanitized[0])) sanitized = "r_" + sanitized;
         return string.IsNullOrEmpty(sanitized) ? "resource" : sanitized;
-    }
-
-    private static ImportConfidence Confidence(string name, IReadOnlyDictionary<string, string> tags)
-    {
-        if (!string.IsNullOrEmpty(name)) return ImportConfidence.High;
-        if (tags.Count > 0)              return ImportConfidence.Medium;
-        return ImportConfidence.Low;
     }
 
     private static string GetTag(IEnumerable<Ec2Tag> tags, string key) =>

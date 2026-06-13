@@ -14,6 +14,10 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
     /// <inheritdoc/>
     public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// Maximum characters captured per stream (stdout/stderr) before truncation.
+    /// Bounds peak memory for very large plan/apply output (~8 MB per stream).
+    private const int MaxCapturedChars = 8 * 1024 * 1024;
+
     // ── Comandos públicos ─────────────────────────────────────────────────
 
     /// <inheritdoc/>
@@ -237,19 +241,38 @@ public sealed class TerraformCliWrapper : ITerraformCliWrapper
 
         using (process)
         {
+            // Cap how much we buffer in memory. Terraform plan/apply on a large
+            // stack can emit hundreds of MB; without a ceiling RunCoreAsync would
+            // accumulate it all in a StringBuilder and OOM the process. The live
+            // `progress` stream still receives every line (and is itself bounded
+            // downstream), so the user loses nothing on screen.
+            bool stdoutCapped = false, stderrCapped = false;
+
             // Captura assíncrona de stdout e stderr
             process.OutputDataReceived += (_, e) =>
             {
                 if (e.Data is null) return;
-                stdoutSb.AppendLine(e.Data);
                 progress?.Report(e.Data);
+                if (stdoutSb.Length < MaxCapturedChars)
+                    stdoutSb.AppendLine(e.Data);
+                else if (!stdoutCapped)
+                {
+                    stdoutCapped = true;
+                    stdoutSb.AppendLine("… [output truncated by Atlas to limit memory] …");
+                }
             };
             process.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is null) return;
-                stderrSb.AppendLine(e.Data);
                 // Erros do terraform também são reportados como progress para o usuário ver em tempo real
                 progress?.Report(e.Data);
+                if (stderrSb.Length < MaxCapturedChars)
+                    stderrSb.AppendLine(e.Data);
+                else if (!stderrCapped)
+                {
+                    stderrCapped = true;
+                    stderrSb.AppendLine("… [error output truncated by Atlas to limit memory] …");
+                }
             };
 
             process.BeginOutputReadLine();

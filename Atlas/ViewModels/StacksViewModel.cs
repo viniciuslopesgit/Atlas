@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Atlas.Infrastructure.Database;
+using Atlas.Infrastructure.Logging;
 using Atlas.Models;
 using Atlas.Services;
 using Atlas.Services.Terraform;
@@ -131,7 +132,7 @@ public partial class StackRunViewModel : ObservableObject
     [ObservableProperty] private bool           _isFirst;
     [ObservableProperty] private bool           _isLast;
 
-    public StackRunViewModel(StackRun run)
+    public StackRunViewModel(StackRun run, bool live = false)
     {
         _run    = run;
         _status = run.Status;
@@ -143,7 +144,11 @@ public partial class StackRunViewModel : ObservableObject
             _output = BuildDisplayText();
         }
 
-        if (_status == StackRunStatus.Running)
+        // Only live runs (started this session) get the ticking elapsed timer.
+        // A run re-hydrated from disk with status Running is stale — its process
+        // is gone and Complete() will never fire, so starting a timer here would
+        // leak a 1s System.Timers.Timer (and this VM) for the app's lifetime.
+        if (live && _status == StackRunStatus.Running)
             StartElapsedTimer();
     }
 
@@ -189,8 +194,11 @@ public partial class StackRunViewModel : ObservableObject
     [RelayCommand]
     private void CopyOutput()
     {
-        if (!string.IsNullOrEmpty(Output))
-            System.Windows.Clipboard.SetText(Output);
+        if (string.IsNullOrEmpty(Output)) return;
+        // Clipboard.SetText throws (COMException/ExternalException) when another
+        // process holds the clipboard — never let that take down the app.
+        try { System.Windows.Clipboard.SetText(Output); }
+        catch (Exception ex) { FileLogger.Warning($"[StackRun] CopyOutput failed: {ex.Message}"); }
     }
 
     /// <summary>
@@ -201,6 +209,7 @@ public partial class StackRunViewModel : ObservableObject
     /// </summary>
     public void AppendOutput(string line)
     {
+        bool shouldFlush;
         lock (_lineLock)
         {
             // Split in case the SDK delivers multi-line chunks.
@@ -217,9 +226,10 @@ public partial class StackRunViewModel : ObservableObject
             }
 
             _pending++;
+            shouldFlush = _pending >= NotifyEveryLines;   // read under lock (called from worker threads)
         }
 
-        if (_pending >= NotifyEveryLines)
+        if (shouldFlush)
             FlushToUi();
     }
 
@@ -640,20 +650,43 @@ public partial class StackEntryViewModel : ObservableObject
 
     public void UpdateDriftResult(DriftStatus status, string? summary, string? planOutput, DateTime checkedAt)
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        // Called from background drift threads — marshal to the UI, but tolerate
+        // a shutting-down app where Application.Current is already null.
+        var apply = () =>
         {
             DriftAcknowledged = false;
             DriftSummary      = summary;
             DriftPlanOutput   = planOutput;
             DriftStatus       = status;
             LastDriftCheckAt  = checkedAt;
-        });
+        };
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) apply();
+        else dispatcher.Invoke(apply);
     }
+
+    // Hard ceiling on how many diff rows we ever materialize into the UI-bound
+    // ObservableCollection. A large drift can produce tens of thousands of lines;
+    // binding them all freezes WPF and balloons memory.
+    private const int MaxDriftDiffLines = 800;
 
     private static IEnumerable<DriftDiffLine> ParseDiffLines(string raw)
     {
+        int emitted = 0;
         foreach (var rawLine in raw.Split('\n'))
         {
+            if (emitted >= MaxDriftDiffLines)
+            {
+                yield return new DriftDiffLine
+                {
+                    Text = "… diff truncated — open the run log for the full plan output",
+                    Fg = "#94A3B8", Bg = "#00000000",
+                };
+                yield break;
+            }
+            emitted++;
+
             var line = rawLine.TrimEnd('\r');
             var t    = line.TrimStart();
             if (t.StartsWith("+ ") || t.StartsWith("+\""))
@@ -746,8 +779,8 @@ public partial class StackEntryViewModel : ObservableObject
     public StackRunViewModel AddRun(StackRun run)
     {
         _entry.Runs.Add(run);
-        var vm = new StackRunViewModel(run);
-        Application.Current.Dispatcher.Invoke(() =>
+        var vm = new StackRunViewModel(run, live: true);
+        Application.Current?.Dispatcher.Invoke(() =>
         {
             Runs.Insert(0, vm);
             RefreshConnectors();
@@ -769,7 +802,7 @@ public partial class StackEntryViewModel : ObservableObject
 
 // ─── Page ViewModel ──────────────────────────────────────────────────────────
 
-public partial class StacksViewModel : ObservableObject
+public partial class StacksViewModel : ObservableObject, IDisposable
 {
     private readonly IStackRepository          _repo;
     private readonly ITerraformProjectManager  _projectManager;
@@ -779,6 +812,28 @@ public partial class StacksViewModel : ObservableObject
     private readonly IStackEnvVarRepository    _envVarRepo;
     private readonly IDialogService            _dialog;
     private System.Timers.Timer?               _driftTimer;
+
+    // ── Drift concurrency guards ──────────────────────────────────────────────
+    // _driftSweepBusy: 0 = idle, 1 = a timer sweep is in progress. Stops the
+    // 1-minute AutoReset timer from stacking overlapping sweeps when a plan runs
+    // longer than the interval. _driftInFlight: stack names currently being
+    // checked or fixed, so the same stack never runs two terraform processes at
+    // once (state-lock contention) across timer / manual / auto-fix triggers.
+    private int                     _driftSweepBusy;
+    private readonly HashSet<string> _driftInFlight    = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object          _driftInFlightLock = new();
+
+    private bool TryBeginDrift(string stackName)
+    {
+        lock (_driftInFlightLock)
+            return _driftInFlight.Add(stackName);
+    }
+
+    private void EndDrift(string stackName)
+    {
+        lock (_driftInFlightLock)
+            _driftInFlight.Remove(stackName);
+    }
 
     public ObservableCollection<StackEntryViewModel> Stacks         { get; } = [];
     public ObservableCollection<StackEntryViewModel> FilteredStacks { get; } = [];
@@ -1897,14 +1952,40 @@ public partial class StacksViewModel : ObservableObject
         _driftTimer.Start();
     }
 
+    public void Dispose()
+    {
+        _driftTimer?.Stop();
+        _driftTimer?.Dispose();
+        _driftTimer = null;
+    }
+
     private async Task CheckOverdueStacksAsync()
     {
-        StackEntryViewModel[] due = [];
-        Application.Current.Dispatcher.Invoke(() =>
-            due = [.. Stacks.Where(vm => vm.IsDriftDue)]);
+        // Never let a slow sweep overlap the next timer tick — a backlog of
+        // concurrent terraform plans is what exhausts memory and trips the
+        // state lock. If a sweep is still running, skip this tick entirely.
+        if (Interlocked.CompareExchange(ref _driftSweepBusy, 1, 0) != 0)
+            return;
 
-        foreach (var vm in due)
-            await RunDriftCheckAsync(vm);
+        try
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null) return;   // app shutting down
+
+            StackEntryViewModel[] due = [];
+            dispatcher.Invoke(() => due = [.. Stacks.Where(vm => vm.IsDriftDue)]);
+
+            foreach (var vm in due)
+                await RunDriftCheckAsync(vm);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Warning($"[Stacks] Drift sweep failed: {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _driftSweepBusy, 0);
+        }
     }
 
     private async Task RunDriftCheckAsync(StackEntryViewModel stackVm)
@@ -1912,57 +1993,70 @@ public partial class StacksViewModel : ObservableObject
         var stack = _repo.GetAll().FirstOrDefault(s => s.Name == stackVm.Name);
         if (stack is null) return;
 
-        Application.Current.Dispatcher.Invoke(() =>
-            stackVm.DriftStatus = DriftStatus.Checking);
+        // Skip if this stack is already being checked/fixed (timer vs. manual vs.
+        // auto-fix). Running two terraform processes on one state would deadlock
+        // on the state lock and corrupt the in-memory VM from two threads.
+        if (!TryBeginDrift(stack.Name)) return;
 
-        var account = _accounts.ActiveAccount;
-        var region  = account?.DefaultRegion ?? "us-east-1";
-        var creds   = BuildTfCredentials(account, region);
-
-        DriftStatus finalStatus;
-        string?     summary    = null;
-        string?     planOutput = null;
+        DriftStatus finalStatus = DriftStatus.Error;
+        string?     summary     = null;
+        string?     planOutput  = null;
 
         try
         {
-            var tfVars = await _envVarRepo.GetTfVarsAsync(stack.Name);
-            var result = await _cli.PlanAsync(
-                stack.ProjectPath,
-                credentials: creds,
-                tfVars: tfVars.Count > 0 ? tfVars : null);
+            Application.Current?.Dispatcher.Invoke(() =>
+                stackVm.DriftStatus = DriftStatus.Checking);
 
-            if (result.Status == TerraformResultStatus.NoChanges)
+            var account = _accounts.ActiveAccount;
+            var region  = account?.DefaultRegion ?? "us-east-1";
+            var creds   = BuildTfCredentials(account, region);
+
+            try
             {
-                finalStatus = DriftStatus.Clean;
+                var tfVars = await _envVarRepo.GetTfVarsAsync(stack.Name);
+                var result = await _cli.PlanAsync(
+                    stack.ProjectPath,
+                    credentials: creds,
+                    tfVars: tfVars.Count > 0 ? tfVars : null);
+
+                if (result.Status == TerraformResultStatus.NoChanges)
+                {
+                    finalStatus = DriftStatus.Clean;
+                }
+                else if (result.Status == TerraformResultStatus.PlanHasChanges)
+                {
+                    finalStatus = DriftStatus.Drifted;
+                    summary     = ParseDriftSummary(result.Stdout);
+                    planOutput  = ExtractDriftDiff(result.Stdout);
+                }
+                else
+                {
+                    finalStatus = DriftStatus.Error;
+                    summary     = result.DiagnosticMessage;
+                }
             }
-            else if (result.Status == TerraformResultStatus.PlanHasChanges)
-            {
-                finalStatus = DriftStatus.Drifted;
-                summary     = ParseDriftSummary(result.Stdout);
-                planOutput  = ExtractDriftDiff(result.Stdout);
-            }
-            else
+            catch (Exception ex)
             {
                 finalStatus = DriftStatus.Error;
-                summary     = result.DiagnosticMessage;
+                summary     = ex.Message;
             }
+
+            stackVm.UpdateDriftResult(finalStatus, summary, planOutput, DateTime.UtcNow);
+
+            // Persist result to disk
+            stack.DriftStatus      = finalStatus;
+            stack.DriftSummary     = summary;
+            stack.DriftPlanOutput  = planOutput;
+            stack.LastDriftCheckAt = DateTime.UtcNow;
+            _repo.Save(stack);
         }
-        catch (Exception ex)
+        finally
         {
-            finalStatus = DriftStatus.Error;
-            summary     = ex.Message;
+            EndDrift(stack.Name);
         }
 
-        stackVm.UpdateDriftResult(finalStatus, summary, planOutput, DateTime.UtcNow);
-
-        // Persist result to disk
-        stack.DriftStatus      = finalStatus;
-        stack.DriftSummary     = summary;
-        stack.DriftPlanOutput  = planOutput;
-        stack.LastDriftCheckAt = DateTime.UtcNow;
-        _repo.Save(stack);
-
-        // Auto-fix: if configured, trigger apply immediately
+        // Auto-fix runs only after the check guard is released, so the fix can
+        // acquire its own guard without contending with the just-finished check.
         if (finalStatus == DriftStatus.Drifted && stackVm.AutoFixOnDrift)
             await RunDriftFixAsync(stackVm);
     }
@@ -1972,6 +2066,12 @@ public partial class StacksViewModel : ObservableObject
         var stack = _repo.GetAll().FirstOrDefault(s => s.Name == stackVm.Name);
         if (stack is null) return;
 
+        // Same per-stack guard as the check: never apply while a check/fix for
+        // this stack is already running.
+        if (!TryBeginDrift(stack.Name)) return;
+
+        try
+        {
         stackVm.UpdateStatus(StackStatus.Running);
 
         var account = _accounts.ActiveAccount;
@@ -2053,7 +2153,17 @@ public partial class StacksViewModel : ObservableObject
                 stackVm.UpdateStatus(StackStatus.Ready);
                 return applyResult.IsSuccess;
             });
+        }
+        finally
+        {
+            EndDrift(stack.Name);
+        }
     }
+
+    // Keep the persisted drift diff bounded: this string is written to stacks.json
+    // and re-parsed into the UI on every launch, so an unbounded plan would bloat
+    // the file and memory indefinitely.
+    private const int MaxPersistedDiffLines = 1000;
 
     private static string? ExtractDriftDiff(string planOutput)
     {
@@ -2061,6 +2171,7 @@ public partial class StacksViewModel : ObservableObject
         var lines  = planOutput.Split('\n');
         var sb     = new StringBuilder();
         bool inDiff = false;
+        int  kept   = 0;
 
         foreach (var line in lines)
         {
@@ -2072,6 +2183,11 @@ public partial class StacksViewModel : ObservableObject
                 if (t.StartsWith("Plan:",       StringComparison.OrdinalIgnoreCase) ||
                     t.StartsWith("No changes.", StringComparison.OrdinalIgnoreCase))
                     break;
+                if (kept++ >= MaxPersistedDiffLines)
+                {
+                    sb.AppendLine("… (plan diff truncated)");
+                    break;
+                }
                 sb.AppendLine(line);
             }
         }

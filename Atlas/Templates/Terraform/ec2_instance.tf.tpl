@@ -56,7 +56,11 @@ resource "aws_instance" "{{ resource_name }}" {
   }
 
   lifecycle {
-    ignore_changes = [ami, user_data]
+    # root_block_device is ignored because AWS forbids shrinking an EBS volume:
+    # if the generated size is ever smaller than the live volume, apply fails
+    # with "New size cannot be smaller than existing size". Ignoring the block
+    # also avoids accidental, destructive volume changes on imported instances.
+    ignore_changes = [ami, user_data, root_block_device]
   }
 }
 # ATLAS-MANAGED-END resource "aws_instance" "{{ resource_name }}"

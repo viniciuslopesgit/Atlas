@@ -13,8 +13,8 @@
     gtag('config', 'G-R46JMXK61J');
   </script>
 
-  <title>Documentation — Atlas AWS Desktop Manager</title>
-  <meta name="description" content="Atlas documentation. Learn how to install, configure, and use Atlas — the native Windows desktop app for managing AWS EC2, S3, CloudWatch, GuardDuty, IAM and Billing.">
+  <title>Documentation — Atlas | Infrastructure Management for DevOps</title>
+  <meta name="description" content="Atlas documentation. Learn how to install, configure, and use Atlas — the native Windows platform for exploring AWS resources, detecting infrastructure drift and managing Infrastructure as Code (Terraform).">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://cloud-atlas.io/docs">
   <link rel="icon" href="atlas.ico" sizes="any">
@@ -23,7 +23,7 @@
 
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://cloud-atlas.io/docs">
-  <meta property="og:title" content="Documentation — Atlas AWS Desktop Manager">
+  <meta property="og:title" content="Documentation — Atlas | Infrastructure Management for DevOps">
   <meta property="og:description" content="Full documentation for Atlas — installation, account setup, features, keyboard shortcuts, security, and troubleshooting.">
   <meta property="og:image" content="https://cloud-atlas.io/og-image.png">
 
@@ -316,13 +316,13 @@
   <nav id="navbar" aria-label="Main navigation" class="border-b border-transparent bg-transparent fixed w-full z-50 backdrop-blur-md">
     <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
       <a href="/" class="flex items-center gap-2.5 group">
-        <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+        <img src="atlas.png" alt="Atlas — Infrastructure Management for DevOps" class="w-8 h-8 rounded-lg object-contain">
         <span class="text-xl font-bold tracking-tight">Atlas</span>
       </a>
 
       <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
         <a href="/#features" class="hover:text-white transition">Features</a>
-        <a href="/#comparison" class="hover:text-white transition">vs AWS Console</a>
+        <a href="/#comparison" class="hover:text-white transition">Why Atlas</a>
         <a href="/#pricing" class="hover:text-white transition">Beta</a>
         <a href="/docs" class="text-white font-medium">Docs</a>
         <a href="/contact" class="hover:text-white transition">Contact</a>
@@ -343,7 +343,7 @@
     <div id="mobile-menu" class="hidden md:hidden border-t border-zinc-800 bg-zinc-950/95">
       <div class="px-6 py-4 flex flex-col gap-4 text-sm">
         <a href="/#features" class="text-zinc-400 hover:text-white transition py-2">Features</a>
-        <a href="/#comparison" class="text-zinc-400 hover:text-white transition py-2">vs AWS Console</a>
+        <a href="/#comparison" class="text-zinc-400 hover:text-white transition py-2">Why Atlas</a>
         <a href="/#pricing" class="text-zinc-400 hover:text-white transition py-2">Beta</a>
         <a href="/docs" class="text-white font-medium py-2">Docs</a>
         <a href="/contact" class="text-zinc-400 hover:text-white transition py-2">Contact</a>
@@ -377,6 +377,12 @@
       <a href="#add-account" class="sidebar-link"><i class="fa-solid fa-plus w-3.5 text-center text-xs"></i>Add Account</a>
       <a href="#iam-permissions" class="sidebar-link"><i class="fa-solid fa-shield-halved w-3.5 text-center text-xs"></i>IAM Permissions</a>
       <a href="#multi-account" class="sidebar-link"><i class="fa-solid fa-layer-group w-3.5 text-center text-xs"></i>Multi-Account</a>
+
+      <div class="sidebar-group-title">Infrastructure as Code</div>
+      <a href="#iac-overview" class="sidebar-link"><i class="fa-solid fa-cubes w-3.5 text-center text-xs"></i>IaC Overview</a>
+      <a href="#stacks" class="sidebar-link"><i class="fa-solid fa-layer-group w-3.5 text-center text-xs"></i>Stacks</a>
+      <a href="#import" class="sidebar-link"><i class="fa-solid fa-file-import w-3.5 text-center text-xs"></i>Import to Terraform</a>
+      <a href="#drift" class="sidebar-link"><i class="fa-solid fa-wave-square w-3.5 text-center text-xs"></i>Drift Detection</a>
 
       <div class="sidebar-group-title">Features</div>
       <a href="#dashboard" class="sidebar-link"><i class="fa-solid fa-chart-pie w-3.5 text-center text-xs"></i>Dashboard</a>
@@ -415,7 +421,7 @@
           </div>
         </div>
         <p class="text-zinc-400 text-sm leading-relaxed max-w-2xl">
-          Everything you need to install, configure, and get the most out of Atlas — the native Windows desktop app for AWS management.
+          Everything you need to install, configure, and get the most out of Atlas — the native Windows platform for exploring cloud resources, detecting infrastructure drift and managing Infrastructure as Code.
         </p>
       </div>
 
@@ -429,7 +435,7 @@
             Getting Started
           </div>
           <p class="doc-p mt-2">
-            Atlas is a native Windows desktop application that replaces the AWS Management Console for daily infrastructure management. It is built with WPF and .NET 9 — no browser, no Electron, no slowness.
+            Atlas is a native Windows desktop platform for cloud infrastructure management. Explore your AWS resources visually, detect infrastructure drift between Terraform and what's actually deployed, and manage Infrastructure as Code — all in one place. It is built with WPF and .NET 9 — no browser, no Electron, no slowness. Azure support is coming soon.
           </p>
 
           <div class="callout callout-info">
@@ -440,10 +446,10 @@
           <div class="grid sm:grid-cols-3 gap-4 mt-6">
             <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;">
               <div class="w-7 h-7 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center mb-3">
-                <i class="fa-solid fa-bolt text-blue-400 text-xs"></i>
+                <i class="fa-solid fa-wave-square text-blue-400 text-xs"></i>
               </div>
-              <p class="text-zinc-200 text-sm font-semibold mb-1">Instant load</p>
-              <p class="text-zinc-500 text-xs leading-relaxed">Launches in under a second. No browser tab, no re-authentication, no spinner.</p>
+              <p class="text-zinc-200 text-sm font-semibold mb-1">Drift detection</p>
+              <p class="text-zinc-500 text-xs leading-relaxed">See where reality diverges from your Terraform with a visual plan diff.</p>
             </div>
             <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;">
               <div class="w-7 h-7 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center mb-3">
@@ -539,7 +545,7 @@
               <span class="step-num">2</span>
               <div>
                 <p class="text-zinc-200 text-sm font-semibold mb-1">Run the installer</p>
-                <p class="doc-p">Double-click the downloaded file. Windows SmartScreen may show a warning on first run — click <strong class="text-zinc-200">More info â†’ Run anyway</strong>. Atlas is code-signed; the warning appears only because the certificate is new.</p>
+                <p class="doc-p">Double-click the downloaded file. Windows SmartScreen may show a warning on first run — click <strong class="text-zinc-200">More info → Run anyway</strong>. Atlas is code-signed; the warning appears only because the certificate is new.</p>
               </div>
             </div>
             <div class="flex gap-3">
@@ -560,7 +566,7 @@
 
           <div class="callout callout-info mt-4">
             <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
-            <span>To uninstall, go to <strong>Settings â†’ Apps â†’ Atlas</strong> and click Uninstall, or use the uninstaller in <span class="code-inline">%LocalAppData%\Atlas</span>.</span>
+            <span>To uninstall, go to <strong>Settings → Apps → Atlas</strong> and click Uninstall, or use the uninstaller in <span class="code-inline">%LocalAppData%\Atlas</span>.</span>
           </div>
         </div>
       </section>
@@ -711,6 +717,99 @@
             <li>Each account has its own default region — you can change it in Settings at any time.</li>
             <li>To remove an account, click <strong class="text-zinc-300">Remove</strong> next to it in Settings. The next account in the list becomes active automatically.</li>
           </ul>
+        </div>
+      </section>
+
+      <!-- ─────────────────── IAC OVERVIEW ─────────────────── -->
+      <section id="iac-overview" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-cubes text-blue-400 text-xs"></i>
+            </div>
+            Infrastructure as Code
+          </div>
+          <p class="doc-p mt-2">
+            Cloud consoles show what is deployed; Infrastructure as Code (IaC) shows the desired state. Atlas connects both worlds. It integrates with <strong class="text-zinc-300">Terraform</strong> so you can import existing AWS resources into code, generate HCL, run <code>init</code>/<code>plan</code>/<code>apply</code>, and detect drift — without leaving the app.
+          </p>
+          <div class="callout callout-info">
+            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+            <span>Atlas runs the <code>terraform</code> CLI on your machine. Make sure Terraform is installed and on your <code>PATH</code> — Atlas shows the detected CLI version in the IaC page header. AWS credentials are injected only as child-process environment variables and are never written to your <code>.tf</code> files.</span>
+          </div>
+          <ul class="doc-ul">
+            <li><strong class="text-zinc-300">Stacks</strong> — group projects, run the full import &rarr; plan pipeline, and view live streaming output per run.</li>
+            <li><strong class="text-zinc-300">Import to Terraform</strong> — discover live resources across 35+ types and generate import blocks and HCL.</li>
+            <li><strong class="text-zinc-300">Drift detection</strong> — run a plan to see what changed outside of code.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ─────────────────── STACKS ─────────────────── -->
+      <section id="stacks" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-layer-group text-blue-400 text-xs"></i>
+            </div>
+            Stacks
+          </div>
+          <p class="doc-p mt-2">
+            A <strong class="text-zinc-300">stack</strong> is a Terraform project that Atlas manages for you. Each stack tracks its runs (Init, Import, Plan, Apply) with status, duration and full logs.
+          </p>
+          <ul class="doc-ul">
+            <li>Click <strong class="text-zinc-300">Create new stack</strong>, give it a name and pick a destination folder.</li>
+            <li>Atlas provisions an S3 remote-state backend (<code>atlas-tfstate-&lt;accountId&gt;</code>) with versioning, public-access block and SSE encryption — or falls back to local state if permissions are insufficient.</li>
+            <li>Runs stream their output in real time. Logs auto-expand and auto-scroll; use <strong class="text-zinc-300">Copy</strong> to grab the full output.</li>
+            <li>Use the per-stack <strong class="text-zinc-300">Actions</strong> menu to run Init, Import or Apply, or to remove the stack (your <code>.tf</code> files on disk are preserved).</li>
+          </ul>
+          <div class="callout callout-warn">
+            <i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
+            <span><strong>Apply is always manual.</strong> The automatic pipeline runs up to <code>plan</code> so you can review changes; importing resources into state happens only when you choose <strong>Actions &rarr; Apply</strong>.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────── IMPORT ─────────────────── -->
+      <section id="import" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-file-import text-blue-400 text-xs"></i>
+            </div>
+            Import existing resources to Terraform
+          </div>
+          <p class="doc-p mt-2">
+            Atlas discovers what already exists in your AWS account and brings it under Infrastructure as Code — no hand-written import blocks required.
+          </p>
+          <ul class="doc-ul">
+            <li><strong class="text-zinc-300">Discovery</strong> scans across 35+ resource types — Compute (EC2, ASG, Launch Templates), Networking (VPC, Subnet, SG, Route Tables, Gateways, Load Balancers), Database (RDS, DynamoDB, ElastiCache), Serverless (Lambda, API Gateway), Containers (ECS, EKS, ECR), Messaging (SQS, SNS), IAM, Security (KMS, Secrets Manager, ACM), DNS (Route53) and Monitoring (CloudWatch).</li>
+            <li>A <strong class="text-zinc-300">selection screen</strong> groups discovered resources by category so you choose exactly what to manage.</li>
+            <li>Atlas writes Terraform 1.5+ <code>import { }</code> blocks and generates clean HCL definitions, wrapped in <code>ATLAS-MANAGED</code> markers so you can regenerate safely without touching hand-written code.</li>
+            <li>Default discovery skips AWS-managed and default resources (default VPC/SG, service-linked roles) unless you opt in.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ─────────────────── DRIFT ─────────────────── -->
+      <section id="drift" class="doc-section">
+        <div class="doc-card">
+          <div class="doc-h2">
+            <div class="w-8 h-8 rounded-lg bg-blue-950/60 border border-blue-900/40 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-wave-square text-blue-400 text-xs"></i>
+            </div>
+            Drift Detection
+          </div>
+          <p class="doc-p mt-2">
+            <strong class="text-zinc-300">Infrastructure drift</strong> is the gap between what your Terraform declares and what is actually deployed. Atlas runs <code>terraform plan</code> against your live environment and surfaces the difference as a readable diff.
+          </p>
+          <ul class="doc-ul">
+            <li><span class="text-emerald-400">+ to add</span> — declared in code but not yet deployed.</li>
+            <li><span class="text-amber-400">~ to change</span> — deployed configuration drifted from code.</li>
+            <li><span class="text-red-400">- to destroy</span> — exists in code but removed in the cloud, or scheduled for removal.</li>
+          </ul>
+          <p class="doc-p mt-2">
+            Review the plan, then choose <strong class="text-zinc-300">Apply</strong> to reconcile reality with your Infrastructure as Code. Re-run plan anytime to confirm there is no remaining drift.
+          </p>
         </div>
       </section>
 
@@ -1202,18 +1301,18 @@
       <div class="grid md:grid-cols-4 gap-8 mb-12">
         <div class="md:col-span-2">
           <div class="flex items-center gap-2.5 mb-4">
-            <img src="atlas.png" alt="Atlas AWS Desktop Manager" class="w-8 h-8 rounded-lg object-contain">
+            <img src="atlas.png" alt="Atlas — Infrastructure Management for DevOps" class="w-8 h-8 rounded-lg object-contain">
             <span class="text-xl font-bold">Atlas</span>
           </div>
           <p class="text-zinc-500 text-sm leading-relaxed max-w-xs">
-            The AWS console alternative built for Windows. Native WPF desktop app for DevOps engineers, SREs and cloud infrastructure teams who manage AWS every day.
+            Infrastructure management for DevOps teams. A native Windows desktop platform to explore cloud resources, detect drift and manage Infrastructure as Code — where IaC meets reality. Azure coming soon.
           </p>
         </div>
         <div>
           <h4 class="text-zinc-300 font-medium text-sm mb-4">Product</h4>
           <ul class="space-y-3 text-sm text-zinc-500">
             <li><a href="/#features" class="hover:text-zinc-300 transition">Features</a></li>
-            <li><a href="/#comparison" class="hover:text-zinc-300 transition">Atlas vs AWS Console</a></li>
+            <li><a href="/#comparison" class="hover:text-zinc-300 transition">Why Atlas</a></li>
             <li><a href="/#pricing" class="hover:text-zinc-300 transition">Beta</a></li>
             <li><a href="https://github.com/viniciuslopesgit/atlas-cloud/releases/download/__VERSION__/Atlas-win.msi" class="hover:text-zinc-300 transition">Download for Windows</a></li>
           </ul>
@@ -1231,7 +1330,7 @@
       <div class="section-divider mb-8"></div>
       <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-zinc-600 text-sm">
         <p>© 2026 Atlas · cloud-atlas.io</p>
-        <p>Made with <span class="text-red-500">♥</span> for those who manage AWS every day</p>
+        <p>Made with <span class="text-red-500">♥</span> for those who manage infrastructure every day</p>
       </div>
     </div>
   </footer>
