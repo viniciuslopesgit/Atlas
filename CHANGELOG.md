@@ -12,8 +12,7 @@ every stack of the same engine, so Init in a new stack no longer downloads the A
 they loaded from AWS for each account and region: going back to EC2, S3, IAM, CloudWatch, GuardDuty, Billing or
 the Dashboard shows it at once and loads it again after 3 minutes, after a change made on the page, or with Refresh
 (⌘R). Infrastructure as Code is now its own menu in the sidebar, below Stacks, and Import from AWS lives there: it
-adds the resources to the open project or to a stack. A stack's runs open as a timeline of their phases, with the
-latest run's output in a bar at the bottom.
+adds the resources to the open project or to a stack. A stack's runs open as a timeline of their phases.
 
 ### Added
 - Import from AWS, in Infrastructure as Code, can add the resources to a stack: the stack imports them in its
@@ -21,8 +20,6 @@ latest run's output in a bar at the bottom.
 - A stack's runs, plans and applies each have their tab; a run opens as a timeline of its phases (preparing, init,
   plan, apply, verify) with date, time and duration, and output that can be collapsed, enlarged or downloaded;
   every finished run keeps its whole log, encrypted
-- Each stack shows the output of its latest run (Init, Plan, Apply, drift checks, imports) as it is produced, in an
-  output bar at the bottom that follows new lines, opens when a run starts, and can be hidden or resized
 
 ### Changed
 - Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against
@@ -33,6 +30,7 @@ latest run's output in a bar at the bottom.
   change, or with Refresh (⌘R)
 - Infrastructure as Code moved out of Resources to its own menu in the sidebar, below Stacks
 - Import from AWS moved from each stack to Infrastructure as Code
+- A run's output is shown in its timeline (Runs, Plans, Applies) instead of a bar at the bottom of the stack
 
 ### Fixed
 - Stacks with many variables or runs no longer slow the app down: saving a stack only writes to the Keychain and
