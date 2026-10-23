@@ -207,8 +207,13 @@ if [ $FULL = 1 ]; then
     if git -C "$REPO" rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
         APP_CHANGES=$(git -C "$REPO" diff --name-only "refs/tags/$VERSION" -- Atlas/Sources Atlas/Resources Atlas/Package.swift; \
                       git -C "$REPO" ls-files --others --exclude-standard -- Atlas/Sources Atlas/Resources)
-        [ -z "$APP_CHANGES" ] || { print -r -- "$APP_CHANGES" | head -5 | sed 's/^/    /'
-            fail "$VERSION is already published and the app changed since: ./scripts/bump_version.sh patch|minor|major."; }
+        if [ -n "$APP_CHANGES" ] && [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            # A Pull Request gets its version after the merge (the version job in ci.yml).
+            print -P "%F{yellow}  ⚠ $VERSION is already published: the new version is created when this is merged.%f"
+        elif [ -n "$APP_CHANGES" ]; then
+            print -r -- "$APP_CHANGES" | head -5 | sed 's/^/    /'
+            fail "$VERSION is already published and the app changed since: ./scripts/ship.sh creates the new version (or ./scripts/bump_version.sh)."
+        fi
     fi
     ok "$VERSION ($BUILD) in the CHANGELOG"
 

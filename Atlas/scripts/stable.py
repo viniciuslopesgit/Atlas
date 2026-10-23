@@ -5,11 +5,14 @@ A published version is stable when, in this order (full criteria in docs/RELEASE
      is a beta, which is what is expected until it is promoted;
   2. the tag is in dev's history and already has .mainignore (earlier ones do not build without the tests);
   3. GitHub CI passed on the tag's commit (every check completed successfully);
-  4. it has no open issues labelled "bug" that mention it (X.Y.Z or vX.Y.Z);
+  4. it has no open issues labelled "bug" that mention it (X.Y.Z or vX.Y.Z), and no open issue labelled
+     "hold-release" that mentions it or mentions no version at all (a hold on every promotion);
   5. no version published after it brings fixes (### Fixed in the CHANGELOG): if one does,
      the version had known bugs and the stable one becomes the fix;
   6. it has been published for at least SOAK hours (a minimum waiting period, not proof of reliability);
-  7. a new major version (X changes) is only promoted with explicit approval (STABLE_APPROVE=X.Y.Z).
+  7. a new major version (X changes) is approved automatically once it has soaked MAJOR_SOAK hours (72 by
+     default) with all of the above still true; STABLE_APPROVE=X.Y.Z approves it after the normal soak.
+Nobody has to approve a version: the rules do. A person stops one with a "hold-release" issue.
 The candidate is the most recent version that meets everything; it is only promoted if it is newer than main's.
 Then Atlas/scripts/stable.sh runs the full check again on the tag's commit before promoting it.
 
@@ -29,6 +32,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 DEFAULT_SOAK_HOURS = 24
+DEFAULT_MAJOR_SOAK_HOURS = 72
+VERSION_RE = r"(?<![\d.])v?\d+\.\d+\.\d+(?![\d.])"
 
 
 @dataclass
@@ -74,6 +79,11 @@ def mentions(issue_text, version):
     return re.search(rf"(?<![\d.])v?{re.escape(version)}(?![\d.])", issue_text) is not None
 
 
+def holds(issue_text, version):
+    """A hold-release issue blocks the versions it mentions, or every version when it mentions none."""
+    return mentions(issue_text, version) or re.search(VERSION_RE, issue_text) is None
+
+
 def main_status(main_version, verdicts):
     """Warning when main has a version that does not meet the rules (None if everything is fine)."""
     v = next((v for v in verdicts if v.version == main_version), None)
@@ -84,7 +94,8 @@ def main_status(main_version, verdicts):
     return f"main has {main_version}, which is not stable yet ({reason}); latest stable: {stable or 'none'}"
 
 
-def evaluate(releases, changelog, main_version, now, soak_hours=DEFAULT_SOAK_HOURS, bug_issues=(), approved=()):
+def evaluate(releases, changelog, main_version, now, soak_hours=DEFAULT_SOAK_HOURS, bug_issues=(), approved=(),
+             hold_issues=(), major_soak_hours=DEFAULT_MAJOR_SOAK_HOURS):
     """Returns (candidate or None, [Verdict] from newest to oldest)."""
     sections = changelog_sections(changelog)
     main_key = parse_version(main_version) if main_version else None
@@ -121,6 +132,10 @@ def evaluate(releases, changelog, main_version, now, soak_hours=DEFAULT_SOAK_HOU
         if bugs:
             verdicts.append(Verdict(r.version, False, f"open bug issue: {bugs[0]}"))
             continue
+        held = [title for title, text in hold_issues if holds(title + "\n" + text, r.version)]
+        if held:
+            verdicts.append(Verdict(r.version, False, f"on hold: {held[0]}"))
+            continue
         fixed_by = [n.version for n in published if parse_version(n.version) > key and has_fixes(sections.get(n.version))]
         if fixed_by:
             verdicts.append(Verdict(r.version, False, f"has bugs fixed later, in {fixed_by[-1]}"))
@@ -130,8 +145,15 @@ def evaluate(releases, changelog, main_version, now, soak_hours=DEFAULT_SOAK_HOU
             until = (r.published + timedelta(hours=soak_hours)).astimezone().strftime("%d/%m %H:%M")
             verdicts.append(Verdict(r.version, False, f"soaking until {until} ({soak_hours:g} h)"))
             continue
-        if main_key and key[0] > main_key[0] and r.version not in approved:
-            verdicts.append(Verdict(r.version, False, f"major version: needs approval (STABLE_APPROVE={r.version})"))
+        major = main_key and key[0] > main_key[0]
+        if major and r.version not in approved and age < timedelta(hours=major_soak_hours):
+            until = (r.published + timedelta(hours=major_soak_hours)).astimezone().strftime("%d/%m %H:%M")
+            verdicts.append(Verdict(r.version, False, f"major version: approved automatically after {until} "
+                                    f"({major_soak_hours:g} h), or earlier with STABLE_APPROVE={r.version}"))
+            continue
+        if major:
+            how = "approved by STABLE_APPROVE" if r.version in approved else f"approved automatically after {major_soak_hours:g} h"
+            verdicts.append(Verdict(r.version, True, f"stable (major version, {how})"))
             continue
         verdicts.append(Verdict(r.version, True, "stable"))
 
@@ -222,12 +244,15 @@ def gather():
     issues = json.loads(run("gh", "issue", "list", "--state", "open", "--label", "bug", "--limit", "200",
                             "--json", "title,body"))
     bug_issues = [(i["title"], i["title"] + "\n" + (i["body"] or "")) for i in issues]
+    held = json.loads(run("gh", "issue", "list", "--state", "open", "--label", "hold-release", "--limit", "50",
+                          "--json", "title,body"))
+    hold_issues = [(i["title"], i["title"] + "\n" + (i["body"] or "")) for i in held]
     changelog = run("git", "show", "origin/dev:CHANGELOG.md")
     # main does not share the tags' history (each stable version is a commit of its own): the version
     # comes from main's Info.plist or, while main predates it, from the last stable Release or tag on main.
     plist = subprocess.run(["git", "show", "origin/main:Atlas/Resources/Info.plist"], capture_output=True).stdout
     on_main = run("git", "tag", "--merged", "origin/main").split()
-    return releases, changelog, plist_version(plist) or latest_stable_release(data) or newest_version(on_main), bug_issues
+    return releases, changelog, plist_version(plist) or latest_stable_release(data) or newest_version(on_main), bug_issues, hold_issues
 
 
 def main():
@@ -240,9 +265,11 @@ def main():
         print("\n".join(excluded_paths(paths, patterns)))
         return
     soak = float(os.environ.get("STABLE_SOAK_HOURS", DEFAULT_SOAK_HOURS))
-    releases, changelog, main_version, bug_issues = gather()
+    major_soak = float(os.environ.get("STABLE_MAJOR_SOAK_HOURS", DEFAULT_MAJOR_SOAK_HOURS))
+    releases, changelog, main_version, bug_issues, hold_issues = gather()
     approved = {v.strip().lstrip("v") for v in os.environ.get("STABLE_APPROVE", "").split(",") if v.strip()}
-    candidate, verdicts = evaluate(releases, changelog, main_version, datetime.now(timezone.utc), soak, bug_issues, approved)
+    candidate, verdicts = evaluate(releases, changelog, main_version, datetime.now(timezone.utc), soak, bug_issues, approved,
+                                   hold_issues, major_soak)
     warning = main_status(main_version, verdicts)
     if "--json" in sys.argv:
         print(json.dumps({"main": main_version, "candidate": candidate, "main_warning": warning,

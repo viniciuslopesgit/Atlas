@@ -142,9 +142,13 @@ $(python3 -I $STABLE | sed 's/^/    /')"
     if [ "$(git rev-parse 'origin/main^{tree}')" = "$tree" ]; then
         echo "✓ main now has Atlas $version, with only the essential files."
         if [ "$kind" = stable ]; then
-            # The Release stops being a beta and becomes "Latest" (the one the README says to download).
-            gh release edit "$tag" --prerelease=false --latest >/dev/null
-            echo "✓ Release $tag marked as stable (Latest)."
+            # The Release stops being a beta and becomes "Latest" (the one the README says to download),
+            # with the stable notes: the same CHANGELOG section, without the beta banner.
+            ./Atlas/scripts/release_notes.sh "$version" >"$TMP/notes.md"
+            printf '\n---\nStable since %s: %s\n' "$(date -u +%Y-%m-%d)" "$(python3 -I $STABLE --json \
+                | python3 -I -c "import json,sys; print(next(v['reason'] for v in json.load(sys.stdin)['verdicts'] if v['version'] == '$version'))")" >>"$TMP/notes.md"
+            gh release edit "$tag" --prerelease=false --latest --notes-file "$TMP/notes.md" >/dev/null
+            echo "✓ Release $tag published as stable (Latest)."
         else
             echo "• Release $tag left as it is: it does not meet the stability criteria yet."
         fi

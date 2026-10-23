@@ -30,8 +30,7 @@ To keep it up to date automatically (every new release, betas included), run `At
 Atlas/scripts/install-hooks.sh          # once per clone: pre-commit, commit-msg and pre-push hooks
 cd Atlas && swift run                   # run in development
 Atlas/scripts/check.sh                  # quick check: build without warnings, every test in a sandbox, coverage
-Atlas/scripts/bump_version.sh           # next version and its CHANGELOG section
-Atlas/scripts/ship.sh "feat: message"   # full check → commit → push dev → GitHub publishes the beta
+Atlas/scripts/ship.sh "feat: message"   # new version if the app changed → full check → commit → push dev → beta
 ```
 
 Needs Swift 5.9+; the Xcode Command Line Tools are enough. To open in Xcode: `open Atlas/Package.swift`.
@@ -40,18 +39,19 @@ How tests, versions and releases work: [docs/development.md](docs/development.md
 ## Branch flow and releases
 
 ```
-change ──► bump_version.sh ──► ship.sh: full check ──► commit ──► push dev
+change ──► ship.sh: new version + CHANGELOG ──► full check ──► commit ──► push dev
                                                                     │  CI: full check on macOS 14 and 15
                                                                     ▼
                                                       beta Release X.Y.Z (pre-release, zip + SHA256SUMS)
-                                                                    │  24 h, CI green, no open bugs, no later fixes
+                                                                    │  approved automatically: 24 h (72 h for a major),
+                                                                    │  CI green, no open bug or hold-release issue, no later fixes
                                                                     ▼
-                                    promote.yml: verified again ──► Pull Request ──► main + Release "Latest"
+                                    promote.yml: verified again ──► Pull Request ──► main + stable Release "Latest"
 ```
 
 - **`dev`** receives every change. [`ci.yml`](.github/workflows/ci.yml) runs [`check.sh --full`](Atlas/scripts/check.sh) on macOS 14 and 15 and publishes a version that has no Release yet as a beta, with the notes from its [`CHANGELOG.md`](CHANGELOG.md) section.
-- **`main`** only has the stable version, without tests or development scripts ([`.mainignore`](.mainignore)). [`promote.yml`](.github/workflows/promote.yml) runs daily and promotes the newest beta that meets the [release criteria](docs/RELEASE_CRITERIA.md); a new major version needs `approve=X.Y.Z`.
-- **Versions** live in [`Atlas/Resources/Info.plist`](Atlas/Resources/Info.plist) and change only through `bump_version.sh`, which suggests the kind from the Conventional Commits (`feat:` → minor, `fix:` → patch, `feat!:` → major) and prefills the CHANGELOG section to rewrite. A published version never changes: the full check refuses it.
+- **`main`** only has the stable version, without tests or development scripts ([`.mainignore`](.mainignore)). [`promote.yml`](.github/workflows/promote.yml) runs every 6 hours, approves the newest beta that meets the [release criteria](docs/RELEASE_CRITERIA.md) and publishes it as the stable Release. To stop one, open an issue labelled `hold-release`.
+- **Versions** live in [`Atlas/Resources/Info.plist`](Atlas/Resources/Info.plist) and are created automatically when the app changes: the kind comes from the Conventional Commits (`feat:` → minor, `fix:` → patch, `feat!:` → major) and the CHANGELOG section is written from them (`bump_version.sh --auto`). A published version never changes: the full check refuses it.
 
 ## Repository layout
 

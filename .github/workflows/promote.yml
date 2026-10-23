@@ -1,16 +1,17 @@
 name: Promote to main
 
-# Daily: the most recent beta that meets docs/RELEASE_CRITERIA.md (rules in Atlas/scripts/stable.py) is
-# checked again in a clean copy and goes to main as "Atlas X.Y.Z (stable version)", with only the files
-# needed to build it (.mainignore), through a Pull Request. Its Release becomes "Latest".
-# A new major version needs approval: run this workflow with approve=X.Y.Z.
+# Every 6 hours: the most recent beta that meets docs/RELEASE_CRITERIA.md (rules in Atlas/scripts/stable.py) is
+# approved automatically, checked again in a clean copy and goes to main as "Atlas X.Y.Z (stable version)",
+# with only the files needed to build it (.mainignore), through a Pull Request. Its Release is published as
+# stable ("Latest"). Nobody has to approve: a new major version waits 72 h instead of 24 h, and an open issue
+# labelled "hold-release" stops the promotion (of the version it names, or of every version if it names none).
 on:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '17 */6 * * *'
   workflow_dispatch:
     inputs:
       approve:
-        description: 'Approve a new major version (X.Y.Z)'
+        description: 'Approve a new major version now, without the 72 h soak (X.Y.Z)'
         default: ''
       dry_run:
         description: 'Only rehearse the promotion of this version (X.Y.Z)'
@@ -23,6 +24,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  issues: read
   actions: write
 
 jobs:

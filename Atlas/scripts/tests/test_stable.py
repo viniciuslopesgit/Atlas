@@ -149,12 +149,33 @@ class EvaluateTests(unittest.TestCase):
         _, verdicts = evaluate([r], changelog(), "1.0.0", NOW)
         self.assertIn(".mainignore", verdicts[0].reason)
 
-    def test_major_needs_explicit_approval(self):
+    def test_major_is_approved_automatically_after_the_longer_soak(self):
         rs = [rel("1.5.0", 100), rel("2.0.0", 50)]
         cand, verdicts = evaluate(rs, changelog(), "1.4.0", NOW)
-        self.assertEqual(cand, "1.5.0")
+        self.assertEqual(cand, "1.5.0", "a 50 h old major is still soaking: the newest minor goes instead")
+        self.assertIn("approved automatically after", verdicts[0].reason)
         self.assertIn("STABLE_APPROVE=2.0.0", verdicts[0].reason)
+        cand, verdicts = evaluate([rel("2.0.0", 73)], changelog(), "1.4.0", NOW)
+        self.assertEqual(cand, "2.0.0")
+        self.assertIn("approved automatically after 72 h", verdicts[0].reason)
         self.assertEqual(evaluate(rs, changelog(), "1.4.0", NOW, approved={"2.0.0"})[0], "2.0.0")
+        self.assertEqual(evaluate(rs, changelog(), "1.4.0", NOW, major_soak_hours=48)[0], "2.0.0")
+
+    def test_major_auto_approval_still_needs_every_other_rule(self):
+        for kw in [dict(ci_ok=False), dict(assets=["Atlas-2.0.0.zip"]), dict(on_dev=False)]:
+            self.assertIsNone(evaluate([rel("2.0.0", 200, **kw)], changelog(), "1.4.0", NOW)[0], kw)
+        bug = [("Crash on launch", "Atlas 2.0.0 crashes")]
+        self.assertIsNone(evaluate([rel("2.0.0", 200)], changelog(), "1.4.0", NOW, bug_issues=bug)[0])
+
+    def test_hold_release_issue_vetoes_promotion(self):
+        rs = [rel("1.4.1", 100), rel("1.5.0", 50)]
+        cand, verdicts = evaluate(rs, changelog(), "1.4.0", NOW, hold_issues=[("Hold 1.5.0", "wait for QA")])
+        self.assertEqual(cand, "1.4.1", "the hold names 1.5.0 only")
+        self.assertIn("on hold: Hold 1.5.0", verdicts[0].reason)
+        cand, verdicts = evaluate(rs, changelog(), "1.4.0", NOW, hold_issues=[("Freeze releases", "conference week")])
+        self.assertIsNone(cand, "a hold that names no version stops every promotion")
+        self.assertTrue(all("on hold" in v.reason for v in verdicts))
+        self.assertEqual(evaluate(rs, changelog(), "1.4.0", NOW, hold_issues=[("Hold 1.3.0", "")])[0], "1.5.0")
 
     def test_minor_and_patch_need_no_approval(self):
         self.assertEqual(evaluate([rel("1.5.1", 50)], changelog(), "1.4.0", NOW)[0], "1.5.1")
@@ -267,9 +288,9 @@ class MainFilesTests(unittest.TestCase):
         self.assertEqual(newest_version(["0.0.9", "1.0.1", "1.0.0", "2.0.0-dev.19", "0.0.31"]), "1.0.1")
         self.assertIsNone(newest_version(["2.0.0-dev.1", "nightly"]))
 
-    def test_major_after_the_windows_versions_needs_approval(self):
+    def test_major_after_the_windows_versions_waits_for_the_longer_soak(self):
         _, verdicts = evaluate([rel("2.0.0", 48)], changelog(("2.0.0", ["Added"])), "1.0.1", NOW)
-        self.assertIn("needs approval", verdicts[0].reason)
+        self.assertIn("approved automatically after", verdicts[0].reason)
         candidate, _ = evaluate([rel("2.0.0", 48)], changelog(("2.0.0", ["Added"])), "1.0.1", NOW, approved={"2.0.0"})
         self.assertEqual(candidate, "2.0.0")
 

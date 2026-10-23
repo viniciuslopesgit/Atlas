@@ -18,9 +18,9 @@ This document defines the states of a version, what it takes to move from one to
 | State | Where it is | How it gets there | Who decides |
 |---|---|---|---|
 | **Alpha** | Untagged commits on `dev`; local builds | Quick check in the pre-commit hook | Whoever commits |
-| **Beta** | GitHub Release marked as pre-release, with `Atlas-X.Y.Z.zip` and `SHA256SUMS` | `Atlas/scripts/ship.sh`: local full check → commit → push `dev` → CI full check on macOS 14 and 15 → `X.Y.Z` tag and Release | Automatic |
+| **Beta** | GitHub Release marked as pre-release, with `Atlas-X.Y.Z.zip` and `SHA256SUMS` | `Atlas/scripts/ship.sh`: new version when the app changed → local full check → commit → push `dev` → CI full check on macOS 14 and 15 → `X.Y.Z` tag and Release. A change merged on GitHub gets its version from CI's `version` job | Automatic |
 | **Candidate (RC)** | The beta that `stable.sh` points to as candidate | Every automatic criterion in section 3.3 met | Automatic |
-| **Stable** | "Atlas X.Y.Z (stable version)" commit on `main`; Release marked **Latest** | `promote.yml` (daily) runs `Atlas/scripts/stable.sh --apply`: new full check in a clean copy of the tag, build and self-test of `main`'s content, Pull Request with merge | Automatic for patch and minor; **human approval** for major |
+| **Stable** | "Atlas X.Y.Z (stable version)" commit on `main`; Release published as stable (**Latest**), with the stable notes | `promote.yml` (every 6 h) runs `Atlas/scripts/stable.sh --apply`: new full check in a clean copy of the tag, build and self-test of `main`'s content, Pull Request with merge | Automatic for every version: the rules approve it. A person can only stop it, with a `hold-release` issue |
 
 The README's download link points to **Latest**, which is always the latest stable. Betas only show to those who look for them; the automatic updater on the maintainer's Mac installs betas too.
 
@@ -30,9 +30,9 @@ The README's download link points to **Latest**, which is always the latest stab
 |---|---|---|
 | Patch `X.Y.Z+1` | Fixes and internal changes, no new feature | Automatic criteria |
 | Minor `X.Y+1.0` | Compatible new feature | Automatic criteria + tests of the new feature in the same commit |
-| Major `X+1.0.0` | Incompatible change (stored settings, default behaviour towards AWS, system requirements) | Automatic criteria + approval (`promote.yml` with `approve=X.Y.Z`, or `STABLE_APPROVE=X.Y.Z`) + decision recorded in the Pull Request |
+| Major `X+1.0.0` | Incompatible change (stored settings, default behaviour towards AWS, system requirements) | Automatic criteria + 72 h as a beta instead of 24 h (`STABLE_MAJOR_SOAK_HOURS`); the approval is recorded in the Pull Request and the Release. `approve=X.Y.Z` in `promote.yml` (or `STABLE_APPROVE`) approves it after 24 h |
 
-`Atlas/scripts/version.sh --suggest` reads the Conventional Commits since the last release and says which kind the next version should be; `bump_version.sh` uses it when no kind is given.
+`Atlas/scripts/version.sh --suggest` reads the Conventional Commits since the last release (and the one being shipped) and says which kind the next version is; `ship.sh` and CI use it to create the version on their own (`bump_version.sh --auto`), with a CHANGELOG section written from the commits. Commits scoped `ci`, `release`, `build`, `test`, `docs` or `scripts` stay out of it.
 
 ## 3. Quality gates
 
@@ -71,9 +71,10 @@ The README's download link points to **Latest**, which is always the latest stab
 | C2 | The tag is in `dev`'s history and has `.mainignore` | B |
 | C3 | Every GitHub check on the tag's commit completed successfully | B |
 | C4 | No open issue labelled `bug` mentions the version | B |
+| C4b | No open issue labelled `hold-release` mentions the version, or mentions no version at all (stops every promotion) | B |
 | C5 | No later version brings fixes (`### Fixed` in the CHANGELOG): the fix becomes the candidate instead | B |
 | C6 | Published at least 24 h ago (`STABLE_SOAK_HOURS`). A waiting period, not proof of reliability | B |
-| C7 | A new major version is approved explicitly | B |
+| C7 | A new major version has been a beta for 72 h (`STABLE_MAJOR_SOAK_HOURS`), or was approved early with `approve=X.Y.Z` | B |
 
 ### 3.4 To become stable (`stable.sh --apply`)
 

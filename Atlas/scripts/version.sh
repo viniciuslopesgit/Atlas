@@ -17,31 +17,39 @@ last_tag() {
 }
 TAG="$(last_tag)"
 RANGE="${TAG:+$TAG..}HEAD"
-commits() { git rev-list --no-merges "$RANGE"; }
+# Every commit since the last release as "subject<US>body<RS>", plus the one being shipped (ship.sh passes
+# its message in PENDING_MESSAGE), so the version and the CHANGELOG already count it.
+entries() {
+  git log --no-merges --format='%s%x1f%b%x1e' "$RANGE"
+  [[ -n "${PENDING_MESSAGE:-}" ]] && printf '%s\x1f%s\x1e' "$(head -n1 <<<"$PENDING_MESSAGE")" "$(tail -n +2 <<<"$PENDING_MESSAGE")"
+  return 0
+}
 breaking() { [[ "$1" =~ ^[a-z]+(\([^\)]*\))?!: ]] || [[ "$2" == *"BREAKING CHANGE"* ]]; }
 
 suggest() {
   local level=patch subject body
-  for sha in $(commits); do
-    subject="$(git log -1 --format=%s "$sha")"; body="$(git log -1 --format=%b "$sha")"
+  while IFS=$'\x1f' read -r -d $'\x1e' subject body; do
+    subject="${subject#$'\n'}"
     if breaking "$subject" "$body"; then echo major; return; fi
     [[ "$subject" =~ ^feat(\([^\)]*\))?: ]] && level=minor
-  done
+  done < <(entries)
   echo "$level"
 }
 
 # Drafts: one line per commit, under the Keep a Changelog heading its type maps to.
 notes() {
   local added="" changed="" fixed="" subject body text
-  for sha in $(commits); do
-    subject="$(git log -1 --format=%s "$sha")"; body="$(git log -1 --format=%b "$sha")"
+  while IFS=$'\x1f' read -r -d $'\x1e' subject body; do
+    subject="${subject#$'\n'}"
     text="${subject#*: }"; text="$(printf '%s' "${text:0:1}" | tr '[:lower:]' '[:upper:]')${text:1}"
-    if [[ "$subject" =~ ^feat ]] && ! breaking "$subject" "$body"; then added+="- $text"$'\n'
+    # Changes to how Atlas is built, tested or released are not changes to the app.
+    if [[ "$subject" =~ ^[a-z]+\((ci|release|build|test|tests|docs|scripts|deps-dev)\)!?: ]]; then :
+    elif [[ "$subject" =~ ^feat ]] && ! breaking "$subject" "$body"; then added+="- $text"$'\n'
     elif [[ "$subject" =~ ^(fix|perf) ]]; then fixed+="- $text"$'\n'
     elif [[ "$subject" =~ ^(docs|test|ci|chore|style|build)(\(|:) ]]; then :
     else changed+="- $text"$'\n'
     fi
-  done
+  done < <(entries)
   [[ -n "$added" ]] && printf '### Added\n%s\n' "$added"
   [[ -n "$changed" ]] && printf '### Changed\n%s\n' "$changed"
   [[ -n "$fixed" ]] && printf '### Fixed\n%s\n' "$fixed"

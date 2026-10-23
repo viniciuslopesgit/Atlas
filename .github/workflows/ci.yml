@@ -3,6 +3,8 @@ name: CI
 # Every push and Pull Request to dev: the full check (Atlas/scripts/check.sh --full) on macOS 14 and 15.
 # On a push to dev, a version that has no Release yet is published as a beta (pre-release) with the app
 # that was just checked, Atlas-X.Y.Z.zip, SHA256SUMS and the notes from its CHANGELOG section.
+# A push that changed the app after a published version without a new one (a Pull Request merged on GitHub)
+# first gets its version automatically: the "version" job commits it and runs CI again on that commit.
 on:
   push:
     branches: [dev]
@@ -18,7 +20,43 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: macos-15
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      bumped: ${{ steps.bump.outputs.bumped }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: New version when the app changed
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(Atlas/scripts/version.sh)
+          if ! git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null \
+             || git diff --quiet "refs/tags/$VERSION" -- Atlas/Sources Atlas/Resources Atlas/Package.swift; then
+            echo "bumped=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          Atlas/scripts/bump_version.sh --auto
+          NEW=$(Atlas/scripts/version.sh)
+          git commit -qam "chore(release): $NEW"
+          git push -q origin HEAD:refs/heads/dev
+          # Pushes made with GITHUB_TOKEN do not start workflows: run CI on the new commit explicitly.
+          gh workflow run ci.yml --ref dev
+          echo "bumped=true" >> "$GITHUB_OUTPUT"
+          echo "### Atlas $NEW: version created from the commits; CI runs again on that commit" >> "$GITHUB_STEP_SUMMARY"
+
   check:
+    needs: version
+    if: ${{ !cancelled() && needs.version.outputs.bumped != 'true' }}
     name: check (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -74,7 +112,7 @@ jobs:
 
   release:
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    if: ${{ !cancelled() && needs.check.result == 'success' && github.ref == 'refs/heads/dev' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

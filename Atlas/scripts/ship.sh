@@ -1,14 +1,17 @@
 #!/bin/zsh
 # Tests, commits and pushes to dev, in this order. If a step fails, the following ones do not happen.
 #
-#   ./scripts/ship.sh "feat: message"           full check → commit → push dev → GitHub publishes the beta
-#   ./scripts/ship.sh "docs: …" --no-release    commit and push only (the app did not change: no new version)
+#   ./scripts/ship.sh "feat: message"           (new version) → full check → commit → push dev → beta Release
+#   ./scripts/ship.sh "…" --no-release          commit and push only, never a new version
 #   ./scripts/ship.sh "…" --install             … and installs the tested app in /Applications
 #
-# Each Release needs a new version: first ./scripts/bump_version.sh [patch|minor|major] and rewrite its
-# section in the CHANGELOG. After the push, CI (.github/workflows/ci.yml) runs the same full check on
-# macOS 14 and 15 and publishes the X.Y.Z Release as a beta, with Atlas-X.Y.Z.zip and SHA256SUMS.
-# promote.yml makes it stable on main once it meets docs/RELEASE_CRITERIA.md.
+# Versions are automatic: when the app changed after the published version, ship.sh bumps it
+# (bump_version.sh --auto: patch, minor or major from the Conventional Commits, this one included) and writes
+# its CHANGELOG section from the commits. To word the section yourself, run bump_version.sh first and edit it.
+# When only docs, scripts or tests changed, there is no new version. After the push, CI
+# (.github/workflows/ci.yml) runs the same full check on macOS 14 and 15 and publishes the X.Y.Z Release as a
+# beta, with Atlas-X.Y.Z.zip and SHA256SUMS; promote.yml approves and publishes it as stable on main once it
+# meets docs/RELEASE_CRITERIA.md.
 # The commit includes every change in the folder (git add -A), which are exactly the ones that were tested.
 set -e
 cd "$(dirname "$0")/.."
@@ -34,9 +37,16 @@ VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resource
 if [ $RELEASE = 1 ]; then
     git fetch -q --tags origin 2>/dev/null || true
     if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
-        echo "✗ Version $VERSION has already been published. Bump it: ./scripts/bump_version.sh [patch|minor|major]"
-        echo "  and rewrite its section in the CHANGELOG (or use --no-release when the app did not change)."
-        exit 1
+        APP_CHANGES=$(git -C "$REPO" diff --name-only "refs/tags/$VERSION" -- Atlas/Sources Atlas/Resources Atlas/Package.swift; \
+                      git -C "$REPO" ls-files --others --exclude-standard -- Atlas/Sources Atlas/Resources)
+        if [ -n "$APP_CHANGES" ]; then
+            echo "• The app changed since $VERSION, which is already published: new version."
+            PENDING_MESSAGE=$MSG ./scripts/bump_version.sh --auto
+            VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
+        else
+            RELEASE=0
+            echo "• The app did not change since $VERSION: commit and push only, no new version."
+        fi
     fi
 fi
 echo "• Branch: dev · version $VERSION"
