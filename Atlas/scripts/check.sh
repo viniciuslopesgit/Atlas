@@ -166,7 +166,10 @@ step "Unit tests (isolated sandbox)"
 # Every test runs inside a sandbox with no network that only writes in its own temporary folder;
 # the sandbox is proven to hold before the tests run (scripts/test-isolated.sh).
 LOG=.build/check-tests.log
-./scripts/test-isolated.sh --coverage >$LOG 2>&1 || { tail -40 $LOG; fail "Some tests are failing (full log in $LOG)."; }
+# On failure, show each issue (file:line and the failed expectation) before the tail: CI only keeps this output.
+./scripts/test-isolated.sh --coverage >$LOG 2>&1 || {
+    grep -E 'recorded an issue|✘ Test .* failed' $LOG | sed -E 's/^/    /' || true
+    tail -15 $LOG; fail "Some tests are failing (full log in $LOG)."; }
 grep 'isolated:' $LOG | sed -E 's/^[^i]*/    /'
 ok "$(grep -oE 'Test run with [0-9]+ tests in [0-9]+ suites?' $LOG | tail -1 | sed 's/Test run with/passed:/')"
 grep -E 'cannot write outside its folder' $LOG | grep -q '✔' || fail "The isolation test did not pass inside the sandbox."
