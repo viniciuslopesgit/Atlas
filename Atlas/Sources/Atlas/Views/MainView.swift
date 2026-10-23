@@ -18,7 +18,7 @@ struct MainView: View {
                 ForEach(sections, id: \.0) { title, pages in
                     Section(title) {
                         ForEach(pages) { page in
-                            Label(page.title, systemImage: page.icon).tag(page)
+                            Text(page.title).tag(page)
                         }
                     }
                 }
@@ -101,10 +101,10 @@ struct Initials: View {
     var body: some View {
         let letters = name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
         Text(letters.isEmpty ? "?" : letters)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.white)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
             .frame(width: 26, height: 26)
-            .background(Circle().fill(Palette.accent))
+            .background(Circle().strokeBorder(.tertiary))
     }
 }
 

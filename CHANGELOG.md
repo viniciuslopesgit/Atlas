@@ -4,6 +4,13 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.1.0] - 2026-10-23
+
+Atlas 2.1.0 brings 1 new feature.
+
+### Added
+- Minimal design — no card boxes or icon tiles, light figures, grey charts, text-only sidebar
+
 ## [2.0.0] - 2026-10-23
 
 Atlas is now a native macOS app, written in Swift and SwiftUI, for macOS 14 or later on Apple silicon and Intel. It replaces the Windows app: settings and accounts from 1.x are not carried over. Everything it does with AWS goes through its own client, with no AWS CLI and no other dependencies, and secret keys stay in the macOS Keychain.
@@ -159,6 +166,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.1.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.1.0
 [2.0.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.0.0
 [1.0.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/1.0.1
 [1.0.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/1.0.0
