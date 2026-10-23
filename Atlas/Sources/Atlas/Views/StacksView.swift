@@ -195,7 +195,6 @@ private struct StackDetail: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            if openRun == nil || tab.scope == nil { StackLogBar(stack: stack, isBusy: busy) }
         }
         .padding(.leading, 16)
         .confirmationDialog(title, isPresented: Binding(present: $confirm), presenting: confirm) { c in

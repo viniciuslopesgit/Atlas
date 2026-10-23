@@ -260,3 +260,28 @@ enum LogExport {
         try? run.output.write(to: url, atomically: true, encoding: .utf8)
     }
 }
+
+extension StackRunType {
+    var label: String {
+        switch self {
+        case .importResources: "Import"
+        case .initialize: "Init"
+        case .fix: "Fix"
+        case .plan: "Plan"
+        case .apply: "Apply"
+        case .fixDrift: "Fix drift"
+        case .setup: "Container"
+        }
+    }
+}
+
+extension StackRunStatus {
+    var color: Color {
+        switch self {
+        case .running: Palette.accent
+        case .success: Palette.success
+        case .failed: Palette.danger
+        case .cancelled: Palette.neutral
+        }
+    }
+}
