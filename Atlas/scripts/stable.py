@@ -193,6 +193,12 @@ def latest_stable_release(data):
     return max(stable, key=parse_version).lstrip("v") if stable else None
 
 
+def newest_version(tags):
+    """The newest X.Y.Z among tags (development tags X.Y.Z-dev.N are not versions)."""
+    versions = [t.lstrip("v") for t in tags if parse_version(t)]
+    return max(versions, key=parse_version) if versions else None
+
+
 def gather():
     run("git", "fetch", "-q", "--tags", "--force", "origin", "dev", "main")
     data = json.loads(run("gh", "release", "list", "--limit", "100", "--json",
@@ -218,9 +224,10 @@ def gather():
     bug_issues = [(i["title"], i["title"] + "\n" + (i["body"] or "")) for i in issues]
     changelog = run("git", "show", "origin/dev:CHANGELOG.md")
     # main does not share the tags' history (each stable version is a commit of its own): the version
-    # comes from main's Info.plist, or from the last stable Release while main predates it.
+    # comes from main's Info.plist or, while main predates it, from the last stable Release or tag on main.
     plist = subprocess.run(["git", "show", "origin/main:Atlas/Resources/Info.plist"], capture_output=True).stdout
-    return releases, changelog, plist_version(plist) or latest_stable_release(data), bug_issues
+    on_main = run("git", "tag", "--merged", "origin/main").split()
+    return releases, changelog, plist_version(plist) or latest_stable_release(data) or newest_version(on_main), bug_issues
 
 
 def main():

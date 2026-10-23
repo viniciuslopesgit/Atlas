@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from stable import (Release, changelog_sections, ci_conclusions_ok, evaluate, excluded_paths, has_fixes, is_excluded,  # noqa: E402
-                    latest_stable_release, load_patterns, main_status, mentions, parse_version, plist_version)  # noqa: E402
+                    latest_stable_release, load_patterns, newest_version, main_status, mentions, parse_version, plist_version)  # noqa: E402
 
 NOW = datetime(2026, 11, 1, 12, 0, tzinfo=timezone.utc)
 
@@ -262,6 +262,16 @@ class MainFilesTests(unittest.TestCase):
         root = os.path.join(os.path.dirname(__file__), "..", "..")
         package = open(os.path.join(root, "Package.swift"), encoding="utf-8").read()
         self.assertIn('fileExists(atPath: Context.packageDirectory + "/Tests/AtlasTests")', package)
+
+    def test_newest_version(self):
+        self.assertEqual(newest_version(["0.0.9", "1.0.1", "1.0.0", "2.0.0-dev.19", "0.0.31"]), "1.0.1")
+        self.assertIsNone(newest_version(["2.0.0-dev.1", "nightly"]))
+
+    def test_major_after_the_windows_versions_needs_approval(self):
+        _, verdicts = evaluate([rel("2.0.0", 48)], changelog(("2.0.0", ["Added"])), "1.0.1", NOW)
+        self.assertIn("needs approval", verdicts[0].reason)
+        candidate, _ = evaluate([rel("2.0.0", 48)], changelog(("2.0.0", ["Added"])), "1.0.1", NOW, approved={"2.0.0"})
+        self.assertEqual(candidate, "2.0.0")
 
     def test_latest_stable_release(self):
         data = [{"tagName": t, "isDraft": d, "isPrerelease": p} for t, d, p in [
