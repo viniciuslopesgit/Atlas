@@ -14,7 +14,7 @@ Atlas keeps AWS access keys and uses them to read and change infrastructure. A s
 
 **Do not open a public issue** for a vulnerability.
 
-Use **Security ▸ Report a vulnerability** in the [repository](https://github.com/viniciuslopesgit/Atlas/security). If that option does not show, write to contact.viniciuslopes@gmail.com with "Atlas security" in the subject.
+Use **Security ▸ Report a vulnerability** in the [repository](https://github.com/viniciuslopesgit/Atlas/security). If that option does not appear, write to contact.viniciuslopes@gmail.com with "Atlas security" in the subject.
 
 Include, if you can:
 

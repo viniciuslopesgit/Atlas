@@ -302,7 +302,7 @@ struct IaCView: View {
                 .disabled(model.isRunning || state.client == nil)
             Button("Generate Config") { model.run(.generate, client: state.client) }
                 .disabled(model.isRunning)
-                .help("terraform plan -generate-config-out for the import blocks in imports.tf, then fix and split the result")
+                .help("Runs terraform plan -generate-config-out for the import blocks in imports.tf, then fixes and splits the result")
             Spacer()
             if model.isRunning {
                 ProgressView().controlSize(.small)

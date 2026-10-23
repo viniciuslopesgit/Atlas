@@ -48,7 +48,7 @@ struct LaunchInstanceSheet: View {
                     Stepper("Count: \(o.count)", value: $o.count, in: 1...20)
                     HStack {
                         Picker("Key pair", selection: $o.keyPairName) {
-                            Text("None (proceed without)").tag("")
+                            Text("None (proceed without a key pair)").tag("")
                             ForEach(keyPairs) { Text("\($0.keyName) (\($0.keyType))").tag($0.keyName) }
                         }
                         Button("New…") { showNewKey = true }

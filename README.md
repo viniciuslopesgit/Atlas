@@ -4,7 +4,7 @@
 
 The console spreads EC2, S3, IAM and costs across dozens of pages. Atlas brings them into one window — native on macOS, with your credentials stored in the Keychain on your Mac.
 
-- **Costs at a glance** — month to date, end-of-month forecast and the services that weigh most, on the Dashboard and in Billing by month.
+- **Costs at a glance** — month to date, end-of-month forecast and the services that cost the most, on the Dashboard and in Billing by month.
 - **EC2 without tabs** — start, stop, reboot or terminate several instances at once, see every detail with metrics, and launch new ones with a wizard.
 - **S3 like Finder** — browse folders, drag files to upload, follow upload and download progress, and edit text files in place.
 - **Security in one click** — IAM (users, roles, groups, policies and access keys), GuardDuty findings, CloudWatch alarms and a quick audit: root MFA, password policy, old keys, IMDSv1 and public S3 buckets.

@@ -412,7 +412,7 @@ private struct Worker: Sendable {
         case .iamUser: try await iamList("ListUsers", "Users") { n in
             let user = n.str("UserName")
             return make(.iamUser, n.str("UserId"), user, tf: name(user, user), importId: user, region: "global",
-                        notes: n.str("PasswordLastUsed").isEmpty ? ["User has never logged in via console."] : [])
+                        notes: n.str("PasswordLastUsed").isEmpty ? ["User has never logged in to the console."] : [])
         }
         case .iamGroup: try await iamList("ListGroups", "Groups") { n in
             let group = n.str("GroupName")

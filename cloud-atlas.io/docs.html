@@ -782,7 +782,7 @@
             Atlas discovers what already exists in your AWS account and brings it under Infrastructure as Code — no hand-written import blocks required.
           </p>
           <ul class="doc-ul">
-            <li><strong class="text-zinc-300">Discovery</strong> scans across 35+ resource types — Compute (EC2, ASG, Launch Templates), Networking (VPC, Subnet, SG, Route Tables, Gateways, Load Balancers), Database (RDS, DynamoDB, ElastiCache), Serverless (Lambda, API Gateway), Containers (ECS, EKS, ECR), Messaging (SQS, SNS), IAM, Security (KMS, Secrets Manager, ACM), DNS (Route53) and Monitoring (CloudWatch).</li>
+            <li><strong class="text-zinc-300">Discovery</strong> scans across 35+ resource types — Compute (EC2, ASG, Launch Templates), Networking (VPC, Subnet, SG, Route Tables, Gateways, Load Balancers), Database (RDS, DynamoDB, ElastiCache), Serverless (Lambda, API Gateway), Containers (ECS, EKS, ECR), Messaging (SQS, SNS), IAM, Security (KMS, Secrets Manager, ACM), DNS (Route 53) and Monitoring (CloudWatch).</li>
             <li>A <strong class="text-zinc-300">selection screen</strong> groups discovered resources by category so you choose exactly what to manage.</li>
             <li>Atlas writes Terraform 1.5+ <code>import { }</code> blocks and generates clean HCL definitions, wrapped in <code>ATLAS-MANAGED</code> markers so you can regenerate safely without touching hand-written code.</li>
             <li>Default discovery skips AWS-managed and default resources (default VPC/SG, service-linked roles) unless you opt in.</li>
@@ -829,10 +829,10 @@
           <table class="doc-table">
             <thead><tr><th>Card</th><th>Color</th><th>Source</th></tr></thead>
             <tbody>
-              <tr><td>EC2 Running</td><td><span style="color:#4ade80">â—</span> Green</td><td>ec2:DescribeInstances (state = running)</td></tr>
-              <tr><td>EC2 Stopped</td><td><span style="color:#f87171">â—</span> Red</td><td>ec2:DescribeInstances (state = stopped)</td></tr>
-              <tr><td>S3 Buckets</td><td><span style="color:#60a5fa">â—</span> Blue</td><td>s3:ListAllMyBuckets</td></tr>
-              <tr><td>CloudWatch Alarms</td><td><span style="color:#f87171">â—</span> Red</td><td>cloudwatch:DescribeAlarms (state = ALARM)</td></tr>
+              <tr><td>EC2 Running</td><td><span style="color:#4ade80">●</span> Green</td><td>ec2:DescribeInstances (state = running)</td></tr>
+              <tr><td>EC2 Stopped</td><td><span style="color:#f87171">●</span> Red</td><td>ec2:DescribeInstances (state = stopped)</td></tr>
+              <tr><td>S3 Buckets</td><td><span style="color:#60a5fa">●</span> Blue</td><td>s3:ListAllMyBuckets</td></tr>
+              <tr><td>CloudWatch Alarms</td><td><span style="color:#f87171">●</span> Red</td><td>cloudwatch:DescribeAlarms (state = ALARM)</td></tr>
             </tbody>
           </table>
 
@@ -864,7 +864,7 @@
             <li>Columns: State badge, Name, Instance ID, Type, Public IP, Private IP, Launch Time.</li>
             <li>Real-time search by name, instance ID, or IP address — results filter as you type.</li>
             <li>Status filter dropdown: <strong class="text-zinc-300">All / running / stopped / pending / terminated</strong>.</li>
-            <li>Color-coded state badges: <span style="color:#4ade80">â– </span> running, <span style="color:#f87171">â– </span> stopped, <span style="color:#fbbf24">â– </span> pending/stopping, <span style="color:#a78bfa">â– </span> shutting-down, <span style="color:#52525b">â– </span> terminated.</li>
+            <li>Color-coded state badges: <span style="color:#4ade80">■</span> running, <span style="color:#f87171">■</span> stopped, <span style="color:#fbbf24">■</span> pending/stopping, <span style="color:#a78bfa">■</span> shutting-down, <span style="color:#52525b">■</span> terminated.</li>
           </ul>
 
           <div class="doc-h3">Bulk Actions</div>
@@ -1142,8 +1142,8 @@
               <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>"Invalid credentials" when adding an account</p>
               <ul class="doc-ul">
                 <li>Double-check that the Access Key ID starts with <span class="code-inline">AKIA</span> and that the Secret Access Key is correct.</li>
-                <li>Ensure the IAM user is not suspended or has no permission boundaries blocking <span class="code-inline">sts:GetCallerIdentity</span>.</li>
-                <li>Make sure the account is not in an AWS Organizations SCP that blocks STS calls.</li>
+                <li>Make sure the IAM user is not suspended and has no permission boundary blocking <span class="code-inline">sts:GetCallerIdentity</span>.</li>
+                <li>Make sure the account is not subject to an AWS Organizations SCP that blocks STS calls.</li>
               </ul>
             </div>
 
@@ -1153,7 +1153,7 @@
               <p class="text-zinc-200 text-sm font-semibold mb-2"><i class="fa-solid fa-circle-xmark text-red-400 mr-2 text-xs"></i>A page shows "Access Denied"</p>
               <ul class="doc-ul">
                 <li>The IAM user is missing the required permissions for that page. See <a href="#iam-permissions" class="text-blue-400 hover:underline">IAM Permissions</a>.</li>
-                <li>Other pages will continue to work — Atlas isolates permission errors per service.</li>
+                <li>Other pages keep working — Atlas isolates permission errors per service.</li>
               </ul>
             </div>
 

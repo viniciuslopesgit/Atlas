@@ -23,7 +23,7 @@ struct SsmService {
                 "Instance \(id) is not connected to SSM. Check that the SSM Agent is running, the instance profile has "
                     + "AmazonSSMManagedInstanceCore, and the instance can reach the SSM endpoints."
             case .invalidTarget(let id):
-                "\"\(id)\" is not an EC2 instance or managed node id."
+                "\"\(id)\" is not an EC2 instance or managed node ID."
             }
         }
     }

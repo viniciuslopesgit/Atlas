@@ -240,7 +240,7 @@ private struct InstanceDetail: View {
                 DetailRow("Hibernation", instance.hibernationEnabled ? "enabled" : "disabled")
 
                 SectionHeader("Host and placement")
-                DetailRow("Availability zone", instance.availabilityZone)
+                DetailRow("Availability Zone", instance.availabilityZone)
                 DetailRow("Tenancy", instance.tenancy)
                 DetailRow("Host ID", instance.hostId)
                 DetailRow("Affinity", instance.affinity)

@@ -20,7 +20,7 @@ struct SecurityAuditService {
             findings.append(Self.keyRotation(rows))
         } else {
             findings.append(SecurityFinding(title: "Root access keys",
-                                            description: "Could not retrieve credential report. Verify IAM permissions.",
+                                            description: "Could not retrieve the credential report. Check IAM permissions.",
                                             severity: .warning))
             findings += await checkInactiveUsersFallback(iam)
         }
@@ -41,7 +41,7 @@ struct SecurityAuditService {
 
     private static func rootKeys(_ rows: [[String]]) -> SecurityFinding {
         guard let root = rows.first(where: { $0.count >= 14 && $0[0].contains("<root_account>") }) else {
-            return SecurityFinding(title: "Root access keys", description: "Root account row not found in credential report.",
+            return SecurityFinding(title: "Root access keys", description: "Root account row not found in the credential report.",
                                    severity: .warning)
         }
         let k1 = root[8] == "true", k2 = root[13] == "true"
@@ -61,7 +61,7 @@ struct SecurityAuditService {
         }.count
         return inactive > 0
             ? SecurityFinding(title: "Inactive IAM users",
-                              description: "\(inactive) user(s) with console access haven't logged in for 90+ days.",
+                              description: "\(inactive) user(s) with console access have not logged in for 90+ days.",
                               severity: .warning, affectedCount: inactive)
             : SecurityFinding(title: "IAM user activity",
                               description: "All IAM users with console access have recent activity.", severity: .ok)
@@ -92,7 +92,7 @@ struct SecurityAuditService {
             guard let p = try await iam.passwordPolicy() else { return [] }
             var issues: [String] = []
             let minLen = p.int("MinimumPasswordLength") ?? 0
-            if minLen < 14 { issues.append("min length is \(minLen) (< 14)") }
+            if minLen < 14 { issues.append("minimum length is \(minLen) (< 14)") }
             if !p.bool("RequireNumbers") { issues.append("numbers not required") }
             if !p.bool("RequireSymbols") { issues.append("symbols not required") }
             if !p.bool("RequireUppercaseCharacters") { issues.append("uppercase not required") }

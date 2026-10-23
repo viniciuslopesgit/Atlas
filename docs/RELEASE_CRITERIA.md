@@ -22,7 +22,7 @@ This document defines the states of a version, what it takes to move from one to
 | **Candidate (RC)** | The beta that `stable.sh` points to as candidate | Every automatic criterion in section 3.3 met | Automatic |
 | **Stable** | "Atlas X.Y.Z (stable version)" commit on `main`; Release published as stable (**Latest**), with the stable notes | `promote.yml` (every 6 h) runs `Atlas/scripts/stable.sh --apply`: new full check in a clean copy of the tag, build and self-test of `main`'s content, Pull Request with merge | Automatic for every version: the rules approve it. A person can only stop it, with a `hold-release` issue |
 
-The README's download link points to **Latest**, which is always the latest stable. Betas only show to those who look for them; the automatic updater on the maintainer's Mac installs betas too.
+The README's download link points to **Latest**, which is always the latest stable. Betas are only visible to those who look for them; the automatic updater on the maintainer's Mac installs betas too.
 
 ### Version types (SemVer)
 
