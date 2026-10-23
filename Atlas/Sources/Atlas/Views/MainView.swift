@@ -84,7 +84,7 @@ struct Initials: View {
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .frame(width: 26, height: 26)
-            .background(Circle().fill(Color.accentColor.gradient))
+            .background(Circle().fill(Palette.accent))
     }
 }
 

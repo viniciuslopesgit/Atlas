@@ -74,7 +74,7 @@ struct GuardDutyView: View {
     @State private var error: String?
 
     private func color(_ f: GuardDutyFinding) -> Color {
-        f.severity >= 7 ? Palette.danger : f.severity >= 4 ? Palette.warning : Color.accentColor
+        f.severity >= 7 ? Palette.danger : f.severity >= 4 ? Palette.warning : Palette.accent
     }
 
     var body: some View {
@@ -346,7 +346,7 @@ struct SearchSheet: View {
                 } label: {
                     HStack {
                         Text(r.kind.rawValue).font(.caption.weight(.semibold)).frame(width: 70, alignment: .leading)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(Palette.accent)
                         VStack(alignment: .leading) {
                             Text(r.title)
                             Text(r.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)

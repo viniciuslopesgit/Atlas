@@ -140,7 +140,7 @@ struct S3View: View {
                 Table(visibleObjects, selection: $selection) {
                     TableColumn("Name") { o in
                         Label(o.displayName, systemImage: o.isFolder ? "folder.fill" : "doc")
-                            .foregroundStyle(o.isFolder ? Color.accentColor : .primary)
+                            .foregroundStyle(o.isFolder ? Palette.accent : .primary)
                     }
                     .width(min: 220, ideal: 320)
                     TableColumn("Type", value: \.fileType).width(min: 80, ideal: 100)
@@ -171,7 +171,7 @@ struct S3View: View {
                 }
                 .overlay {
                     if isDropTargeted {
-                        RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [6]))
+                        RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.accent, style: StrokeStyle(lineWidth: 2, dash: [6]))
                     }
                 }
                 .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in

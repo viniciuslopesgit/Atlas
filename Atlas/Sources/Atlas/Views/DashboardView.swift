@@ -39,28 +39,7 @@ struct DashboardView: View {
                     .card()
                 }
 
-                let s = summary ?? DashboardSummary()
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
-                    StatCard(title: "EC2 Running", value: "\(s.runningInstances)", icon: "play.circle.fill",
-                             tint: Palette.success, subtitle: "\(s.totalInstances) total")
-                    StatCard(title: "EC2 Stopped", value: "\(s.stoppedInstances)", icon: "stop.circle.fill", tint: Palette.danger)
-                    StatCard(title: "S3 Buckets", value: "\(s.s3BucketCount)", icon: "archivebox.fill")
-                    StatCard(title: "Active Alarms", value: "\(s.activeAlarms)", icon: "bell.badge.fill",
-                             tint: s.activeAlarms > 0 ? Palette.danger : .secondary)
-                }
-
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 3), spacing: 14) {
-                    StatCard(title: "Month to date", value: Fmt.money(s.currentMonthCost, s.currency), icon: "dollarsign.circle")
-                    StatCard(title: "Forecast", value: Fmt.money(s.forecastedMonthCost, s.currency),
-                             icon: "chart.line.uptrend.xyaxis", tint: Palette.warning)
-                    StatCard(title: "Previous month", value: Fmt.money(s.lastMonthCost, s.currency),
-                             icon: "calendar", tint: .secondary, subtitle: delta(s))
-                }
-
-                HStack(alignment: .top, spacing: 14) {
-                    dailyChart(s).frame(maxWidth: .infinity)
-                    serviceList(s).frame(width: 340)
-                }
+                DashboardBody(summary: summary ?? DashboardSummary())
             }
             .padding(24)
         }
@@ -71,13 +50,42 @@ struct DashboardView: View {
     private var subtitle: String {
         guard let s = summary else { return "Loading…" }
         let account = s.accountId.isEmpty ? "unknown account" : "Account \(s.accountId)"
-        return "\(account) · \(RegionItem.displayName(s.region)) · updated \(s.lastRefreshed.formatted(date: .omitted, time: .standard))"
+        return "\(account) in \(RegionItem.displayName(s.region)), updated at \(s.lastRefreshed.formatted(date: .omitted, time: .shortened))"
     }
 
-    private func delta(_ s: DashboardSummary) -> String? {
-        guard s.lastMonthCost > 0 else { return nil }
-        let pct = (s.forecastedMonthCost - s.lastMonthCost) / s.lastMonthCost * 100
-        return String(format: "Forecast %@%.0f%% vs previous", pct >= 0 ? "+" : "", pct)
+    private func load() async {
+        guard let client = state.client else { return }
+        isLoading = true
+        let result = await DashboardService(client: client).summary(month: month)
+        if !Task.isCancelled { summary = result }
+        isLoading = false
+    }
+}
+
+/// Everything below the header; takes plain data so it can also be rendered by the snapshot mode.
+struct DashboardBody: View {
+    let summary: DashboardSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            let s = summary
+            SpendStrip(summary: s)
+
+            HStack(spacing: 12) {
+                StatCard(title: "Instances running", value: "\(s.runningInstances)", icon: "play.fill",
+                         tint: Palette.success, subtitle: "of \(s.totalInstances) in this region")
+                StatCard(title: "Instances stopped", value: "\(s.stoppedInstances)", icon: "stop.fill", tint: Palette.danger)
+                StatCard(title: "S3 buckets", value: "\(s.s3BucketCount)", icon: "archivebox.fill")
+                StatCard(title: "Alarms firing", value: "\(s.activeAlarms)", icon: "bell.fill",
+                         tint: s.activeAlarms > 0 ? Palette.danger : Palette.neutral)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: 14) {
+                dailyChart(s).frame(maxWidth: .infinity)
+                serviceList(s).frame(width: 340)
+            }
+        }
     }
 
     private func dailyChart(_ s: DashboardSummary) -> some View {
@@ -88,8 +96,8 @@ struct DashboardView: View {
             } else {
                 Chart(s.dailyCosts) { d in
                     BarMark(x: .value("Day", d.date, unit: .day), y: .value("Cost", d.amount))
-                        .foregroundStyle(Color.accentColor.gradient)
-                        .cornerRadius(3)
+                        .foregroundStyle(Palette.accent)
+                        .cornerRadius(2)
                 }
                 .chartYAxis { AxisMarks { v in
                     AxisGridLine()
@@ -114,10 +122,10 @@ struct DashboardView: View {
                     HStack {
                         Text(svc.serviceName).font(.callout).lineLimit(1)
                         Spacer()
-                        Text(Fmt.money(svc.amount, s.currency)).font(.callout.monospacedDigit())
+                        Text(Fmt.money(svc.amount, s.currency)).font(Typo.figure(13, weight: .medium))
                     }
                     GeometryReader { g in
-                        Capsule().fill(Color.accentColor.opacity(0.7))
+                        Capsule().fill(Palette.accent.opacity(0.75))
                             .frame(width: max(4, g.size.width * svc.amount / maxAmount))
                     }
                     .frame(height: 4)
@@ -129,11 +137,63 @@ struct DashboardView: View {
         .card()
     }
 
-    private func load() async {
-        guard let client = state.client else { return }
-        isLoading = true
-        let result = await DashboardService(client: client).summary(month: month)
-        if !Task.isCancelled { summary = result }
-        isLoading = false
+}
+
+/// The dashboard's lead: month-to-date spend on a bar scaled to the forecast, with a tick at last month's total.
+struct SpendStrip: View {
+    let summary: DashboardSummary
+
+    private var scale: Double { max(summary.forecastedMonthCost, summary.lastMonthCost, summary.currentMonthCost, 1) }
+
+    private var change: (text: String, color: Color)? {
+        guard summary.lastMonthCost > 0 else { return nil }
+        let pct = (summary.forecastedMonthCost - summary.lastMonthCost) / summary.lastMonthCost * 100
+        let text = String(format: "%@%.0f%% against last month", pct >= 0 ? "+" : "", pct)
+        return (text, pct > 5 ? Palette.danger : pct < -5 ? Palette.success : Palette.neutral)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 28) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Spent this month").font(.callout).foregroundStyle(.secondary)
+                    Text(Fmt.money(summary.currentMonthCost, summary.currency)).font(Typo.figure(40, weight: .bold))
+                }
+                figure("Forecast", summary.forecastedMonthCost, color: Palette.accent)
+                figure("Last month", summary.lastMonthCost, color: .secondary)
+                Spacer()
+                if let change {
+                    Text(change.text).font(.callout.weight(.medium)).foregroundStyle(change.color)
+                }
+            }
+
+            GeometryReader { g in
+                let w = g.size.width
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.07))
+                    Capsule().fill(Palette.accent.opacity(0.28))
+                        .frame(width: w * summary.forecastedMonthCost / scale)
+                    Capsule().fill(Palette.accent)
+                        .frame(width: max(6, w * summary.currentMonthCost / scale))
+                    if summary.lastMonthCost > 0 {
+                        Rectangle().fill(Color.primary.opacity(0.6))
+                            .frame(width: 2, height: 18)
+                            .offset(x: min(w - 2, w * summary.lastMonthCost / scale))
+                    }
+                }
+            }
+            .frame(height: 10)
+            .accessibilityElement()
+            .accessibilityLabel("Spent \(Fmt.money(summary.currentMonthCost, summary.currency)) of a forecast of \(Fmt.money(summary.forecastedMonthCost, summary.currency))")
+        }
+        .padding(18)
+        .card()
+    }
+
+    private func figure(_ title: String, _ value: Double, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.callout).foregroundStyle(.secondary)
+            Text(Fmt.money(value, summary.currency)).font(Typo.figure(20)).foregroundStyle(color)
+        }
     }
 }

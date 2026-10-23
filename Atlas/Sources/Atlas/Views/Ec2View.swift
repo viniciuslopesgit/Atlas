@@ -116,7 +116,7 @@ struct Ec2View: View {
         HStack(spacing: 10) {
             Text("\(selection.count) selected").font(.callout.weight(.medium))
                 .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                .background(Palette.accent.opacity(0.15), in: Capsule())
             Spacer()
             Button { pendingAction = .start } label: { Label("Start", systemImage: "play.fill") }
             Button { pendingAction = .stop } label: { Label("Stop", systemImage: "stop.fill") }
@@ -283,9 +283,9 @@ private struct MiniChart: View {
             }
             Chart(points) { p in
                 AreaMark(x: .value("t", p.timestamp), y: .value("v", p.value))
-                    .foregroundStyle(Color.accentColor.opacity(0.2).gradient)
+                    .foregroundStyle(Palette.accent.opacity(0.18))
                 LineMark(x: .value("t", p.timestamp), y: .value("v", p.value))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Palette.accent)
             }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)

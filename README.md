@@ -40,6 +40,7 @@ Needs Swift 5.9+; the Xcode Command Line Tools are enough. To open in Xcode: `op
 | `scripts/test.sh` | Unit tests (`swift test`) in the local tree |
 | `scripts/test-isolated.sh` | Temporary copy of the tree, its own `HOME`/`TMPDIR`/build, `sandbox-exec` with no external network and writes only in the temporary folder |
 | `scripts/test-isolated.sh --smoke` | The above + opens the app in `ATLAS_SMOKE_TEST` mode and checks the window |
+| `scripts/snapshots.sh [folder]` | Renders the dashboard and components (light and dark) with fixture data to PNG, for design review |
 
 Tests never use the network or the Keychain: AWS responses come from fixtures (`MockURLProtocol`) and secrets live in memory.
 

@@ -7,6 +7,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
+        if let folder = Snapshots.folder {
+            Snapshots.render(to: folder)
+            exit(0)
+        }
+
         // CI smoke test: the app must start and open its main window, then quit.
         if SmokeTest.isEnabled {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
@@ -39,6 +44,7 @@ struct AtlasApp: App {
             MainView()
                 .environmentObject(state)
                 .preferredColorScheme(theme.colorScheme)
+                .tint(Palette.accent)
                 .frame(minWidth: 1100, minHeight: 680)
         }
         .windowToolbarStyle(.unified)
