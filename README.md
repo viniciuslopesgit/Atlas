@@ -54,7 +54,8 @@ feature ──► commit (Conventional Commits) ──► pre-push: isolated tes
 ```
 
 - **`dev`** receives every implementation. Each push triggers [`ci.yml`](.github/workflows/ci.yml).
-- **`main`** only receives promotions. [`promote.yml`](.github/workflows/promote.yml) runs daily at 06:00 UTC. When dev has had no new commits for 24h and CI is green, it re-runs the full pipeline from a clean checkout, fast-forwards `main` and publishes the release. It can also be run manually, with `dry_run`.
+- **`main`** only receives promotions. [`promote.yml`](.github/workflows/promote.yml) runs daily at 06:00 UTC. When dev has had no new commits for 24h and CI is green, it re-runs the full pipeline from a clean checkout, adds the release to [`CHANGELOG.md`](CHANGELOG.md), fast-forwards `main` and publishes the release. It can also be run manually, with `dry_run`.
+- **Releases on GitHub** are automatic: every push to `dev` publishes a pre-release `X.Y.Z-dev.N` with its notes, and every promotion publishes the stable `X.Y.Z` (marked *latest*) with its CHANGELOG section. Nothing is versioned, tagged or written to the changelog by hand.
 
 ### Versioning
 
@@ -67,7 +68,7 @@ The version is computed from commits since the last stable tag ([`scripts/versio
 | `feat!: …` or `BREAKING CHANGE:` | major (**3**.0.0) |
 | `docs:`, `ci:`, `chore:`… | patch, when there is no feat/fix |
 
-`version.sh --next` shows the next stable version, `--dev` the pre-release and `--notes` the release notes.
+`version.sh --next` shows the next stable version, `--dev` the pre-release and `--notes` the release notes. [`scripts/changelog.sh`](Atlas/scripts/changelog.sh) writes `CHANGELOG.md` from the same commits (`--release X.Y.Z`, `--rebuild`, `--check`).
 
 ## Repository layout
 

@@ -1,7 +1,7 @@
 name: Promote to main
 
 # Daily: if dev has had no new commits for 24h and CI is green, re-runs the production pipeline,
-# fast-forwards main and publishes the stable X.Y.Z release.
+# adds the release to CHANGELOG.md, fast-forwards main and publishes the stable X.Y.Z release.
 on:
   schedule:
     - cron: '0 6 * * *'
@@ -127,11 +127,20 @@ jobs:
           git config user.email "github-actions@github.com"
           OLD_MAIN=$(git rev-parse origin/main)
 
-          # Fast-forward only: the push fails if main has diverged.
-          git push origin "$SHA:refs/heads/main"
-          git tag -a "$VERSION" -m "Atlas $VERSION" "$SHA"
+          # CHANGELOG.md gets the new section in a commit on top of the tested dev commit
+          # (it only touches the changelog, so the built app is still the one that was tested).
+          scripts/changelog.sh --release "$VERSION"
+          git add ../CHANGELOG.md
+          git commit -m "docs(changelog): $VERSION"
+          RELEASE_SHA=$(git rev-parse HEAD)
+
+          # Fast-forward only: each push fails if dev moved during the pipeline or main diverged.
+          git push origin "$RELEASE_SHA:refs/heads/dev"
+          git push origin "$RELEASE_SHA:refs/heads/main"
+          git tag -a "$VERSION" -m "Atlas $VERSION" "$RELEASE_SHA"
           git push origin "$VERSION"
 
+          printf '\n[Full changelog](https://github.com/%s/blob/main/CHANGELOG.md)\n' "$GITHUB_REPOSITORY" >> dist/NOTES.md
           gh release create "$VERSION" "dist/Atlas-$VERSION.zip" \
             --title "Atlas $VERSION" --notes-file dist/NOTES.md --latest
 
@@ -142,4 +151,7 @@ jobs:
 
       - name: Dry run summary
         if: ${{ inputs.dry_run }}
-        run: echo "### 🧪 Dry run — would promote $SHA to main as $VERSION" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          scripts/changelog.sh --release "$VERSION"
+          echo "### 🧪 Dry run — would promote $SHA to main as $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          { echo; echo '#### CHANGELOG.md (top)'; echo '```markdown'; sed -n '1,40p' ../CHANGELOG.md; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
