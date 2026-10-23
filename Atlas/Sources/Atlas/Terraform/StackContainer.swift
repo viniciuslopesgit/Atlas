@@ -121,9 +121,83 @@ struct StackContainer: Sendable, Equatable {
 
     /// Reads `NAME=base64` lines from stdin up to an empty line, exports them, then runs the engine.
     /// Values are decoded, never evaluated; names are checked before they are sent.
+    /// The tools Atlas adds (`bin` of the data folder) come last in PATH, after the image's own.
     static let script = """
+        export PATH="$PATH:\(dataDirectory)/bin"; \
         while IFS= read -r line && [ -n "$line" ]; do export "${line%%=*}=$(printf %s "${line#*=}" | base64 -d)"; done; exec "$0" "$@"
         """
+
+    /// The images have no AWS CLI, and EKS configurations authenticate the kubernetes and helm providers with
+    /// `exec { command = "aws", args = ["eks", "get-token", …] }`. This stand-in makes the same token as the AWS CLI
+    /// with busybox alone, from the credentials the engine already gets; every other `aws` command fails clearly.
+    static let awsCommand = #"""
+#!/bin/sh
+# Atlas: `aws eks get-token` for the kubernetes and helm providers' exec blocks, in a container without the AWS CLI.
+# Same token as the AWS CLI (a presigned STS GetCallerIdentity URL), signed with the credentials Atlas gives the engine.
+set -eu
+die() { echo "aws (Atlas): $*" >&2; exit 1; }
+[ "${1:-}" = eks ] && [ "${2:-}" = get-token ] || die "only 'aws eks get-token' is available in the stack's container."
+shift 2
+cluster="" region="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --cluster-name|--cluster-id) [ $# -ge 2 ] || die "$1 needs a value."; cluster=$2; shift 2 ;;
+        --cluster-name=*|--cluster-id=*) cluster=${1#*=}; shift ;;
+        --region) [ $# -ge 2 ] || die "--region needs a value."; region=$2; shift 2 ;;
+        --region=*) region=${1#*=}; shift ;;
+        --output) shift 2 ;;
+        --output=*) shift ;;
+        *) die "$1 is not supported (only --cluster-name, --region and --output)." ;;
+    esac
+done
+case "$cluster" in ""|*[!A-Za-z0-9_-]*) die "invalid or missing --cluster-name." ;; esac
+case "$region" in ""|*[!a-z0-9-]*) die "invalid or missing region." ;; esac
+key=${AWS_ACCESS_KEY_ID:-} secret=${AWS_SECRET_ACCESS_KEY:-} token=${AWS_SESSION_TOKEN:-}
+case "$key" in ""|*[!A-Z0-9]*) die "no AWS credentials: the stack's Atlas account is missing." ;; esac
+[ -n "$secret" ] || die "no AWS credentials: the stack's Atlas account is missing."
+case "$token" in *[!A-Za-z0-9+/=]*) die "invalid session token." ;; esac
+
+sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi | cut -d ' ' -f 1; }
+hex() { printf %s "$1" | od -An -v -tx1 | tr -d ' \n'; }
+# HMAC-SHA256 of a text message with a key in hex; prints hex.
+hmac() {
+    k=$1
+    [ ${#k} -le 128 ] || k=$(printf %s "$k" | xxd -r -p | sha256)
+    while [ ${#k} -lt 128 ]; do k="${k}00"; done
+    ia="" oa=""
+    for b in $(printf %s "$k" | xxd -r -p | od -An -v -tu1); do ia="$ia $((b ^ 54))" oa="$oa $((b ^ 92))"; done
+    inner=$({ printf '%02x' $ia | xxd -r -p; printf %s "$2"; } | sha256)
+    { printf '%02x' $oa | xxd -r -p; printf %s "$inner" | xxd -r -p; } | sha256
+}
+utc() { date -u -d "@$1" "+$2" 2>/dev/null || date -u -r "$1" "+$2"; }
+
+now=${ATLAS_TOKEN_EPOCH:-$(date -u +%s)}
+amz=$(utc "$now" %Y%m%dT%H%M%SZ) day=$(utc "$now" %Y%m%d)
+case "$region" in cn-*) domain=amazonaws.com.cn ;; *) domain=amazonaws.com ;; esac
+host="sts.$region.$domain"
+query="Action=GetCallerIdentity&Version=2011-06-15&X-Amz-Algorithm=AWS4-HMAC-SHA256"
+query="$query&X-Amz-Credential=$key%2F$day%2F$region%2Fsts%2Faws4_request&X-Amz-Date=$amz&X-Amz-Expires=60"
+signed="X-Amz-SignedHeaders=host%3Bx-k8s-aws-id" session=""
+[ -z "$token" ] || session="&X-Amz-Security-Token=$(printf %s "$token" | sed 's/+/%2B/g; s|/|%2F|g; s/=/%3D/g')"
+# Signed in sorted order (Security-Token before SignedHeaders); the URL keeps the AWS CLI's order.
+canonical="$query$session&$signed" query="$query&$signed$session"
+request=$(printf 'GET\n/\n%s\nhost:%s\nx-k8s-aws-id:%s\n\nhost;x-k8s-aws-id\n%s' "$canonical" "$host" "$cluster" \
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855)
+signing=$(printf 'AWS4-HMAC-SHA256\n%s\n%s/%s/sts/aws4_request\n%s' "$amz" "$day" "$region" "$(printf %s "$request" | sha256)")
+k=$(hmac "$(hex "AWS4$secret")" "$day"); k=$(hmac "$k" "$region"); k=$(hmac "$k" sts); k=$(hmac "$k" aws4_request)
+url="https://$host/?$query&X-Amz-Signature=$(hmac "$k" "$signing")"
+api=$(printf %s "${KUBERNETES_EXEC_INFO:-}" | sed -n 's/.*"apiVersion" *: *"\([a-z0-9./]*\)".*/\1/p')
+printf '{"kind":"ExecCredential","apiVersion":"%s","spec":{},"status":{"expirationTimestamp":"%s","token":"k8s-aws-v1.%s"}}\n' \
+    "${api:-client.authentication.k8s.io/v1beta1}" "$(utc $((now + 840)) %Y-%m-%dT%H:%M:%SZ)" \
+    "$(printf %s "$url" | base64 | tr -d '\n=' | tr '+/' '-_')"
+"""#
+
+    /// Writes the tools into the data folder's `bin`, refreshed on every run so they follow the app's version.
+    static func installTools(in data: URL) throws {
+        let bin = data.appendingPathComponent("bin", isDirectory: true)
+        try PrivateFile.createFolder(bin)
+        try PrivateFile.write(Data(awsCommand.utf8), to: bin.appendingPathComponent("aws"), permissions: 0o700)
+    }
 
     func execArguments(_ args: [String]) -> [String] {
         ["exec", "--interactive", "--workdir", Self.workspace, name, "/bin/sh", "-c", Self.script, engine.command] + args
@@ -150,15 +224,18 @@ struct StackContainer: Sendable, Equatable {
         guard await cli.run(runtime.readyArguments, in: tmp).isSuccess else {
             return TerraformResult(status: .failed, diagnostic: "\(runtime.kind.rawValue) is not running. \(runtime.startHint)")
         }
+        if let data {
+            do {
+                try PrivateFile.createFolder(data)
+                try Self.installTools(in: data)
+            } catch {
+                return TerraformResult(status: .failed, diagnostic: "Could not prepare the stack's data folder: \(error.localizedDescription)")
+            }
+        }
         if !(await cli.run(runtime.existsArguments(name), in: tmp)).isSuccess {
             guard Self.canMount(folder), data.map(Self.canMount) ?? true else {
                 return TerraformResult(status: .failed,
                                        diagnostic: "The stack folder's path has a comma, colon or equals sign; it cannot be mounted in a container.")
-            }
-            if let data {
-                do { try PrivateFile.createFolder(data) } catch {
-                    return TerraformResult(status: .failed, diagnostic: "Could not create the stack's data folder: \(error.localizedDescription)")
-                }
             }
             log("▶ Creating container \(name) from \(engine.image) (the first time downloads the image)…")
             let created = await TerraformCLI(binary: runtime.binary, timeout: 900)

@@ -237,6 +237,74 @@ struct StacksContainerModelTests {
         #expect(FileManager.default.fileExists(atPath: fake.workspace.path), "and leaves the stack's folder as it is")
     }
 
+    /// Tokens the AWS CLI 2 made (`aws eks get-token`, offline) for the same keys, cluster, region and second.
+    static let awsCliTokens: [(env: [String: String], args: [String], token: String)] = [
+        (["AWS_ACCESS_KEY_ID": "AKIDEXAMPLE", "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+          "ATLAS_TOKEN_EPOCH": "1792790612"],
+         ["--cluster-name", "omnium-platform", "--region", "eu-west-1"],
+         "k8s-aws-v1.aHR0cHM6Ly9zdHMuZXUtd2VzdC0xLmFtYXpvbmF3cy5jb20vP0FjdGlvbj1HZXRDYWxsZXJJZGVudGl0eSZWZXJzaW9uPTIwMTEtMDYtMTUmWC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lERVhBTVBMRSUyRjIwMjYxMDIzJTJGZXUtd2VzdC0xJTJGc3RzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjEwMjNUMjEyMzMyWiZYLUFtei1FeHBpcmVzPTYwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCUzQngtazhzLWF3cy1pZCZYLUFtei1TaWduYXR1cmU9ZmZiNmNiZThiYTg5ZWZlYmZmYjlhYmUzNGU0Zjg2YmFmOWNkNzQ2OGE2NGNkM2E4YTIxNjgwYjJiNDNjYTViNQ"),
+        (["AWS_ACCESS_KEY_ID": "ASIAEXAMPLE", "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+          "AWS_SESSION_TOKEN": "IQoJb3JpZ2luX2VjEXAMPLE+tok/en==", "AWS_REGION": "us-east-1", "ATLAS_TOKEN_EPOCH": "1792790654"],
+         ["--cluster-name=my_cluster-2", "--output", "json"],
+         "k8s-aws-v1.aHR0cHM6Ly9zdHMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vP0FjdGlvbj1HZXRDYWxsZXJJZGVudGl0eSZWZXJzaW9uPTIwMTEtMDYtMTUmWC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BU0lBRVhBTVBMRSUyRjIwMjYxMDIzJTJGdXMtZWFzdC0xJTJGc3RzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjEwMjNUMjEyNDE0WiZYLUFtei1FeHBpcmVzPTYwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCUzQngtazhzLWF3cy1pZCZYLUFtei1TZWN1cml0eS1Ub2tlbj1JUW9KYjNKcFoybHVYMlZqRVhBTVBMRSUyQnRvayUyRmVuJTNEJTNEJlgtQW16LVNpZ25hdHVyZT0xMTQwYWUxM2UyOWZkNmZiYWI5MGM4ODcwYjcyNWZhZWI3NWI3MWU4M2Q1NGJlMWRhYzMwMDlhMDY4ZTMzNTNh"),
+    ]
+
+    /// Runs the stand-in `aws` with only `env` (and a system PATH).
+    static func runAws(_ args: [String], env: [String: String]) throws -> (status: Int32, out: String, err: String) {
+        let dir = TestTemp.root.appendingPathComponent("aws-\(UUID().uuidString)", isDirectory: true)
+        try StackContainer.installTools(in: dir)
+        let p = Process(), out = Pipe(), err = Pipe()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = [dir.appendingPathComponent("bin/aws").path] + args
+        p.environment = env.merging(["PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]) { a, _ in a }
+        p.standardOutput = out
+        p.standardError = err
+        try p.run()
+        p.waitUntilExit()
+        return (p.terminationStatus, String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+                String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+    }
+
+    /// The images have no AWS CLI, so EKS configurations failed at plan with "executable aws not found":
+    /// the stand-in makes the AWS CLI's token, byte for byte, as an ExecCredential.
+    @Test func theAwsStandInMakesTheSameEksTokenAsTheAwsCli() throws {
+        for vector in Self.awsCliTokens {
+            let r = try Self.runAws(["eks", "get-token"] + vector.args, env: vector.env)
+            #expect(r.status == 0, "\(r.err)")
+            let json = try #require(try JSONSerialization.jsonObject(with: Data(r.out.utf8)) as? [String: Any])
+            let status = try #require(json["status"] as? [String: String])
+            #expect(status["token"] == vector.token)
+            #expect(json["kind"] as? String == "ExecCredential")
+            #expect(json["apiVersion"] as? String == "client.authentication.k8s.io/v1beta1")
+        }
+        // 14 minutes, like the AWS CLI; the provider's own apiVersion is answered in kind.
+        var env = Self.awsCliTokens[0].env
+        env["KUBERNETES_EXEC_INFO"] = #"{"kind":"ExecCredential","apiVersion":"client.authentication.k8s.io/v1","spec":{}}"#
+        let r = try Self.runAws(["eks", "get-token"] + Self.awsCliTokens[0].args, env: env)
+        #expect(r.out.contains(#""apiVersion":"client.authentication.k8s.io/v1","#))
+        #expect(r.out.contains(#""expirationTimestamp":"2026-10-23T21:37:32Z""#))
+
+        let other = try Self.runAws(["s3", "ls"], env: Self.awsCliTokens[0].env)
+        #expect(other.status != 0 && other.err.contains("only 'aws eks get-token'"))
+        let noAccount = try Self.runAws(["eks", "get-token", "--cluster-name", "c", "--region", "eu-west-1"], env: [:])
+        #expect(noAccount.status != 0 && noAccount.err.contains("Atlas account is missing"))
+    }
+
+    @Test func runsPutTheAwsStandInOnTheContainersPath() async throws {
+        let fake = try FakeDocker()
+        let data = fake.dir.appendingPathComponent("data", isDirectory: true)
+        let c = StackContainer(runtime: fake.runtime, stack: UUID(), engine: .terraform)
+        #expect(await c.ensure(folder: fake.workspace, data: data, log: { _ in }).isSuccess)
+        let aws = data.appendingPathComponent("bin/aws")
+        #expect(FileManager.default.isExecutableFile(atPath: aws.path))
+        #expect(try String(contentsOf: aws, encoding: .utf8) == StackContainer.awsCommand)
+        #expect(StackContainer.script.hasPrefix(#"export PATH="$PATH:\#(StackContainer.dataDirectory)/bin"; while"#))
+        // Refreshed on every run, also into an existing container.
+        try Data("old".utf8).write(to: aws)
+        #expect(await c.ensure(folder: fake.workspace, data: data, log: { _ in }).isSuccess)
+        #expect(try String(contentsOf: aws, encoding: .utf8) == StackContainer.awsCommand)
+    }
+
     /// Docker Desktop's CLI runs `docker-credential-desktop` from PATH to pull an image; Atlas opened from Finder
     /// does not have Docker.app's folder in PATH, so creating the container failed before init ever ran.
     @Test func theRuntimeFindsTheHelpersNextToItsCLI() {

@@ -239,6 +239,25 @@ struct SecurityTests {
         #expect(FileManager.default.fileExists(atPath: store.dataFolder(other, .terraform).path), "another stack's data stays")
     }
 
+    /// The stand-in `aws` signs with the stack's credentials: a cluster name, region or token from the configuration
+    /// cannot add headers, run commands or get the secret printed.
+    @Test func theAwsStandInRejectsHostileArgumentsAndNeverPrintsTheSecret() throws {
+        let pwned = TestTemp.root.appendingPathComponent("aws-pwned-\(UUID().uuidString)")
+        let env = ["AWS_ACCESS_KEY_ID": "AKIDEXAMPLE", "AWS_SECRET_ACCESS_KEY": "stand-in-secret-value", "AWS_REGION": "eu-west-1"]
+        for args in [["--cluster-name", "c\nhost:evil.example"], ["--cluster-name", "$(touch \(pwned.path))"],
+                     ["--cluster-name", "c", "--region", "eu-west-1;touch \(pwned.path)"], ["--cluster-name", "c", "--role-arn", "x"]] {
+            let r = try StacksContainerModelTests.runAws(["eks", "get-token"] + args, env: env)
+            #expect(r.status != 0, "accepted \(args)")
+            #expect(!r.out.contains("stand-in-secret-value") && !r.err.contains("stand-in-secret-value"))
+        }
+        var badToken = env
+        badToken["AWS_SESSION_TOKEN"] = "abc&X-Amz-Expires=99999"
+        #expect(try StacksContainerModelTests.runAws(["eks", "get-token", "--cluster-name", "c"], env: badToken).status != 0)
+        let ok = try StacksContainerModelTests.runAws(["eks", "get-token", "--cluster-name", "c"], env: env)
+        #expect(ok.status == 0 && !ok.out.contains("stand-in-secret-value"))
+        #expect(!FileManager.default.fileExists(atPath: pwned.path), "an argument was evaluated by the shell")
+    }
+
     @Test func dockerDesktopComesOnlyFromDockerAndMustBeSignedByDocker() {
         let url = DockerDesktopInstaller.downloadURL
         #expect(url.scheme == "https" && url.host == "desktop.docker.com")
