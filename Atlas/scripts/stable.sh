@@ -31,7 +31,8 @@ done
 
 gh auth status >/dev/null 2>&1 || { echo "✗ gh is not signed in to GitHub (gh auth login)."; exit 1; }
 
-TMP=$(mktemp -d)
+# Resolved (/var → /private/var): the test sandbox only allows writes under real paths.
+TMP=$(cd -P "$(mktemp -d)" && pwd -P)
 WORKTREES=()
 cleanup() {
     for w in $WORKTREES; do git worktree remove --force "$w" 2>/dev/null; done

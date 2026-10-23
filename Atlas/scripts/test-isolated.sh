@@ -15,7 +15,7 @@
 # sandbox only has to hold the tests, not the compiler and SwiftPM.
 set -e
 cd "$(dirname "$0")/.."
-ROOT=$PWD
+ROOT=$(pwd -P)   # the sandbox matches real paths: a symlinked folder (/var, /tmp) would block every write
 # Command Line Tools whose default SDK cannot build SwiftUI: use an older SDK installed next to it (sdk.sh).
 if [ -z "$ATLAS_SDK_CHECKED" ]; then
     export ATLAS_SDK_CHECKED=1
