@@ -6,15 +6,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Needed when launched as a bare executable (`swift run`) rather than from the .app bundle.
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+
+        // CI smoke test: the app must start and open its main window, then quit.
+        if SmokeTest.isEnabled {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                let ok = NSApp.windows.contains { $0.isVisible }
+                print(ok ? "SMOKE TEST OK" : "SMOKE TEST FAILED: no visible window")
+                exit(ok ? 0 : 1)
+            }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
+/// `ATLAS_SMOKE_TEST=1` starts the app with throwaway storage and quits after checking the window.
+enum SmokeTest {
+    static let isEnabled = ProcessInfo.processInfo.environment["ATLAS_SMOKE_TEST"] == "1"
+    static let folder = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-smoke-\(UUID().uuidString)")
+}
+
 @main
 struct AtlasApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var state = AppState()
+    @StateObject private var state = SmokeTest.isEnabled
+        ? AppState(store: AccountStore(folder: SmokeTest.folder), secrets: InMemorySecretStore())
+        : AppState()
     @AppStorage("theme") private var theme: AppTheme = .system
 
     var body: some Scene {

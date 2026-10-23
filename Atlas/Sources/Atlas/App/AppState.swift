@@ -57,9 +57,12 @@ final class AppState: ObservableObject {
     /// Bumped to ask the visible page to reload.
     @Published var refreshToken = 0
 
-    private let store = AccountStore()
+    private let store: AccountStore
+    private let secrets: SecretStore
 
-    init() {
+    init(store: AccountStore = AccountStore(), secrets: SecretStore = KeychainSecretStore()) {
+        self.store = store
+        self.secrets = secrets
         accounts = store.load()
         region = activeAccount?.defaultRegion ?? "us-east-1"
         if accounts.isEmpty { page = .settings }
@@ -75,7 +78,7 @@ final class AppState: ObservableObject {
         guard let account = activeAccount else { return nil }
         let key = "\(account.id)|\(region)"
         if let cached = cachedClient, cached.key == key { return cached.client }
-        guard let secret = Keychain.get(account.id) else { return nil }
+        guard let secret = secrets.get(account.id) else { return nil }
         let client = AWSClient(credentials: AWSCredentials(accessKeyId: account.accessKeyId, secretAccessKey: secret),
                                region: region)
         cachedClient = (key, client)
@@ -95,7 +98,7 @@ final class AppState: ObservableObject {
 
     func addAccount(name: String, accessKeyId: String, secret: String, region: String) throws {
         let account = AwsAccount(name: name, accessKeyId: accessKeyId, defaultRegion: region, isActive: accounts.isEmpty)
-        try Keychain.set(secret, for: account.id)
+        try secrets.set(secret, for: account.id)
         accounts.append(account)
         store.save(accounts)
         if account.isActive { self.region = region }
@@ -103,7 +106,7 @@ final class AppState: ObservableObject {
 
     func removeAccount(_ id: String) {
         let wasActive = activeAccount?.id == id
-        Keychain.delete(id)
+        secrets.delete(id)
         accounts.removeAll { $0.id == id }
         if wasActive, let first = accounts.first {
             setActive(first.id)

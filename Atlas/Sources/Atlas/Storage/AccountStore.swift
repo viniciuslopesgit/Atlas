@@ -1,7 +1,28 @@
 import Foundation
 import Security
 
+/// Where secret access keys are kept.
+protocol SecretStore {
+    func set(_ secret: String, for account: String) throws
+    func get(_ account: String) -> String?
+    func delete(_ account: String)
+}
+
 /// Secret access keys live in the macOS Keychain (replaces Windows DPAPI).
+struct KeychainSecretStore: SecretStore {
+    func set(_ secret: String, for account: String) throws { try Keychain.set(secret, for: account) }
+    func get(_ account: String) -> String? { Keychain.get(account) }
+    func delete(_ account: String) { Keychain.delete(account) }
+}
+
+/// In-memory secrets, used by tests and the smoke test.
+final class InMemorySecretStore: SecretStore {
+    private var secrets: [String: String] = [:]
+    func set(_ secret: String, for account: String) throws { secrets[account] = secret }
+    func get(_ account: String) -> String? { secrets[account] }
+    func delete(_ account: String) { secrets[account] = nil }
+}
+
 enum Keychain {
     static let service = "io.cloud-atlas.Atlas"
 
@@ -38,14 +59,17 @@ enum Keychain {
 
 /// Account metadata persisted as JSON in ~/Library/Application Support/Atlas.
 struct AccountStore {
-    static var folder: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("Atlas", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+    static var defaultFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Atlas", isDirectory: true)
     }
 
-    private var file: URL { Self.folder.appendingPathComponent("accounts.json") }
+    var folder: URL = Self.defaultFolder
+
+    private var file: URL {
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent("accounts.json")
+    }
 
     func load() -> [AwsAccount] {
         guard let data = try? Data(contentsOf: file) else { return [] }
