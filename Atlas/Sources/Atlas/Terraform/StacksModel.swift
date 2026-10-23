@@ -18,7 +18,9 @@ final class StacksModel: ObservableObject {
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var timer: Timer?
     /// Output lines waiting for the next screen update: one update per 0.1 s, not one per line.
-    private var pendingOutput: [UUID: [String]] = [:]
+    private var pendingOutput: [UUID: [Pending]] = [:]
+    /// Output lines and phase starts, in the order they happened.
+    private enum Pending { case line(String), phase(String, Date) }
     private var flushScheduled = false
     /// Runs on this Mac when there is no container runtime.
     private let makeCLI: (TerraformEngine) -> TerraformCLI
@@ -128,6 +130,8 @@ final class StacksModel: ObservableObject {
         let credentials: TerraformCredentials?
         let tfVars: [String: String]
         let log: @Sendable (String) -> Void
+        /// Starts a phase of the run (shown with its time and output in the run's timeline).
+        let phase: @Sendable (String) -> Void
     }
 
     /// Runs `body` as a recorded run of the stack. The body returns whether the run succeeded.
@@ -148,7 +152,11 @@ final class StacksModel: ObservableObject {
         let context = Context(
             dir: s.url, cli: cli, tool: s.engine.command, credentials: client.map(TerraformCredentials.init),
             tfVars: Dictionary(s.envVars.map { ($0.tfVarName, $0.value) }, uniquingKeysWith: { a, _ in a }),
-            log: { [weak self] line in DispatchQueue.main.async { MainActor.assumeIsolated { self?.append(line, to: id) } } })
+            log: { [weak self] line in DispatchQueue.main.async { MainActor.assumeIsolated { self?.append(.line(line), to: id) } } },
+            phase: { [weak self] name in
+                let now = Date()
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.append(.phase(name, now), to: id) } }
+            })
 
         busy.insert(id)
         record(id, StackRun(type: type, trigger: trigger))
@@ -158,6 +166,7 @@ final class StacksModel: ObservableObject {
         tasks[id] = Task {
             var ok = true
             if let container {
+                context.phase("Preparing")
                 context.log("▶ \(s.engine.label) in container \(container.name) (\(container.runtime.kind.rawValue))")
                 let ready = await container.ensure(folder: s.url, data: data, log: context.log)
                 ok = Self.report(ready, context.log)
@@ -171,14 +180,17 @@ final class StacksModel: ObservableObject {
     }
 
     private func record(_ id: UUID, _ run: StackRun) {
+        var dropped: [StackRun] = []
         update(id) { s in
             s.runs.insert(run, at: 0)
-            if s.runs.count > 50 { s.runs.removeLast(s.runs.count - 50) }
+            if s.runs.count > 50 { dropped = Array(s.runs.suffix(s.runs.count - 50)); s.runs.removeLast(s.runs.count - 50) }
         }
+        // Only the log files of runs no longer listed, inside Atlas's folder for this stack.
+        for r in dropped { try? FileManager.default.removeItem(at: store.runLogFile(id, r.id)) }
     }
 
-    private func append(_ line: String, to id: UUID) {
-        pendingOutput[id, default: []].append(line)
+    private func append(_ item: Pending, to id: UUID) {
+        pendingOutput[id, default: []].append(item)
         guard !flushScheduled else { return }
         flushScheduled = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in MainActor.assumeIsolated { self?.flushOutput() } }
@@ -190,8 +202,18 @@ final class StacksModel: ObservableObject {
         guard !pendingOutput.isEmpty else { return }
         let pending = pendingOutput
         pendingOutput = [:]
-        for (id, lines) in pending {
+        for (id, items) in pending {
             guard let i = stacks.firstIndex(where: { $0.id == id }), !stacks[i].runs.isEmpty else { continue }
+            var lines: [String] = []
+            for item in items {
+                switch item {
+                case .line(let l): lines.append(l)
+                case .phase(let name, let at):
+                    stacks[i].runs[0].append(lines)
+                    lines = []
+                    stacks[i].runs[0].begin(name, at: at)
+                }
+            }
             stacks[i].runs[0].append(lines)
         }
     }
@@ -202,8 +224,7 @@ final class StacksModel: ObservableObject {
         tasks[id] = nil
         update(id) { s in
             guard !s.runs.isEmpty else { return }
-            s.runs[0].completedAt = Date()
-            s.runs[0].status = cancelled ? .cancelled : ok ? .success : .failed
+            s.runs[0].finish(cancelled ? .cancelled : ok ? .success : .failed, at: Date())
             s.status = ok && !cancelled ? .finished : .failed
             if s.driftStatus == .checking { s.driftStatus = cancelled ? .unknown : .error }
         }
@@ -218,6 +239,7 @@ final class StacksModel: ObservableObject {
 
     func initialize(_ id: UUID) {
         run(id, .initialize, trigger: "manual") { c in
+            c.phase("Initializing")
             c.log("▶ \(c.tool) init")
             return Self.report(await c.cli.initialize(c.dir, credentials: c.credentials, onLine: c.log), c.log)
         }
@@ -226,6 +248,7 @@ final class StacksModel: ObservableObject {
     /// Saves the plan so Apply runs exactly what was reviewed.
     func plan(_ id: UUID) {
         run(id, .plan, trigger: "manual") { c in
+            c.phase("Planning")
             c.log("▶ \(c.tool) plan -out=\(Self.planFile)")
             let r = await c.cli.plan(c.dir, outFile: Self.planFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             if r.status == .noChanges { try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.planFile)) }
@@ -239,6 +262,7 @@ final class StacksModel: ObservableObject {
 
     func apply(_ id: UUID) {
         run(id, .apply, trigger: "manual") { c in
+            c.phase("Applying")
             c.log("▶ \(c.tool) apply \(Self.planFile)")
             let r = await c.cli.apply(c.dir, planFile: Self.planFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.planFile))
@@ -251,6 +275,7 @@ final class StacksModel: ObservableObject {
         guard !busy.contains(id) else { return }
         update(id) { $0.driftStatus = .checking }
         run(id, .plan, trigger: "drift check (\(trigger))") { [weak self] c in
+            c.phase("Checking drift")
             c.log("▶ \(c.tool) plan -detailed-exitcode -out=\(Self.driftPlanFile)")
             let r = await c.cli.plan(c.dir, outFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             let ok = r.isSuccess
@@ -298,6 +323,7 @@ final class StacksModel: ObservableObject {
         }
         update(id) { $0.driftStatus = .checking }
         run(id, .fixDrift, trigger: trigger) { [weak self] c in
+            c.phase("Applying")
             c.log("━━━ Fix drift ━━━")
             c.log("▶ \(c.tool) apply \(Self.driftPlanFile)")
             let applied = await c.cli.apply(c.dir, planFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
@@ -306,6 +332,7 @@ final class StacksModel: ObservableObject {
                 await self?.recordDrift(id, applied)
                 return false
             }
+            c.phase("Verifying")
             c.log("\n━━━ Verify ━━━")
             c.log("▶ \(c.tool) plan -detailed-exitcode")
             let verify = await c.cli.plan(c.dir, outFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
@@ -327,6 +354,7 @@ final class StacksModel: ObservableObject {
         let client = clientFor(s)
         let stateKey = "stacks/\(ImportDiscovery.tfName(s.name, fallback: "stack"))/terraform.tfstate"
         run(id, .importResources, trigger: "import of \(resources.count) resource(s)") { [weak self] c in
+            c.phase("Preparing state")
             c.log("━━━ State ━━━")
             var bucket: String?
             if remoteState, let client {
@@ -346,9 +374,11 @@ final class StacksModel: ObservableObject {
                 return false
             }
 
+            c.phase("Initializing")
             c.log("\n━━━ Init ━━━\n▶ \(c.tool) init")
             guard Self.report(await c.cli.initialize(c.dir, credentials: c.credentials, onLine: c.log), c.log) else { return false }
 
+            c.phase("Importing")
             c.log("\n━━━ Import ━━━")
             do {
                 let files = try TerraformAware.adopt(resources, into: c.dir)
@@ -384,6 +414,7 @@ final class StacksModel: ObservableObject {
             let extracted = vars
             await self?.merge(extracted, into: id)
 
+            c.phase("Validating")
             c.log("\n━━━ Validate ━━━\n▶ \(c.tool) validate")
             return Self.report(await c.cli.validate(c.dir, onLine: c.log), c.log)
         }

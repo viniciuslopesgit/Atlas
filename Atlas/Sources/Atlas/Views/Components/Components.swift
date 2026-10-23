@@ -239,6 +239,14 @@ enum Fmt {
     }()
 
     static func dt(_ d: Date?) -> String { d.map { dateTime.string(from: $0) } ?? "—" }
+    static let dateTimeSeconds: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .medium
+        return f
+    }()
+    /// Date and time to the second, for run history.
+    static func dts(_ d: Date?) -> String { d.map { dateTimeSeconds.string(from: $0) } ?? "—" }
     static func day(_ d: Date?) -> String { d.map { date.string(from: $0) } ?? "—" }
 
     static func money(_ v: Double, _ currency: String = "USD") -> String {

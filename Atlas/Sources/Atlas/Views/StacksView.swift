@@ -57,7 +57,7 @@ struct StacksView: View {
                         .frame(minWidth: 230, idealWidth: 270, maxWidth: 360)
                     Group {
                         if let id = selection, let s = model.stack(id) {
-                            StackDetail(stack: s)
+                            StackDetail(stack: s).id(s.id)
                         } else {
                             EmptyStateView(icon: "sidebar.left", title: "Select a stack", message: "Its runs, drift and variables appear here.")
                         }
@@ -117,14 +117,25 @@ struct StackBadges: View {
 
 private struct StackDetail: View {
     enum Tab: String, CaseIterable, Identifiable {
-        case drift = "Drift", runs = "Runs", variables = "Variables", settings = "Settings"
+        case runs = "Runs", plans = "Plans", applies = "Applies", drift = "Drift", variables = "Variables", settings = "Settings"
         var id: String { rawValue }
+
+        var scope: StackRunScope? {
+            switch self {
+            case .runs: .all
+            case .plans: .plans
+            case .applies: .applies
+            default: nil
+            }
+        }
     }
 
     let stack: StackEntry
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var model: StacksModel
-    @State private var tab: Tab = .drift
+    @State private var tab: Tab = .runs
+    /// The run whose timeline is open in the runs tabs.
+    @State private var openRun: UUID?
     @State private var confirm: Confirm?
     @State private var showImport = false
     @State private var remoteState = true
@@ -152,11 +163,11 @@ private struct StackDetail: View {
             }
             HStack(spacing: 8) {
                 Group {
-                    Button("Init") { model.initialize(stack.id) }
-                    Button("Plan") { model.plan(stack.id) }
+                    Button("Init") { start(.runs) { model.initialize(stack.id) } }
+                    Button("Plan") { start(.plans) { model.plan(stack.id) } }
                     Button("Apply…") { confirm = .apply }.disabled(!model.hasSavedPlan(stack))
                         .help("Applies the plan saved by the last Plan.")
-                    Button("Check Drift") { model.checkDrift(stack.id) }
+                    Button("Check Drift") { start(.plans) { model.checkDrift(stack.id) } }
                     Button { showImport = true } label: { Label("Import from AWS…", systemImage: "square.and.arrow.down") }
                         .disabled(state.client(accountId: stack.accountId, region: stack.region) == nil)
                 }
@@ -168,23 +179,30 @@ private struct StackDetail: View {
                 }
             }
             Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
-                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 420)
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 560)
             Group {
-                switch tab {
-                case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
-                case .runs: RunsTab(stack: stack)
-                case .variables: VariablesTab(stack: stack)
-                case .settings: settings
+                if let scope = tab.scope {
+                    if let id = openRun, let run = stack.runs.first(where: { $0.id == id }) {
+                        StackRunDetail(run: run, stackName: stack.name) { openRun = nil }
+                    } else {
+                        StackRunList(runs: stack.runs, scope: scope) { openRun = $0 }
+                    }
+                } else {
+                    switch tab {
+                    case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
+                    case .variables: VariablesTab(stack: stack)
+                    default: settings
+                    }
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            StackLogBar(stack: stack, isBusy: busy)
+            if openRun == nil || tab.scope == nil { StackLogBar(stack: stack, isBusy: busy) }
         }
         .padding(.leading, 16)
         .confirmationDialog(title, isPresented: Binding(present: $confirm), presenting: confirm) { c in
             switch c {
-            case .apply: Button("Apply", role: .destructive) { model.apply(stack.id) }
-            case .fixDrift: Button("Fix Drift", role: .destructive) { model.fixDrift(stack.id) }
+            case .apply: Button("Apply", role: .destructive) { start(.applies) { model.apply(stack.id) } }
+            case .fixDrift: Button("Fix Drift", role: .destructive) { start(.applies) { model.fixDrift(stack.id) } }
             case .delete: Button("Remove Stack", role: .destructive) { model.delete(stack.id) }
             }
         } message: { c in
@@ -199,14 +217,22 @@ private struct StackDetail: View {
             if let client = state.client(accountId: stack.accountId, region: stack.region) {
                 VStack(spacing: 0) {
                     ImportFromAwsSheet(client: client, region: stack.region, targetName: stack.name, offerGenerate: false) { chosen, _ in
-                        model.importResources(stack.id, chosen, remoteState: remoteState)
-                        tab = .runs
+                        start(.runs) { model.importResources(stack.id, chosen, remoteState: remoteState) }
                     }
                     Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
                         .padding([.horizontal, .bottom], 20)
                 }
             }
         }
+    }
+
+    /// Runs the action and, when it recorded a new run, opens that run's timeline in `tab`.
+    private func start(_ tab: Tab, _ action: () -> Void) {
+        let before = model.stack(stack.id)?.lastRun?.id
+        action()
+        guard let run = model.stack(stack.id)?.lastRun, run.id != before else { return }
+        self.tab = tab
+        openRun = run.id
     }
 
     private var title: String {
@@ -336,32 +362,6 @@ private struct DriftTab: View {
         guard CronExpression(expr) != nil, !stack.driftCron.contains(expr) else { return }
         model.update(stack.id) { $0.driftCron.append(expr) }
         newCron = ""
-    }
-}
-
-private struct RunsTab: View {
-    let stack: StackEntry
-    @State private var selected: UUID?
-
-    private var run: StackRun? { stack.runs.first { $0.id == selected } ?? stack.runs.first }
-
-    var body: some View {
-        if stack.runs.isEmpty {
-            EmptyStateView(icon: "clock", title: "No runs yet", message: "Init, Plan, Apply, drift checks and imports are recorded here.")
-        } else {
-            VSplitView {
-                Table(stack.runs, selection: $selected) {
-                    TableColumn("Status") { r in Badge(text: r.status.rawValue.capitalized, color: r.status.color) }.width(90)
-                    TableColumn("Run") { r in Text(r.type.label) }.width(min: 80, ideal: 100)
-                    TableColumn("Trigger", value: \.trigger)
-                    TableColumn("Started") { r in Text(Fmt.dt(r.startedAt)) }.width(min: 130, ideal: 150)
-                    TableColumn("Duration") { r in Text(r.durationText) }.width(70)
-                }
-                .frame(minHeight: 120, idealHeight: 170)
-                TerminalPanel(lines: StackLogBar.lines(run))
-                    .frame(minHeight: 160)
-            }
-        }
     }
 }
 
