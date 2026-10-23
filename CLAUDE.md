@@ -9,10 +9,11 @@ Native macOS app (Swift + SwiftUI) in `Atlas/`. Marketing site in `cloud-atlas.i
 - CI (`ci.yml`) runs `check.sh --full` on macOS 14 and 15 and publishes a version without a Release as a beta.
 
 ## After every implementation (mandatory)
-1. `Atlas/scripts/ship.sh "<type>: <message>"` — new version when the app changed (automatic: kind from the
+1. `Atlas/scripts/ship.sh "<type>: <message>" --install` — new version when the app changed (automatic: kind from the
    Conventional Commits, CHANGELOG section written from them) → full check → commit → push dev → CI publishes the beta.
    For a user-facing change worth explaining, run `Atlas/scripts/bump_version.sh [kind]` first and write the section
    yourself (summary paragraph + `### Added/Changed/Fixed/Removed`); never leave `RELEASE SUMMARY`.
+   Always pass `--install`: every code change is built locally and installed in `/Applications/Atlas.app`.
 2. Commit messages are user-facing: they become CHANGELOG lines. Use scopes `ci`, `release`, `build`, `test`,
    `docs` or `scripts` for changes to the dev process, which stay out of the CHANGELOG.
    Conventional Commits: `feat` `fix` `perf` `refactor` `docs` `test` `build` `ci` `chore` `style` `revert`; `!` for breaking.
