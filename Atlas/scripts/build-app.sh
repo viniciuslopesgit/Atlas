@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Builds Atlas.app (release) into AtlasMac/dist/.
+# Builds Atlas.app (release) into Atlas/dist/.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-$("$ROOT/scripts/version.sh" --dev)}"
+BUILD="${BUILD:-$("$ROOT/scripts/version.sh" --build)}"
 APP="$ROOT/dist/Atlas.app"
 
 cd "$ROOT"
@@ -36,7 +37,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-  <key>CFBundleVersion</key><string>${VERSION}</string>
+  <key>CFBundleVersion</key><string>${BUILD}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
   <key>NSHighResolutionCapable</key><true/>
@@ -47,4 +48,4 @@ PLIST
 
 # Ad-hoc signature (replace "-" with a Developer ID identity to distribute)
 codesign --force --deep --sign "${SIGN_IDENTITY:--}" "$APP"
-echo "Built $APP"
+echo "Built $APP ($VERSION, build $BUILD)"

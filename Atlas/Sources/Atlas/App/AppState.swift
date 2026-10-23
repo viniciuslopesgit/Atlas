@@ -118,3 +118,9 @@ final class AppState: ObservableObject {
         region = activeAccount?.defaultRegion ?? region
     }
 }
+
+enum AppInfo {
+    /// Set by scripts/build-app.sh from scripts/version.sh; "dev" when run with `swift run`.
+    static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev" }
+    static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0" }
+}

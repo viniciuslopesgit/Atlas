@@ -38,6 +38,11 @@ struct SettingsView: View {
                 }
                 .padding(16)
                 .card()
+
+                Text("Atlas \(AppInfo.version) (build \(AppInfo.build))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
             .padding(24)
         }
