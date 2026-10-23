@@ -99,7 +99,7 @@ struct HclTests {
     }
 
     @Test func writeMergesIntoTheProjectFile() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hcl-\(UUID().uuidString)")
+        let dir = TestTemp.root.appendingPathComponent("hcl-\(UUID().uuidString)")
         let file = dir.appendingPathComponent("s3_buckets.tf")
         try HclGenerator.write(HclGenerator.s3Bucket(S3BucketHcl(resourceName: "a", bucketName: "a")), to: file)
         var text = try String(contentsOf: file, encoding: .utf8)

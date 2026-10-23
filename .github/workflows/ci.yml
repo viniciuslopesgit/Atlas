@@ -1,18 +1,13 @@
 name: CI
 
-# Every push to dev (and every PR): build, tests, Atlas.app, smoke test and a dev pre-release.
+# Every push and Pull Request to dev: the full check (Atlas/scripts/check.sh --full) on macOS 14 and 15.
+# On a push to dev, a version that has no Release yet is published as a beta (pre-release) with the app
+# that was just checked, Atlas-X.Y.Z.zip, SHA256SUMS and the notes from its CHANGELOG section.
 on:
   push:
     branches: [dev]
-    paths:
-      - 'Atlas/**'
-      - 'CHANGELOG.md'
-      - '.github/workflows/ci.yml'
   pull_request:
-    paths:
-      - 'Atlas/**'
-      - 'CHANGELOG.md'
-      - '.github/workflows/ci.yml'
+    branches: [dev]
   workflow_dispatch:
 
 concurrency:
@@ -20,82 +15,85 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-
-defaults:
-  run:
-    working-directory: Atlas
+  contents: read
 
 jobs:
-  test:
-    runs-on: macos-15
-    timeout-minutes: 30
+  check:
+    name: check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # version.sh needs tags and history
+          fetch-depth: 0 # tags: a published version cannot change without a new version
 
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
-      - name: Swift version
-        run: swift --version
-
-      - uses: actions/cache@v4
-        with:
-          path: Atlas/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('Atlas/Package.swift', 'Atlas/Sources/**', 'Atlas/Tests/**') }}
-          restore-keys: spm-${{ runner.os }}-
-
-      - name: Version
-        id: version
+      - name: Latest Xcode
         run: |
-          echo "version=$(scripts/version.sh --dev)" >> "$GITHUB_OUTPUT"
-          echo "Version: $(scripts/version.sh --dev)"
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          echo "Using $XCODE"; swift --version
 
-      - name: CHANGELOG covers every stable tag
-        run: scripts/changelog.sh --check
+      - name: Full check
+        run: Atlas/scripts/check.sh --full
 
-      - name: Build
-        run: swift build
-
-      - name: Unit tests
-        run: swift test
-
-      - name: Build Atlas.app (release)
-        run: VERSION="${{ steps.version.outputs.version }}" scripts/build-app.sh
-
-      - name: Smoke test
-        run: |
-          ATLAS_SMOKE_TEST=1 dist/Atlas.app/Contents/MacOS/Atlas &
-          pid=$!
-          ( sleep 90; kill $pid 2>/dev/null ) &
-          wait $pid
-
-      - name: Package
-        run: ditto -c -k --keepParent dist/Atlas.app "dist/Atlas-${{ steps.version.outputs.version }}.zip"
-
-      - uses: actions/upload-artifact@v4
+      - name: Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          name: Atlas-${{ steps.version.outputs.version }}
-          path: Atlas/dist/Atlas-${{ steps.version.outputs.version }}.zip
+          name: check-logs-${{ matrix.os }}
+          path: |
+            Atlas/.build/check-*.log
+            Atlas/.build/isolated-build.log
           retention-days: 14
 
-      - name: Dev pre-release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+      - name: Package the checked app
+        if: matrix.os == 'macos-15'
+        working-directory: Atlas
+        run: |
+          VERSION=$(scripts/version.sh)
+          ditto -c -k --keepParent dist/Atlas.app "dist/Atlas-$VERSION.zip"
+          (cd dist && shasum -a 256 "Atlas-$VERSION.zip" > SHA256SUMS)
+          scripts/release_notes.sh "$VERSION" --beta > dist/NOTES.md
+          echo "$VERSION" > dist/VERSION
+          echo "Swift: $(swift --version 2>&1 | head -1) · $(sw_vers -productName) $(sw_vers -productVersion)" >> dist/NOTES.md
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'macos-15'
+        with:
+          name: release
+          path: |
+            Atlas/dist/Atlas-*.zip
+            Atlas/dist/SHA256SUMS
+            Atlas/dist/NOTES.md
+            Atlas/dist/VERSION
+          retention-days: 30
+
+  release:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+
+      - name: Beta Release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_REPO: ${{ github.repository }}
         run: |
+          VERSION=$(cat VERSION)
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "Pre-release $VERSION already exists"; exit 0
+            echo "Atlas $VERSION is already published: nothing to release (the app did not change)."
+            exit 0
           fi
-          gh release create "$VERSION" "dist/Atlas-$VERSION.zip" \
-            --target "$GITHUB_SHA" --prerelease \
-            --title "Atlas $VERSION" \
-            --notes "Development build of \`dev\` ($GITHUB_SHA). Becomes stable after 24h without new commits.
-
-          $(scripts/version.sh --notes)
-
-          Stable releases: [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/main/CHANGELOG.md)"
+          # Published as a pre-release (beta): it only becomes "Latest" when promote.yml makes it stable.
+          gh release create "$VERSION" "Atlas-$VERSION.zip" SHA256SUMS \
+            --target "$GITHUB_SHA" --prerelease --title "Atlas $VERSION" --notes-file NOTES.md
+          echo "### Atlas $VERSION published as beta" >> "$GITHUB_STEP_SUMMARY"

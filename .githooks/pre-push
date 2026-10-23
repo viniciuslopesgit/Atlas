@@ -1,14 +1,29 @@
-#!/usr/bin/env bash
-# Every push (including to dev) only goes ahead if build + tests pass in an isolated environment.
-set -euo pipefail
-ROOT="$(git rev-parse --show-toplevel)"
-
-# Pushes that only delete refs don't need tests.
-needs_tests=0
-while read -r _ local_sha _ _; do
-  [[ "$local_sha" =~ ^0+$ ]] || needs_tests=1
+#!/bin/zsh
+# Before each push: full check (Atlas/scripts/check.sh --full) of the pushed commit.
+# Only passes if what was tested is exactly what is going to be pushed.
+# main (and the stable/* branches) only get the version verified by Atlas/scripts/stable.sh --apply.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+ZERO=0000000000000000000000000000000000000000
+stamp() { [ -f "Atlas/.build/$1" ] && cat "Atlas/.build/$1"; }
+while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+    [ "$LOCAL_SHA" = "$ZERO" ] && continue   # deleting a remote branch
+    case $REMOTE_REF in refs/tags/*) continue ;; esac
+    TREE=$(git rev-parse "$LOCAL_SHA^{tree}")
+    case $REMOTE_REF in
+        refs/heads/main|refs/heads/stable/*)
+            if [ "$(stamp stable-verified)" != "$TREE" ]; then
+                print "✗ $REMOTE_REF only gets the verified stable version: use ./Atlas/scripts/stable.sh --apply."
+                exit 1
+            fi
+            continue ;;
+    esac
+    [ "$(stamp check-passed)" = "$TREE" ] && continue
+    print "pre-push: $LOCAL_REF has not passed the full check yet. Checking…"
+    ./Atlas/scripts/check.sh --full || exit 1
+    if [ "$(stamp check-passed)" != "$TREE" ]; then
+        print "✗ The folder has changes that are not in $LOCAL_REF: what was tested is not what is going to be pushed."
+        print "  Commit or git stash the changes and push again."
+        exit 1
+    fi
 done
-(( needs_tests )) || exit 0
-
-echo "▸ pre-push: running isolated tests…"
-"$ROOT/Atlas/scripts/test-isolated.sh" --smoke
+exit 0

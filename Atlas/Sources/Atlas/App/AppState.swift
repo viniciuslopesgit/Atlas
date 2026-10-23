@@ -85,6 +85,7 @@ final class AppState: ObservableObject {
 
     private let store: AccountStore
     private let secrets: SecretStore
+    var usesKeychain: Bool { secrets is KeychainSecretStore }
 
     init(store: AccountStore = AccountStore(), secrets: SecretStore = KeychainSecretStore()) {
         self.store = store

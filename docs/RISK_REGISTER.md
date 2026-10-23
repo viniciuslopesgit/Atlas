@@ -1,0 +1,19 @@
+# Risk register
+
+Known risks of Atlas, assessed on 2026-10-23 against the code of version 2.0.0. **Verified** means confirmed in the code or by a command; **assumption** means evidence is missing.
+
+Severity × likelihood → priority (P1 first). Each risk links to a criterion in [RELEASE_CRITERIA.md](RELEASE_CRITERIA.md).
+
+| ID | Risk | Evidence | Severity | Likel. | Priority | Mitigation | Criterion | State |
+|---|---|---|---|---|---|---|---|---|
+| R1 | An S3 key named `..`, `.` or ending in `/..` became the file name of a multi-file download, and an existing file or **folder** with that name was deleted before the move: downloading into a folder could delete its parent. | Verified in `S3View.downloadSelected` and `S3Service.download` (before 2.0.0) | High: deletes the user's folders | Low: needs a crafted key in a bucket the user downloads from | **P1** | `S3Download.destination` keeps every name inside the folder and numbers it instead of replacing; `download` never removes a folder. Attack tests in `SecurityTests` | Q7 | Fixed in 2.0.0 |
+| R2 | The SSM `.command` script put the instance id and region inside a double-quoted `echo`, so `$(…)` in them would run in Terminal. | Verified in `SsmService.commandScript` (before 2.0.0). The values come from AWS or the user, not a third party | Medium | Low | P2 | Instance ids and regions are validated; every value is single-quoted; a test runs the script's arguments through a real shell | Q7 | Fixed in 2.0.0 |
+| R3 | No Developer ID or notarization: Gatekeeper rejects the downloaded app and users must allow it in Privacy & Security. | Verified: ad-hoc signature | Medium | High | **P2** | Apple Developer account with notarization in CI; or document building from source | — | Open: maintainer decision (cost) |
+| R4 | Terraform `apply` and drift auto-fix change real infrastructure. | Verified: they run the user's own `terraform` with the account's keys | High | Medium | **P1** | Apply only a plan the user reviewed (`atlas.tfplan`); auto-fix is off by default; destructive actions ask for confirmation | — | Mitigated |
+| R5 | Access keys are long-lived IAM user keys; there is no support for SSO or assumed roles. | Verified | Medium | Medium | P2 | Keys stay in the Keychain and only sign requests; recommend least-privilege users in the README | — | Open |
+| R6 | Most tests use recorded AWS responses. An AWS API change is not caught by CI. | Verified | Medium | Low | P3 | Manual check against a real read-only account before each minor and major (criteria, section 5) | — | Accepted |
+| R7 | The automatic updater installs betas on the maintainer's Mac and depends on an authenticated `gh`. | Verified in `updater.sh` | Low | Low | P4 | Archives are checked against `SHA256SUMS` and the signature before replacing the app; the old copy is kept until the new one is in place | — | Accepted |
+| R8 | The `main` branch is not protected on GitHub: the `pre-push` hook only protects from this machine. | Assumption: not checked through the API | Medium | Medium | **P2** | Branch protection: Pull Request only, no force-push | S4 | Open: repository setting |
+| R9 | There is no private way to report vulnerabilities. | Assumption: not checked | Medium | Low | **P2** | Turn on private vulnerability reporting; see [SECURITY.md](../SECURITY.md) | — | Open: repository setting |
+| R10 | GitHub Actions pinned by major version (`@v4`), not by commit. | Verified in `.github/workflows/` | Low | Low | P4 | Pin by SHA when there are external contributors | — | Accepted |
+| R11 | Third-party dependencies | Verified: zero Swift packages; only Apple's toolchain and GitHub's own actions | — | — | — | Keep it that way; a new dependency needs an MIT-compatible license and a review | — | Controlled |

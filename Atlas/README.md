@@ -13,9 +13,10 @@ It replaces the original WPF/.NET version for Windows, which has been removed fr
 ```bash
 cd Atlas
 swift run                    # development
-./scripts/build-app.sh       # creates dist/Atlas.app (release, ad-hoc signature)
+./scripts/build-app.sh       # creates dist/Atlas.app (universal, ad-hoc signature; UNIVERSAL=0 for this Mac only)
 ./scripts/test.sh            # unit tests
-./scripts/test-isolated.sh   # same tests in an isolated environment (sandbox, no network)
+./scripts/test-isolated.sh   # every test inside a proven sandbox (no network, writes only in its own folder)
+./scripts/check.sh           # the quality gate (docs/development.md)
 open dist/Atlas.app
 ```
 
@@ -93,7 +94,7 @@ Atlas/scripts/install-updater.sh --uninstall # to remove it
 ```
 
 It installs a LaunchAgent that checks GitHub every 10 minutes and replaces `/Applications/Atlas.app` with the
-newest release, dev pre-releases included (it quits and reopens Atlas if it was running). It also creates a
+newest release, betas included, after checking it against `SHA256SUMS` (it quits and reopens Atlas if it was running). It also creates a
 local "Atlas Local" signing certificate, so the Keychain keeps trusting each new build. Log:
 `~/Library/Logs/Atlas/updater.log`.
 

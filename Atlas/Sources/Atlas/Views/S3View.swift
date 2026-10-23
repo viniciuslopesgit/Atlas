@@ -328,13 +328,13 @@ struct S3View: View {
         panel.prompt = "Download Here"
         guard panel.runModal() == .OK, let dir = panel.url else { return }
         Task {
-            for o in files { await download(o, to: dir.appendingPathComponent(o.displayName)) }
+            for o in files { await download(o, to: S3Download.destination(forKey: o.key, in: dir)) }
         }
     }
 
     private func download(_ o: S3Object) {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = o.displayName
+        panel.nameFieldStringValue = S3Download.fileName(forKey: o.key)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { await download(o, to: url) }
     }

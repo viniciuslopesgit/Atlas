@@ -1,0 +1,8 @@
+#!/bin/zsh
+# Before each commit: quick check (Atlas/scripts/check.sh --staged).
+# If the commit's content has just passed the full check (ship.sh), it does not repeat it.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if [ -f Atlas/.build/check-passed ] && [ "$(cat Atlas/.build/check-passed)" = "$(git write-tree)" ]; then
+    exit 0
+fi
+exec ./Atlas/scripts/check.sh --staged

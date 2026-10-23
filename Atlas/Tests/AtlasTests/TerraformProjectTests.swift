@@ -4,7 +4,7 @@ import Testing
 
 struct TerraformProjectTests {
     private func tempDir(_ prefix: String) throws -> URL {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("\(prefix)-\(UUID().uuidString)")
+        let dir = TestTemp.root.appendingPathComponent("\(prefix)-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

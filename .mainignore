@@ -1,0 +1,24 @@
+# Development files that do not go to main.
+# main only has what is needed to build and distribute the stable version (Atlas/scripts/stable.sh).
+# One path per line; ending in / means a whole folder. Accepts * and ?.
+.mainignore
+.claude/
+.githooks/
+.vscode/
+CLAUDE.md
+TO-DO.MD
+docs/
+Atlas/Tests/
+Atlas/scripts/tests/
+Atlas/scripts/check.sh
+Atlas/scripts/test.sh
+Atlas/scripts/test-isolated.sh
+Atlas/scripts/ship.sh
+Atlas/scripts/bump_version.sh
+Atlas/scripts/release_notes.sh
+Atlas/scripts/version.sh
+Atlas/scripts/install-hooks.sh
+Atlas/scripts/snapshots.sh
+Atlas/scripts/stable.sh
+Atlas/scripts/stable.py
+.github/workflows/ci.yml

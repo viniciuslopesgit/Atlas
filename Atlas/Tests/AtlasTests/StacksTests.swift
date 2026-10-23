@@ -104,7 +104,7 @@ struct DriftReportTests {
 
 struct StackStoreTests {
     @Test func outputIsEncryptedAndSecretsStayInTheStore() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("stacks-\(UUID().uuidString)")
+        let folder = TestTemp.root.appendingPathComponent("stacks-\(UUID().uuidString)")
         let secrets = InMemorySecretStore()
         let store = StackStore(folder: folder, secrets: secrets)
 
@@ -134,7 +134,7 @@ struct StackStoreTests {
     }
 
     @Test func providersFileHasTheBackendButNoCredentials() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("prov-\(UUID().uuidString)")
+        let dir = TestTemp.root.appendingPathComponent("prov-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try StateBucket.writeProviders(in: dir, region: "eu-west-1", bucket: "atlas-tfstate-123", key: "stacks/prod/terraform.tfstate")
         let tf = try String(contentsOf: dir.appendingPathComponent("providers.tf"), encoding: .utf8)
@@ -149,7 +149,7 @@ struct StackStoreTests {
 // MARK: - Drift check against a fake terraform
 
 private func fakeTerraform(planExit: Int) throws -> (bin: String, dir: URL) {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("stack-\(UUID().uuidString)")
+    let dir = TestTemp.root.appendingPathComponent("stack-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let bin = dir.appendingPathComponent("fake-terraform")
     let planOutput = DriftReportTests.plan.replacingOccurrences(of: "'", with: "'\\''")

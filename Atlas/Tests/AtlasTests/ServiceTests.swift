@@ -146,7 +146,7 @@ struct AppStateTests {
     }
 
     @Test func accountLifecycleIsPersistedOutsideTheKeychain() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = TestTemp.root.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
         let secrets = InMemorySecretStore()
 

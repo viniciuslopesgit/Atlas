@@ -73,3 +73,12 @@ func formParams(_ body: Data) -> [String: String] {
     }
     return map
 }
+
+/// Where tests write. Inside the sandbox of scripts/test-isolated.sh it is the folder the sandbox allows
+/// (ATLAS_TEST_TMP): FileManager.temporaryDirectory ignores TMPDIR and points at the real temporary folder.
+enum TestTemp {
+    static var root: URL {
+        ProcessInfo.processInfo.environment["ATLAS_TEST_TMP"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.temporaryDirectory
+    }
+}

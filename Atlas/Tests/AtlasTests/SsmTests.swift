@@ -27,10 +27,10 @@ struct SsmScriptTests {
     @Test func commandScriptHandsOffToPluginWithoutKeys() throws {
         let script = try SsmService.commandScript(plugin: "/opt/homebrew/bin/session-manager-plugin",
                                                   session: .init(sessionId: "s-1", streamUrl: "wss://x", tokenValue: "it's"),
-                                                  region: "us-east-1", instanceId: "i-1")
+                                                  region: "us-east-1", instanceId: "i-0123456789abcdef0")
         #expect(script.hasPrefix("#!/bin/bash\nrm -f \"$0\""))
         #expect(script.contains("exec '/opt/homebrew/bin/session-manager-plugin'"))
-        #expect(script.contains(#"'{"Target":"i-1"}'"#))
+        #expect(script.contains(#"'{"Target":"i-0123456789abcdef0"}'"#))
         #expect(script.contains("https://ssm.us-east-1.amazonaws.com"))
         #expect(script.contains(#"it'\''s"#), "single quotes must be escaped")
         #expect(!script.contains("AKID") && !script.contains("AWS_SECRET"))

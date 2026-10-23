@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Enables the repo's git hooks (.githooks/): commit-msg (Conventional Commits) and pre-push (isolated tests).
+# Enables the repository's git hooks (.githooks/), once per clone:
+#   pre-commit  quick check (Atlas/scripts/check.sh --staged)
+#   commit-msg  Conventional Commits
+#   pre-push    full check of exactly what is pushed; main only gets the verified stable version
 set -euo pipefail
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 chmod +x "$ROOT"/.githooks/*

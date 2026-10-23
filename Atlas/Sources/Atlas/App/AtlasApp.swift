@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // CI smoke test: the app must start and open its main window, then quit.
         if SmokeTest.isEnabled {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                for line in SmokeTest.selfChecks() { print(line) }
                 let ok = NSApp.windows.contains { $0.isVisible }
                 print(ok ? "SMOKE TEST OK" : "SMOKE TEST FAILED: no visible window")
                 exit(ok ? 0 : 1)
@@ -25,18 +26,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
-/// `ATLAS_SMOKE_TEST=1` starts the app with throwaway storage and quits after checking the window.
+/// `ATLAS_SMOKE_TEST=1` starts the app with throwaway storage, checks in the release binary the code that
+/// protects credentials and files, and quits after checking the window (scripts/check.sh --full).
+@MainActor
 enum SmokeTest {
     static let isEnabled = ProcessInfo.processInfo.environment["ATLAS_SMOKE_TEST"] == "1"
     static let folder = FileManager.default.temporaryDirectory.appendingPathComponent("atlas-smoke-\(UUID().uuidString)")
+    private static weak var state: AppState?
+
+    static func makeState() -> AppState {
+        let s = AppState(store: AccountStore(folder: folder), secrets: InMemorySecretStore())
+        state = s
+        return s
+    }
+
+    static func selfChecks() -> [String] {
+        // AWS's own "get-vanilla" test vector.
+        let signer = SigV4Signer(credentials: AWSCredentials(
+            accessKeyId: "AKIDEXAMPLE", secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"))
+        let req = signer.request(method: "GET", host: "example.amazonaws.com", encodedPath: "/", service: "service",
+                                 region: "us-east-1", date: Date(timeIntervalSince1970: 1_440_938_160),
+                                 includeContentHashHeader: false)
+        let sigv4 = req.value(forHTTPHeaderField: "Authorization")?
+            .hasSuffix("Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31") == true
+        let hcl = HclGenerator.quote("${file(\"/etc/passwd\")}%{if 1}") == #""$${file(\"/etc/passwd\")}%%{if 1}""#
+        let folder = URL(fileURLWithPath: "/tmp/atlas-downloads", isDirectory: true)
+        let s3 = ["..", ".", "a/..", "../../x", ""].allSatisfy {
+            S3Download.destination(forKey: $0, in: folder).deletingLastPathComponent().standardizedFileURL.path == folder.path
+        }
+        let ssm = (try? SsmService.commandScript(plugin: "/p", session: .init(sessionId: "s", streamUrl: "u", tokenValue: "'$(x)'"),
+                                                 region: "us-east-1", instanceId: "i-0123456789abcdef0"))
+            .map { $0.contains(#"'\''$(x)'\''"#) && !$0.contains("\"$(") } ?? false
+            && (try? SsmService.commandScript(plugin: "/p", session: .init(sessionId: "s", streamUrl: "u", tokenValue: "t"),
+                                              region: "us-east-1", instanceId: "i-1;rm -rf ~")) == nil
+        return [
+            "SigV4 reference signature: \(sigv4)",
+            "HCL strings cannot interpolate: \(hcl)",
+            "S3 downloads stay in the chosen folder: \(s3)",
+            "SSM script quotes every argument: \(ssm)",
+            "Secrets kept in memory only: \(state?.usesKeychain == false)",
+        ]
+    }
 }
 
 @main
 struct AtlasApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var state = SmokeTest.isEnabled
-        ? AppState(store: AccountStore(folder: SmokeTest.folder), secrets: InMemorySecretStore())
-        : AppState()
+    @StateObject private var state = SmokeTest.isEnabled ? SmokeTest.makeState() : AppState()
     @AppStorage("theme") private var theme: AppTheme = .system
 
     var body: some Scene {

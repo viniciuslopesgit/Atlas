@@ -4,7 +4,7 @@ import Testing
 
 /// A stand-in `terraform` executable: behavior depends on the first argument.
 private func fakeTerraform() throws -> (cli: TerraformCLI, dir: URL) {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("tf-\(UUID().uuidString)")
+    let dir = TestTemp.root.appendingPathComponent("tf-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let bin = dir.appendingPathComponent("terraform")
     try Data("""
@@ -94,7 +94,7 @@ struct TerraformCLITests {
     }
 
     @Test func missingBinaryIsReported() async {
-        let r = await TerraformCLI(binary: nil).run(["init"], in: FileManager.default.temporaryDirectory)
+        let r = await TerraformCLI(binary: nil).run(["init"], in: TestTemp.root)
         #expect(r.status == .notFound)
     }
 

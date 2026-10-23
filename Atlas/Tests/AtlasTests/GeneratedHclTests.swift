@@ -100,7 +100,7 @@ struct GeneratedHclTests {
     }
 
     @Test func splitterGroupsByServiceWithComments() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("split-\(UUID().uuidString)")
+        let dir = TestTemp.root.appendingPathComponent("split-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let gen = dir.appendingPathComponent("generated_resources.tf")
         try """
@@ -130,7 +130,7 @@ struct GeneratedHclTests {
     }
 
     @Test func envVarsBecomeSensitiveVariables() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("env-\(UUID().uuidString)")
+        let dir = TestTemp.root.appendingPathComponent("env-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try """
         resource "aws_lambda_function" "a" {
