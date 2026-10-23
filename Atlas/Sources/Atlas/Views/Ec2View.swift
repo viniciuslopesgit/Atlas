@@ -80,7 +80,11 @@ struct Ec2View: View {
             if let client = state.client {
                 LaunchInstanceSheet(service: Ec2Service(client: client)) { ids in
                     Task { await load() }
-                    _ = ids
+                    Task {
+                        if let message = await TerraformAware.record({ try await TerraformAware.instances(ids, client: client) }) {
+                            state.notice = message
+                        }
+                    }
                 }
             }
         }

@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, ec2, s3, iam, cloudWatch, guardDuty, securityAudit, billing, settings
+    case dashboard, ec2, s3, iam, cloudWatch, guardDuty, securityAudit, billing, iac, settings
 
     var id: String { rawValue }
 
@@ -16,7 +16,24 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .guardDuty: "GuardDuty"
         case .securityAudit: "Security Audit"
         case .billing: "Billing"
+        case .iac: "Infrastructure as Code"
         case .settings: "Accounts"
+        }
+    }
+
+    /// Extra words the ⌘K search matches for this page.
+    var keywords: [String] {
+        switch self {
+        case .dashboard: ["home", "overview", "costs", "summary"]
+        case .ec2: ["instances", "servers", "compute", "launch", "ssm", "connect"]
+        case .s3: ["buckets", "storage", "files", "objects", "upload"]
+        case .iam: ["users", "roles", "groups", "policies", "access keys", "permissions"]
+        case .cloudWatch: ["alarms", "metrics", "monitoring"]
+        case .guardDuty: ["guard", "threats", "findings", "detection"]
+        case .securityAudit: ["audit", "mfa", "password policy", "imds", "public"]
+        case .billing: ["costs", "spend", "invoice", "forecast"]
+        case .iac: ["terraform", "iac", "infrastructure", "code", "init", "plan", "apply", "import", "hcl"]
+        case .settings: ["settings", "config", "accounts", "preferences", "keys", "updates"]
         }
     }
 
@@ -30,6 +47,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .guardDuty: "shield.lefthalf.filled"
         case .securityAudit: "checkmark.shield"
         case .billing: "dollarsign.circle"
+        case .iac: "chevron.left.forwardslash.chevron.right"
         case .settings: "person.crop.circle.badge.plus"
         }
     }
@@ -54,6 +72,8 @@ final class AppState: ObservableObject {
     @Published var region: String = "us-east-1"
     @Published var page: Page? = .dashboard
     @Published var showSearch = false
+    /// A short confirmation shown at the bottom of the window (e.g. "Added to project: ec2.tf").
+    @Published var notice: String?
     /// Bumped to ask the visible page to reload.
     @Published var refreshToken = 0
 

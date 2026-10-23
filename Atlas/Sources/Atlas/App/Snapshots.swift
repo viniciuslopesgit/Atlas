@@ -11,6 +11,7 @@ enum Snapshots {
         let pages: [(String, AnyView)] = [
             ("dashboard", AnyView(DashboardBody(summary: fixture).padding(24).frame(width: 1100))),
             ("components", AnyView(components.padding(24).frame(width: 720))),
+            ("iac", AnyView(iac.padding(24).frame(width: 900))),
         ]
         for (name, view) in pages {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
@@ -48,6 +49,41 @@ enum Snapshots {
             }
             EmptyStateView(icon: "tray", title: "No buckets", message: "Create a bucket in the AWS console, then refresh.")
                 .frame(height: 200)
+        }
+    }
+
+    private static var iac: some View {
+        let output = [
+            "$ terraform plan -out=atlas.tfplan",
+            "aws_s3_bucket.logs: Refreshing state... [id=acme-logs]",
+            "",
+            "Terraform will perform the following actions:",
+            "",
+            "  # aws_instance.web_server will be updated in-place",
+            "  ~ resource \"aws_instance\" \"web_server\" {",
+            "      ~ tags = {",
+            "          + \"ManagedBy\" = \"Atlas\"",
+            "        }",
+            "    }",
+            "",
+            "  # aws_security_group.legacy will be destroyed",
+            "  - resource \"aws_security_group\" \"legacy\" {",
+            "",
+            "Plan: 0 to add, 1 to change, 1 to destroy.",
+            "Warning: Argument is deprecated",
+            "Finished in 6.4s",
+        ].enumerated().map { IaCModel.Line(id: $0.offset, text: $0.element) }
+        return VStack(alignment: .leading, spacing: 12) {
+            PageHeader(title: "acme-platform", subtitle: "~/Projects/acme-platform/infra") {
+                HStack(spacing: 8) {
+                    Badge(text: "Changes to apply", color: Palette.warning)
+                    Badge(text: "Terraform v1.9.8", color: Palette.neutral)
+                }
+            }
+            NoticeBanner(message: "Added 14 resource(s) to acme-platform: ec2.tf, security_groups.tf, imports.tf.")
+            TerminalLines(lines: output)
+                .background(Color(nsColor: .textBackgroundColor))
+                .card(radius: Radius.tile)
         }
     }
 

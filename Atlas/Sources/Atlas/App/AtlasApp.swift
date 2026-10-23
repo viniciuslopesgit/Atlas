@@ -64,9 +64,14 @@ struct AtlasApp: App {
                     .disabled(!Updater.isInstalled)
             }
             CommandMenu("Go") {
+                // ⌘1…⌘9 for the first nine pages; the rest are in the menu without a shortcut.
                 ForEach(Array(Page.allCases.enumerated()), id: \.element) { index, page in
-                    Button(page.title) { state.page = page }
-                        .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+                    if index < 9 {
+                        Button(page.title) { state.page = page }
+                            .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+                    } else {
+                        Button(page.title) { state.page = page }
+                    }
                 }
             }
         }

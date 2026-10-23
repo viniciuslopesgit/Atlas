@@ -92,6 +92,8 @@ struct Ec2InstanceHcl: Sendable {
     var rootVolumeGb = 20
     var rootVolumeType = "gp3"
     var deleteOnTermination = true
+    /// The instance's real Name tag; nil names it after the resource.
+    var nameTag: String?
     var tags: [HclTag] = []
 }
 
@@ -234,7 +236,7 @@ enum HclGenerator {
           }
 
           tags = {
-            Name      = \(quote(r))
+            Name      = \(quote(m.nameTag ?? r))
             ManagedBy = "Atlas"\(tagLines(m.tags))
           }
 
