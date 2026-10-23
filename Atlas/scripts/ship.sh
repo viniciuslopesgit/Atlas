@@ -33,9 +33,11 @@ BRANCH=$(git branch --show-current)
 [ -z "$(git ls-files --unmerged)" ] || { echo "✗ There are unresolved conflicts."; exit 1; }
 [ "$(git config core.hooksPath)" = ".githooks" ] || ./scripts/install-hooks.sh
 
+# The version is chosen on top of what CI already published (its release commits on origin/dev).
+./scripts/sync-dev.sh
+
 VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
 if [ $RELEASE = 1 ]; then
-    git fetch -q --tags origin 2>/dev/null || true
     if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
         APP_CHANGES=$(git -C "$REPO" diff --name-only "refs/tags/$VERSION" -- Atlas/Sources Atlas/Resources Atlas/Package.swift; \
                       git -C "$REPO" ls-files --others --exclude-standard -- Atlas/Sources Atlas/Resources)
