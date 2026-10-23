@@ -431,7 +431,7 @@ struct ImportFromAwsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Import from AWS").font(.title2.weight(.semibold))
+            Text("Import from AWS").font(Typo.pageTitle)
             Text("Find existing resources in \(region) and add them to \(targetName) as import blocks.")
                 .foregroundStyle(.secondary)
             if let analysis { results(analysis) } else { options }
@@ -465,7 +465,7 @@ struct ImportFromAwsSheet: View {
                                 Toggle(category.rawValue, isOn: Binding(
                                     get: { members.allSatisfy(types.contains) },
                                     set: { on in if on { types.formUnion(members) } else { types.subtract(members) } }))
-                                    .font(.callout.weight(.semibold))
+                                    .font(.callout.weight(.medium))
                                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), alignment: .leading)], alignment: .leading) {
                                     ForEach(members) { t in
                                         Toggle(t.title, isOn: Binding(get: { types.contains(t) },

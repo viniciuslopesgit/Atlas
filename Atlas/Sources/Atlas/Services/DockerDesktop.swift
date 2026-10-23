@@ -20,6 +20,8 @@ final class DockerDesktopInstaller: ObservableObject {
     nonisolated static let promptedKey = "dockerDesktopPrompted"
     /// Docker Inc's Developer ID team.
     nonisolated static let teamIdentifier = "9BNSXJN65R"
+    /// Docker.dmg is under 1 GB; anything past this is not the file we asked for.
+    nonisolated static let maxDownloadBytes: Int64 = 3_000_000_000
 
     nonisolated static var downloadURL: URL {
         #if arch(arm64)
@@ -88,9 +90,19 @@ final class DockerDesktopInstaller: ObservableObject {
             return .failure(Failure("The downloaded Docker Desktop is not signed by Docker Inc. Nothing was installed."))
         }
         phase = .installing
+        // Copied under a temporary name and renamed when complete: a failed copy never leaves a broken Docker.app.
         let destination = installedApp
+        let partial = applications.appendingPathComponent(".Docker.app.atlas-\(UUID().uuidString)")
         do {
-            try await Task.detached { try FileManager.default.copyItem(at: app, to: destination) }.value
+            try await Task.detached {
+                do {
+                    try FileManager.default.copyItem(at: app, to: partial)
+                    try FileManager.default.moveItem(at: partial, to: destination)
+                } catch {
+                    try? FileManager.default.removeItem(at: partial)
+                    throw error
+                }
+            }.value
             return .success(())
         } catch {
             return .failure(Failure("Could not copy Docker.app to \(applications.path) (an administrator account is needed). Install it from docker.com."))
@@ -103,7 +115,7 @@ final class DockerDesktopInstaller: ObservableObject {
     private func download(to file: URL) async throws {
         guard FileManager.default.createFile(atPath: file.path, contents: nil),
               let handle = try? FileHandle(forWritingTo: file) else { throw Failure("Could not write the download.") }
-        let sink = DownloadSink(handle: handle)
+        let sink = DownloadSink(handle: handle, limit: Self.maxDownloadBytes)
         let task = session.dataTask(with: Self.downloadURL)
         task.delegate = sink
         task.resume()
@@ -133,8 +145,16 @@ private final class DownloadSink: NSObject, URLSessionDataDelegate, @unchecked S
     private let handle: FileHandle
     private var expected: Int64 = 0, received: Int64 = 0
     private var outcome: Result<Void, Error>?
+    private let limit: Int64
 
-    init(handle: FileHandle) { self.handle = handle }
+    init(handle: FileHandle, limit: Int64) {
+        self.handle = handle
+        self.limit = limit
+    }
+
+    private var tooLarge: DockerDownloadError {
+        DockerDownloadError(message: "The download is larger than \(limit / 1_000_000_000) GB, which Docker.dmg never is. Nothing was installed.")
+    }
 
     var isFinished: Bool { lock.withLock { outcome != nil } }
     var result: Result<Void, Error>? { lock.withLock { outcome } }
@@ -150,12 +170,18 @@ private final class DownloadSink: NSObject, URLSessionDataDelegate, @unchecked S
             completionHandler(.cancel)
             return
         }
+        guard response.expectedContentLength <= limit else {
+            finish(.failure(tooLarge))
+            completionHandler(.cancel)
+            return
+        }
         lock.withLock { expected = response.expectedContentLength }
         completionHandler(.allow)
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         do {
+            guard lock.withLock({ received + Int64(data.count) }) <= limit else { throw tooLarge }
             try handle.write(contentsOf: data)
             lock.withLock { received += Int64(data.count) }
         } catch {

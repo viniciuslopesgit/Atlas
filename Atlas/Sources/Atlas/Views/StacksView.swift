@@ -141,7 +141,7 @@ private struct StackDetail: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(stack.name).font(.title2.weight(.semibold))
+                    Text(stack.name).font(Typo.pageTitle)
                     Text("\(stack.projectPath.replacingOccurrences(of: NSHomeDirectory(), with: "~")) · \(accountName) · \(stack.region)")
                         .font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
@@ -251,7 +251,7 @@ private struct DriftTab: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(stack.driftSummary ?? headline).font(.headline)
+                        Text(stack.driftSummary ?? headline).font(Typo.panelTitle)
                         Text(stack.lastDriftCheckAt.map { "Last checked \(Fmt.dt($0))" } ?? "Never checked")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -446,7 +446,7 @@ private struct NewStackSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("New Stack").font(.title2.weight(.semibold))
+            Text("New Stack").font(Typo.pageTitle)
             Form {
                 TextField("Name", text: $name, prompt: Text("production-network"))
                 LabeledContent("Folder") {

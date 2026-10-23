@@ -1,8 +1,9 @@
 # Atlas
 
-**Your AWS accounts in one native Mac app.**
+**Infrastructure management in one native Mac app.**
 
-The console spreads EC2, S3, IAM and costs across dozens of pages. Atlas brings them into one window — native on macOS, with your credentials stored in the Keychain on your Mac.
+Atlas is where you see, change and keep track of your cloud infrastructure: resources, costs, security and Infrastructure as Code in one window — native on macOS, with your credentials stored in the Keychain on your Mac.
+It supports **AWS** today; more providers will follow.
 
 - **Costs at a glance** — month to date, end-of-month forecast and the services that cost the most, on the Dashboard and in Billing by month.
 - **EC2 without tabs** — start, stop, reboot or terminate several instances at once, see every detail with metrics, and launch new ones with a wizard.

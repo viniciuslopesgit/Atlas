@@ -249,3 +249,31 @@ struct FeedbackTests {
         #expect(f.githubIssue().hasPrefix("## Suggestion: Dark mode & more\n\nLine one"))
     }
 }
+
+struct StackRunOutputTests {
+    @Test func outputIsCappedAndKeepsTheEnd() {
+        var run = StackRun(type: .apply, trigger: "manual")
+        let line = String(repeating: "x", count: 99)
+        for i in 0..<20_000 { run.append(["\(i) \(line)"]) }
+        #expect(run.output.utf8.count <= StackRun.maxOutputBytes)
+        #expect(run.output.hasPrefix(StackRun.trimmedNotice + "\n"))
+        #expect(run.output.hasSuffix("19999 \(line)"), "the newest output is kept")
+        let first = run.output.split(separator: "\n")[1]
+        #expect(first.hasSuffix(line) && first.first?.isNumber == true, "cut at a line break, never mid-line")
+    }
+
+    @Test func multibyteTextSurvivesTheCut() {
+        var run = StackRun(type: .plan, trigger: "manual")
+        for _ in 0..<40_000 { run.append(["ação ✔ 🚀"]) }
+        #expect(!run.output.contains("\u{FFFD}"))
+        #expect(run.output.hasSuffix("ação ✔ 🚀"))
+    }
+
+    @Test func linesAreJoinedInOrder() {
+        var run = StackRun(type: .plan, trigger: "manual")
+        run.append(["a", "b"])
+        run.append([])
+        run.append(["c"])
+        #expect(run.output == "a\nb\nc")
+    }
+}

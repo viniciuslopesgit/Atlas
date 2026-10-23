@@ -1,7 +1,4 @@
-- Implementar funcionalidade para edição das configurações do bucket selecionado
-- Sistema de notificação responsável por verificar se há alguma nova atualização:
-    . GuardDuty
-    . 
+
 
 1. Transferir site para cloudflare
 2. Passar upload que será usado para download para dentro do cloudflare storage

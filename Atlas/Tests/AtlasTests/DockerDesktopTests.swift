@@ -5,15 +5,16 @@ import Testing
 /// Answers the Docker.dmg download; its own statics, so it never races other suites over MockURLProtocol's handler.
 final class DockerDmgProtocol: URLProtocol {
     nonisolated(unsafe) static var status = 200
+    nonisolated(unsafe) static var contentLength = "9"
     nonisolated(unsafe) static var urls: [URL] = []
     static let lock = NSLock()
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        let status = Self.lock.withLock { Self.urls.append(request.url!); return Self.status }
+        let (status, length) = Self.lock.withLock { Self.urls.append(request.url!); return (Self.status, Self.contentLength) }
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
-                                                              headerFields: ["Content-Length": "9"])!,
+                                                              headerFields: ["Content-Length": length])!,
                             cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data("fake dmg\n".utf8))
         client?.urlProtocolDidFinishLoading(self)
@@ -28,7 +29,7 @@ struct DockerDesktopInstallerTests {
         var hdiutilLog: String { (try? String(contentsOf: root.appendingPathComponent("hdiutil.log"), encoding: .utf8)) ?? "" }
     }
 
-    private func setup(status: Int = 200) throws -> Setup {
+    private func setup(status: Int = 200, contentLength: String = "9", unreadableFile: Bool = false) throws -> Setup {
         let root = TestTemp.root.appendingPathComponent("docker-desktop-\(UUID().uuidString)", isDirectory: true)
         let applications = root.appendingPathComponent("Applications", isDirectory: true)
         let work = root.appendingPathComponent("work", isDirectory: true)
@@ -41,10 +42,13 @@ struct DockerDesktopInstallerTests {
         if [ "$1" = attach ]; then
           while [ $# -gt 0 ]; do [ "$1" = -mountpoint ] && mp="$2"; shift; done
           mkdir -p "$mp/Docker.app/Contents" && echo plist > "$mp/Docker.app/Contents/Info.plist"
+          \(unreadableFile ? #"echo x > "$mp/Docker.app/Contents/zz-unreadable" && chmod 000 "$mp/Docker.app/Contents/zz-unreadable""# : "")
         fi
         """.utf8).write(to: hdiutil)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hdiutil.path)
-        DockerDmgProtocol.lock.withLock { DockerDmgProtocol.status = status; DockerDmgProtocol.urls = [] }
+        DockerDmgProtocol.lock.withLock {
+            DockerDmgProtocol.status = status; DockerDmgProtocol.contentLength = contentLength; DockerDmgProtocol.urls = []
+        }
         return Setup(root: root, applications: applications, work: work, hdiutil: hdiutil)
     }
 
@@ -92,6 +96,27 @@ struct DockerDesktopInstallerTests {
         await i.install()
         guard case .failed(let m) = i.phase else { Issue.record("expected a failure"); return }
         #expect(m.contains("404"))
+        #expect(s.hdiutilLog.isEmpty)
+        #expect(try leftovers(s).isEmpty)
+    }
+
+    @Test @MainActor func aCopyThatFailsHalfwayLeavesNoDockerApp() async throws {
+        let s = try setup(unreadableFile: true)
+        let i = installer(s, signed: true)
+        await i.install()
+        guard case .failed(let m) = i.phase else { Issue.record("expected a failure, got \(i.phase)"); return }
+        #expect(m.contains("Could not copy"))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: s.applications.path).isEmpty,
+                "no Docker.app and no partial copy in Applications")
+        #expect(s.hdiutilLog.contains("detach -force"))
+    }
+
+    @Test @MainActor func anOversizedDownloadIsRefusedBeforeMounting() async throws {
+        let s = try setup(contentLength: "\(DockerDesktopInstaller.maxDownloadBytes + 1)")
+        let i = installer(s, signed: true)
+        await i.install()
+        guard case .failed(let m) = i.phase else { Issue.record("expected a failure, got \(i.phase)"); return }
+        #expect(m.contains("larger than"))
         #expect(s.hdiutilLog.isEmpty)
         #expect(try leftovers(s).isEmpty)
     }

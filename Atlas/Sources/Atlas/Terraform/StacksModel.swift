@@ -17,6 +17,9 @@ final class StacksModel: ObservableObject {
     private let clientFor: @MainActor (StackEntry) -> AWSClient?
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var timer: Timer?
+    /// Output lines waiting for the next screen update: one update per 0.1 s, not one per line.
+    private var pendingOutput: [UUID: [String]] = [:]
+    private var flushScheduled = false
     /// Runs on this Mac when there is no container runtime.
     private let makeCLI: (TerraformEngine) -> TerraformCLI
     private let locateRuntime: () -> ContainerRuntime?
@@ -172,11 +175,26 @@ final class StacksModel: ObservableObject {
     }
 
     private func append(_ line: String, to id: UUID) {
-        guard let i = stacks.firstIndex(where: { $0.id == id }), !stacks[i].runs.isEmpty else { return }
-        stacks[i].runs[0].output += (stacks[i].runs[0].output.isEmpty ? "" : "\n") + line
+        pendingOutput[id, default: []].append(line)
+        guard !flushScheduled else { return }
+        flushScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in MainActor.assumeIsolated { self?.flushOutput() } }
+    }
+
+    /// Moves the waiting lines into their runs, in one change of `stacks`.
+    func flushOutput() {
+        flushScheduled = false
+        guard !pendingOutput.isEmpty else { return }
+        let pending = pendingOutput
+        pendingOutput = [:]
+        for (id, lines) in pending {
+            guard let i = stacks.firstIndex(where: { $0.id == id }), !stacks[i].runs.isEmpty else { continue }
+            stacks[i].runs[0].append(lines)
+        }
     }
 
     private func finish(_ id: UUID, ok: Bool, cancelled: Bool) {
+        flushOutput()
         busy.remove(id)
         tasks[id] = nil
         update(id) { s in

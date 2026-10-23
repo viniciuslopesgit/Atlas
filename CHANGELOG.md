@@ -4,6 +4,13 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.5.1] - 2026-10-23
+
+Atlas 2.5.1 brings 1 fix.
+
+### Fixed
+- Long Stacks runs keep only their last 1 MB of output and redraw at most 10 times a second; a failed or oversized Docker Desktop install leaves nothing behind
+
 ## [2.5.0] - 2026-10-23
 
 Atlas 2.5.0 runs each Stack in its own isolated container. When Docker Desktop, OrbStack, Colima or Apple's
@@ -230,6 +237,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.5.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.1
 [2.5.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.0
 [2.4.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.4.1
 [2.4.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.4.0

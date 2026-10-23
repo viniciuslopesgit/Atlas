@@ -34,6 +34,20 @@ struct StackRun: Codable, Identifiable, Sendable {
 
     enum CodingKeys: String, CodingKey { case id, type, status, trigger, startedAt, completedAt }
 
+    /// Output kept per run; a long apply or import would otherwise grow it (and memory) without limit.
+    static let maxOutputBytes = 1_000_000
+    static let trimmedNotice = "… earlier output removed (only the last part of a long run is kept) …"
+
+    /// Appends lines; past `maxOutputBytes` keeps the last three quarters, cut at a line break.
+    mutating func append(_ lines: [String]) {
+        guard !lines.isEmpty else { return }
+        output += (output.isEmpty ? "" : "\n") + lines.joined(separator: "\n")
+        guard output.utf8.count > Self.maxOutputBytes else { return }
+        var tail = String(decoding: output.utf8.suffix(Self.maxOutputBytes * 3 / 4), as: UTF8.self)
+        if let nl = tail.firstIndex(of: "\n") { tail = String(tail[tail.index(after: nl)...]) }
+        output = Self.trimmedNotice + "\n" + tail
+    }
+
     var duration: TimeInterval? { completedAt.map { $0.timeIntervalSince(startedAt) } }
     var durationText: String {
         guard let d = duration else { return "running…" }
