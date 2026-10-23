@@ -59,21 +59,20 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// The sidebar's three menus. Only IaC shows a header; Accounts and Feedback live in the sidebar footer.
+/// The sidebar's three fixed menus. Resources opens a submenu to its right with its pages;
+/// Accounts and Feedback live in the sidebar footer.
 enum SidebarMenu: String, CaseIterable, Identifiable {
-    case dashboard, resources, iac
+    case dashboard, resources, stacks
 
     var id: String { rawValue }
-    /// Name in the Go menu.
-    var title: String { self == .iac ? "IaC" : rawValue.capitalized }
-    /// Header shown above the menu in the sidebar.
-    var header: String? { self == .iac ? title : nil }
+    var title: String { rawValue.capitalized }
+    var hasSubmenu: Bool { pages.count > 1 }
 
     var pages: [Page] {
         switch self {
-        case .dashboard: [.dashboard, .stacks]
-        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing]
-        case .iac: [.iac]
+        case .dashboard: [.dashboard]
+        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing, .iac]
+        case .stacks: [.stacks]
         }
     }
 }
@@ -100,7 +99,16 @@ enum AppTheme: String, CaseIterable, Identifiable {
 final class AppState: ObservableObject {
     @Published private(set) var accounts: [AwsAccount] = []
     @Published var region: String = "us-east-1"
-    @Published var page: Page? = .dashboard
+    @Published var page: Page? = .dashboard {
+        didSet { if let page, let menu = page.menu { lastPage[menu] = page } }
+    }
+    /// The page last opened in each sidebar menu, so Resources reopens where it was left.
+    private(set) var lastPage: [SidebarMenu: Page] = [:]
+
+    /// Opens a sidebar menu: its last page, or its first one.
+    func open(_ menu: SidebarMenu) {
+        if page?.menu != menu { page = lastPage[menu] ?? menu.pages[0] }
+    }
     @Published var showSearch = false
     /// A short confirmation shown at the bottom of the window (e.g. "Added to project: ec2.tf").
     @Published var notice: String?

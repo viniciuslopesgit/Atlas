@@ -5,15 +5,14 @@ struct MainView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $state.page) {
+            List(selection: Binding(get: { state.page?.menu }, set: { if let menu = $0 { state.open(menu) } })) {
                 ForEach(SidebarMenu.allCases) { menu in
-                    Section {
-                        ForEach(menu.pages) { page in
-                            Text(page.title).tag(page)
-                        }
-                    } header: {
-                        if let header = menu.header { Text(header) }
+                    HStack {
+                        Text(menu.title)
+                        Spacer()
+                        if menu.hasSubmenu { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
                     }
+                    .tag(menu)
                 }
             }
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
@@ -28,7 +27,15 @@ struct MainView: View {
                             .buttonStyle(.borderedProminent)
                     }
                 } else {
-                    page(state.page ?? .dashboard)
+                    HStack(spacing: 0) {
+                        if let menu = state.page?.menu, menu.hasSubmenu {
+                            Submenu(menu: menu)
+                                .transition(.move(edge: .leading).combined(with: .opacity))
+                            Divider()
+                        }
+                        page(state.page ?? .dashboard).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .animation(.easeOut(duration: 0.18), value: state.page?.menu)
                 }
             }
             .toolbar { MainToolbar() }
@@ -68,6 +75,21 @@ struct MainView: View {
         case .settings: SettingsView()
         case .feedback: FeedbackView()
         }
+    }
+}
+
+/// The pages of a sidebar menu, in a column to the right of the sidebar.
+private struct Submenu: View {
+    @EnvironmentObject private var state: AppState
+    let menu: SidebarMenu
+
+    var body: some View {
+        List(selection: $state.page) {
+            Section(menu.title) {
+                ForEach(menu.pages) { Text($0.title).tag($0) }
+            }
+        }
+        .frame(width: 190)
     }
 }
 
