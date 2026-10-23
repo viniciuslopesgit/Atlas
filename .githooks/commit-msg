@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Requires Conventional Commits — scripts/version.sh relies on them to compute the version.
+subject="$(head -n1 "$1")"
+pattern='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([a-z0-9._/-]+\))?!?: .+'
+if [[ "$subject" =~ $pattern ]] || [[ "$subject" =~ ^(Merge|Revert|fixup!|squash!) ]]; then
+  exit 0
+fi
+cat >&2 <<MSG
+✘ Commit message does not follow Conventional Commits:
+    $subject
+
+Use: <type>(optional scope): description
+  feat:  new feature        → minor version
+  fix:   bug fix            → patch version
+  feat!: or "BREAKING CHANGE:" in the body → major version
+  Other types: perf refactor docs test build ci chore style revert
+MSG
+exit 1
