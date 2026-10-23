@@ -61,7 +61,10 @@ struct S3View: View {
         }
         .sheet(isPresented: $showCreateBucket) {
             if let service {
-                CreateBucketSheet(service: service, defaultRegion: state.region) { Task { await loadBuckets() } }
+                CreateBucketSheet(service: service, defaultRegion: state.region) { options in
+                    Task { await loadBuckets() }
+                    Task { if let message = await TerraformAware.record({ [TerraformAware.bucket(options)] }) { state.notice = message } }
+                }
             }
         }
         .sheet(item: $editing) { object in
@@ -356,7 +359,7 @@ struct S3View: View {
 private struct CreateBucketSheet: View {
     let service: S3Service
     let defaultRegion: String
-    let onCreated: () -> Void
+    let onCreated: (CreateBucketOptions) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var o = CreateBucketOptions()
@@ -442,7 +445,7 @@ private struct CreateBucketSheet: View {
         defer { isCreating = false }
         do {
             try await service.createBucket(o)
-            onCreated()
+            onCreated(o)
             dismiss()
         } catch {
             self.error = error.localizedDescription

@@ -5,8 +5,10 @@ Native macOS app (Swift + SwiftUI) in `Atlas/`. Marketing site in `cloud-atlas.i
 ## Branch flow
 - All work goes to **`dev`**. Never commit or push directly to `main`.
 - `main` only receives promotions from `dev`, done by `.github/workflows/promote.yml`:
-  after **24h without new commits on dev** and with CI green, it fast-forwards `main`,
-  tags `X.Y.Z` and publishes the release.
+  after **24h without new commits on dev** and with CI green, it commits the new section of
+  `CHANGELOG.md`, fast-forwards `main` (and `dev`) to it, tags `X.Y.Z` and publishes the release.
+- CI runs on GitHub Actions (`ci.yml`): every push to dev publishes a pre-release `X.Y.Z-dev.N`.
+- Never edit `CHANGELOG.md`, tags or releases by hand: `Atlas/scripts/changelog.sh` generates them from commits.
 
 ## After every implementation (mandatory)
 1. `Atlas/scripts/test-isolated.sh --smoke` — build + tests + smoke test in an isolated environment (temporary copy, sandbox with no network). It must pass.

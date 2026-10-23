@@ -9,6 +9,7 @@ struct Ec2View: View {
     @State private var statusFilter = "all"
     @State private var isLoading = false
     @State private var error: String?
+    @State private var isConnecting = false
     @State private var pendingAction: InstanceAction?
     @State private var showLaunch = false
     @State private var sortOrder = [KeyPathComparator(\Ec2Instance.name)]
@@ -79,7 +80,11 @@ struct Ec2View: View {
             if let client = state.client {
                 LaunchInstanceSheet(service: Ec2Service(client: client)) { ids in
                     Task { await load() }
-                    _ = ids
+                    Task {
+                        if let message = await TerraformAware.record({ try await TerraformAware.instances(ids, client: client) }) {
+                            state.notice = message
+                        }
+                    }
                 }
             }
         }
@@ -118,6 +123,12 @@ struct Ec2View: View {
                 .padding(.horizontal, 10).padding(.vertical, 4)
                 .background(Palette.accent.opacity(0.15), in: Capsule())
             Spacer()
+            if selection.count == 1, let id = selection.first,
+               instances.first(where: { $0.instanceId == id })?.state == "running" {
+                Button { Task { await connectSsm(id) } } label: { Label("Connect", systemImage: "terminal") }
+                    .help("Open a shell through AWS Systems Manager in Terminal")
+                    .disabled(isConnecting)
+            }
             Button { pendingAction = .start } label: { Label("Start", systemImage: "play.fill") }
             Button { pendingAction = .stop } label: { Label("Stop", systemImage: "stop.fill") }
             Button { pendingAction = .reboot } label: { Label("Reboot", systemImage: "arrow.clockwise") }
@@ -126,6 +137,14 @@ struct Ec2View: View {
         }
         .padding(10)
         .card()
+    }
+
+    private func connectSsm(_ instanceId: String) async {
+        guard let client = state.client else { return }
+        isConnecting = true
+        defer { isConnecting = false }
+        do { try await SsmService(client: client).connect(instanceId: instanceId) }
+        catch { self.error = error.localizedDescription }
     }
 
     private func load() async {

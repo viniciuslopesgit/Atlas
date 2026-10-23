@@ -6,10 +6,12 @@ on:
     branches: [dev]
     paths:
       - 'Atlas/**'
+      - 'CHANGELOG.md'
       - '.github/workflows/ci.yml'
   pull_request:
     paths:
       - 'Atlas/**'
+      - 'CHANGELOG.md'
       - '.github/workflows/ci.yml'
   workflow_dispatch:
 
@@ -52,6 +54,9 @@ jobs:
           echo "version=$(scripts/version.sh --dev)" >> "$GITHUB_OUTPUT"
           echo "Version: $(scripts/version.sh --dev)"
 
+      - name: CHANGELOG covers every stable tag
+        run: scripts/changelog.sh --check
+
       - name: Build
         run: swift build
 
@@ -91,4 +96,6 @@ jobs:
             --title "Atlas $VERSION" \
             --notes "Development build of \`dev\` ($GITHUB_SHA). Becomes stable after 24h without new commits.
 
-          $(scripts/version.sh --notes)"
+          $(scripts/version.sh --notes)
+
+          Stable releases: [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/main/CHANGELOG.md)"

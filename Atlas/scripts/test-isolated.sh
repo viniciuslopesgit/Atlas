@@ -23,7 +23,7 @@ mkdir -p "$WORK/src" "$WORK/home" "$WORK/tmp"
 DEV=/Library/Developer/CommandLineTools/Library/Developer
 SWIFT_ARGS=(--package-path "$WORK/src/Atlas" --scratch-path "$WORK/build" --disable-sandbox)
 TEST_ARGS=()
-if [ -d "$DEV/Frameworks/Testing.framework" ] && ! xcode-select -p | grep -q Xcode.app; then
+if [ -d "$DEV/Frameworks/Testing.framework" ] && [ "$(xcode-select -p 2>/dev/null)" = /Library/Developer/CommandLineTools ]; then
   TEST_ARGS=(-Xswiftc -F"$DEV/Frameworks" -Xlinker -F"$DEV/Frameworks"
              -Xlinker -rpath -Xlinker "$DEV/Frameworks" -Xlinker -rpath -Xlinker "$DEV/usr/lib")
 fi
@@ -59,6 +59,9 @@ if ! run "${SANDBOX[@]}" swift build "${SWIFT_ARGS[@]}" > "$WORK/build.log" 2>&1
   echo "✘ Build failed"; quiet < "$WORK/build.log" | tail -40; exit 1
 fi
 quiet < "$WORK/build.log" | grep -E "error|warning:|Build complete" || true
+
+echo "▸ Updater self-test"
+run bash "$WORK/src/Atlas/scripts/updater.sh" --self-test
 
 echo "▸ Tests"
 run "${SANDBOX[@]}" swift test "${SWIFT_ARGS[@]}" ${TEST_ARGS[@]+"${TEST_ARGS[@]}"} \

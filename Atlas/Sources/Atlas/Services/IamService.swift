@@ -1,6 +1,6 @@
 import Foundation
 
-struct IamService {
+struct IamService: Sendable {
     let client: AWSClient
 
     private static func d(_ v: String) -> String { v.isEmpty ? "—" : v }

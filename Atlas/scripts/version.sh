@@ -6,6 +6,7 @@
 #   version.sh --dev      next version as a pre-release: X.Y.Z-dev.N
 #   version.sh --build    build number (total commit count)
 #   version.sh --notes    release notes since the last tag (Markdown)
+#   version.sh --notes A..B   release notes for a commit range (used by changelog.sh)
 #
 # Rules: "type!:" or "BREAKING CHANGE" → major · feat → minor · fix/perf → patch.
 # Commits of other types (docs, chore, ci…) produce a patch when there is no feat/fix.
@@ -83,6 +84,6 @@ case "${1:-}" in
     count="$(commits | wc -l | tr -d ' ')"
     if (( count == 0 )); then echo "$BASE"; else echo "$(next_version)-dev.$count"; fi ;;
   --build)  git rev-list --count HEAD ;;
-  --notes)  notes ;;
+  --notes)  [[ -n "${2:-}" ]] && RANGE="$2"; notes ;;
   *) echo "Usage: $0 [--next|--dev|--build|--notes]" >&2; exit 2 ;;
 esac

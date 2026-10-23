@@ -1,0 +1,331 @@
+import Foundation
+
+/// AWS credentials handed to terraform through the child process environment only.
+struct TerraformCredentials: Sendable {
+    var accessKeyId: String
+    var secretAccessKey: String
+    var region: String
+    var sessionToken: String?
+
+    init(accessKeyId: String, secretAccessKey: String, region: String, sessionToken: String? = nil) {
+        self.accessKeyId = accessKeyId
+        self.secretAccessKey = secretAccessKey
+        self.region = region
+        self.sessionToken = sessionToken
+    }
+
+    init(_ client: AWSClient) {
+        self.init(accessKeyId: client.credentials.accessKeyId, secretAccessKey: client.credentials.secretAccessKey,
+                  region: client.region)
+    }
+}
+
+struct TerraformResult: Sendable {
+    enum Status: Sendable { case success, planHasChanges, noChanges, failed, cancelled, timedOut, notFound }
+
+    var status: Status
+    var exitCode: Int32 = -1
+    var stdout = ""
+    var stderr = ""
+    var diagnostic = ""
+    var duration: TimeInterval = 0
+    var errors: [String] = []
+
+    var isSuccess: Bool { [.success, .planHasChanges, .noChanges].contains(status) }
+
+    /// stdout and stderr separated by a marker, for display.
+    var fullOutput: String {
+        if stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return stdout }
+        if stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return stderr }
+        return "\(stdout)\n─── stderr ───\n\(stderr)"
+    }
+
+    static let notFound = TerraformResult(
+        status: .notFound,
+        diagnostic: "Terraform is not installed. Install it with: brew install hashicorp/tap/terraform")
+}
+
+/// Runs the terraform CLI as a child process, streaming each output line as it arrives.
+/// Same behavior as Atlas 1.0.1's TerraformCliWrapper: no prompts, credentials only in the child env,
+/// exit code 2 of `plan -detailed-exitcode` is "changes", cancellation and timeout kill the process.
+struct TerraformCLI: Sendable {
+    /// Folders searched in addition to PATH: apps opened from Finder get a minimal PATH.
+    static let searchPaths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
+    /// Upper bound of captured text per stream; the live line callback still receives everything.
+    static let maxCapturedChars = 8 * 1024 * 1024
+
+    var binary: String?
+    var timeout: TimeInterval = 300
+
+    init(binary: String? = TerraformCLI.locate(), timeout: TimeInterval = 300) {
+        self.binary = binary
+        self.timeout = timeout
+    }
+
+    static func locate(environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        let path = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        return (path + searchPaths).map { "\($0)/terraform" }.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    // MARK: Commands
+
+    func version() async -> String? {
+        let r = await run(["version", "-json"], in: FileManager.default.temporaryDirectory, timeout: 10)
+        guard r.isSuccess else { return nil }
+        if let m = r.stdout.firstMatch(of: #/"terraform_version"\s*:\s*"([^"]+)"/#) { return "v\(m.1)" }
+        return r.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func initialize(_ dir: URL, upgrade: Bool = false, credentials: TerraformCredentials? = nil,
+                    onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        await run(["init", "-no-color"] + (upgrade ? ["-upgrade"] : []), in: dir, credentials: credentials, onLine: onLine)
+    }
+
+    func validate(_ dir: URL, onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        await run(["validate", "-no-color"], in: dir, onLine: onLine)
+    }
+
+    func plan(_ dir: URL, outFile: String? = nil, refreshOnly: Bool = false, credentials: TerraformCredentials? = nil,
+              tfVars: [String: String] = [:], onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        var args = ["plan", "-no-color", "-detailed-exitcode"]
+        if refreshOnly { args.append("-refresh-only") }
+        if let outFile { args.append("-out=\(outFile)") }
+        return Self.planStatus(await run(args, in: dir, credentials: credentials, tfVars: tfVars, onLine: onLine))
+    }
+
+    /// `plan -generate-config-out`: writes HCL for the resources referenced by import blocks.
+    func planGeneratingConfig(_ dir: URL, outFile: String, credentials: TerraformCredentials? = nil,
+                              tfVars: [String: String] = [:],
+                              onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        try? FileManager.default.removeItem(at: dir.appendingPathComponent(outFile))
+        return Self.planStatus(await run(["plan", "-no-color", "-generate-config-out=\(outFile)"], in: dir,
+                                         credentials: credentials, tfVars: tfVars, onLine: onLine))
+    }
+
+    func apply(_ dir: URL, planFile: String? = nil, credentials: TerraformCredentials? = nil,
+               tfVars: [String: String] = [:], onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        let args = ["apply", "-no-color"] + (planFile.map { [$0] } ?? ["-auto-approve"])
+        return await run(args, in: dir, credentials: credentials, tfVars: tfVars, onLine: onLine)
+    }
+
+    func importResource(_ dir: URL, address: String, id: String, credentials: TerraformCredentials? = nil,
+                        onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        await run(["import", "-no-color", address, id], in: dir, credentials: credentials, onLine: onLine)
+    }
+
+    func output(_ dir: URL, json: Bool = false, onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        await run(["output", "-no-color"] + (json ? ["-json"] : []), in: dir, onLine: onLine)
+    }
+
+    static func planStatus(_ r: TerraformResult) -> TerraformResult {
+        var r = r
+        if r.exitCode == 2 {
+            r.status = .planHasChanges
+            r.diagnostic = "Plan finished with pending changes."
+        } else if r.exitCode == 0 && r.status == .success {
+            r.status = .noChanges
+        }
+        return r
+    }
+
+    // MARK: Process
+
+    /// Environment of the child: the app's own, plus automation flags, credentials and TF_VAR_*.
+    static func environment(base: [String: String], credentials: TerraformCredentials?,
+                            tfVars: [String: String]) -> [String: String] {
+        var env = base
+        env["PATH"] = ((env["PATH"].map { [$0] } ?? []) + searchPaths).joined(separator: ":")
+        env["TF_IN_AUTOMATION"] = "1"
+        env["TF_INPUT"] = "0"
+        if let c = credentials {
+            env["AWS_ACCESS_KEY_ID"] = c.accessKeyId
+            env["AWS_SECRET_ACCESS_KEY"] = c.secretAccessKey
+            env["AWS_REGION"] = c.region
+            env["AWS_DEFAULT_REGION"] = c.region
+            if let t = c.sessionToken { env["AWS_SESSION_TOKEN"] = t } else { env.removeValue(forKey: "AWS_SESSION_TOKEN") }
+            env.removeValue(forKey: "AWS_PROFILE")
+        }
+        for (k, v) in tfVars { env["TF_VAR_\(k)"] = v }
+        return env
+    }
+
+    func run(_ args: [String], in dir: URL, credentials: TerraformCredentials? = nil, tfVars: [String: String] = [:],
+             timeout: TimeInterval? = nil, onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
+        guard let binary, FileManager.default.isExecutableFile(atPath: binary) else { return .notFound }
+        let started = Date()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: binary)
+        process.arguments = args
+        process.currentDirectoryURL = dir
+        process.environment = Self.environment(base: ProcessInfo.processInfo.environment,
+                                               credentials: credentials, tfVars: tfVars)
+        let out = Pipe(), err = Pipe()
+        process.standardOutput = out
+        process.standardError = err
+        process.standardInput = FileHandle.nullDevice
+
+        let stdout = LineCollector(onLine: onLine), stderr = LineCollector(onLine: onLine)
+        out.fileHandleForReading.readabilityHandler = { stdout.feed($0.availableData) }
+        err.fileHandleForReading.readabilityHandler = { stderr.feed($0.availableData) }
+
+        let outcome = Outcome()
+        let exited: Int32 = await withTaskCancellationHandler {
+            await withCheckedContinuation { (done: CheckedContinuation<Int32, Never>) in
+                process.terminationHandler = { done.resume(returning: $0.terminationStatus) }
+                do { try process.run() } catch {
+                    outcome.set(.failed(error.localizedDescription))
+                    process.terminationHandler = nil
+                    done.resume(returning: -1)
+                    return
+                }
+                let limit = timeout ?? self.timeout
+                DispatchQueue.global().asyncAfter(deadline: .now() + limit) {
+                    guard process.isRunning else { return }
+                    outcome.set(.timedOut)
+                    Self.stop(process)
+                }
+            }
+        } onCancel: {
+            outcome.set(.cancelled)
+            Self.stop(process)
+        }
+
+        // Drain whatever is left in the pipes after the process ended.
+        out.fileHandleForReading.readabilityHandler = nil
+        err.fileHandleForReading.readabilityHandler = nil
+        stdout.feed(out.fileHandleForReading.readDataToEndOfFile())
+        stderr.feed(err.fileHandleForReading.readDataToEndOfFile())
+        stdout.finish(); stderr.finish()
+
+        let elapsed = Date().timeIntervalSince(started)
+        switch outcome.value {
+        case .cancelled: return TerraformResult(status: .cancelled, diagnostic: "Cancelled.", duration: elapsed)
+        case .timedOut: return TerraformResult(status: .timedOut, diagnostic: "Timed out after \(Int(elapsed))s.", duration: elapsed)
+        case .failed(let message): return TerraformResult(status: .failed, diagnostic: message, duration: elapsed)
+        case nil: break
+        }
+        return Self.result(exitCode: exited, stdout: stdout.text, stderr: stderr.text, duration: elapsed)
+    }
+
+    static func result(exitCode: Int32, stdout: String, stderr: String, duration: TimeInterval) -> TerraformResult {
+        let errors = TerraformDiagnostics.errors(stdout: stdout, stderr: stderr)
+        var r = TerraformResult(status: exitCode == 0 ? .success : .failed, exitCode: exitCode, stdout: stdout,
+                                stderr: stderr, duration: duration, errors: errors)
+        if exitCode != 0 { r.diagnostic = TerraformDiagnostics.message(exitCode: exitCode, stdout: stdout, stderr: stderr, errors: errors) }
+        return r
+    }
+
+    /// SIGTERM first so terraform can release state locks, SIGKILL if it is still running after 5s.
+    private static func stop(_ process: Process) {
+        guard process.isRunning else { return }
+        process.terminate()
+        let pid = process.processIdentifier
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { if process.isRunning { kill(pid, SIGKILL) } }
+    }
+}
+
+/// How a run ended when it did not end on its own.
+private final class Outcome: @unchecked Sendable {
+    enum Kind { case cancelled, timedOut, failed(String) }
+    private let lock = NSLock()
+    private var kind: Kind?
+    var value: Kind? { lock.withLock { kind } }
+    func set(_ k: Kind) { lock.withLock { if kind == nil { kind = k } } }
+}
+
+/// Splits a byte stream into lines, forwards each one and keeps a bounded copy.
+private final class LineCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private let onLine: @Sendable (String) -> Void
+    private var pending = Data()
+    private var captured = ""
+    private var capped = false
+
+    init(onLine: @escaping @Sendable (String) -> Void) { self.onLine = onLine }
+
+    var text: String { lock.withLock { captured } }
+
+    func feed(_ data: Data) {
+        guard !data.isEmpty else { return }
+        let lines: [String] = lock.withLock {
+            pending.append(data)
+            var out: [String] = []
+            while let nl = pending.firstIndex(of: 0x0A) {
+                out.append(String(decoding: pending[pending.startIndex..<nl], as: UTF8.self))
+                pending.removeSubrange(pending.startIndex...nl)
+            }
+            out.forEach(capture)
+            return out
+        }
+        lines.forEach(onLine)
+    }
+
+    func finish() {
+        let rest: String? = lock.withLock {
+            guard !pending.isEmpty else { return nil }
+            let s = String(decoding: pending, as: UTF8.self)
+            pending.removeAll()
+            capture(s)
+            return s
+        }
+        if let rest { onLine(rest) }
+    }
+
+    private func capture(_ line: String) {
+        if captured.utf8.count < TerraformCLI.maxCapturedChars {
+            captured += line + "\n"
+        } else if !capped {
+            capped = true
+            captured += "… [output truncated by Atlas to limit memory] …\n"
+        }
+    }
+}
+
+/// Error extraction and friendly messages for terraform output (ported from Atlas 1.0.1).
+enum TerraformDiagnostics {
+    /// Terraform 1.x `╷ … ╵` diagnostic blocks that contain an error, or legacy `Error:` lines.
+    static func errors(stdout: String, stderr: String) -> [String] {
+        let combined = stdout + "\n" + stderr
+        let blocks = combined.matches(of: #/(?s)╷(.*?)╵/#).map { String($0.1) }
+        if !blocks.isEmpty {
+            return blocks
+                .map { $0.replacingOccurrences(of: "│ ", with: "").replacingOccurrences(of: "│", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { $0.localizedCaseInsensitiveContains("Error:") }
+        }
+        return combined.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.lowercased().hasPrefix("error:") }
+    }
+
+    static func message(exitCode: Int32, stdout: String, stderr: String, errors: [String]) -> String {
+        let text = (stdout + " " + stderr).lowercased()
+        func any(_ keys: String...) -> Bool { keys.contains { text.contains($0) } }
+        if any("nocredentialproviders", "invalidclienttokenid", "authfailure", "aws_access_key_id", "no credential",
+               "token has expired", "expiredtokenexception", "invaliduserexception") {
+            return "The AWS credentials are invalid or expired. Check the account's access key in Accounts."
+        }
+        if any("error acquiring the state lock", "state lock", "lockid") {
+            return "The Terraform state is locked by another process. Use 'terraform force-unlock' if that process is gone."
+        }
+        if any("has not been initialized", "backend initialization") {
+            return "The backend is not initialized. Run init first."
+        }
+        if any("no terraform files", "no configuration files") {
+            return "There are no .tf files in this folder. Check the project path."
+        }
+        if any("could not find plugin", "provider registry", "failed to query available provider packages") {
+            return "A provider could not be found. Run init to download the providers."
+        }
+        if any("accessdenied", "unauthorized", "forbidden") {
+            return "Access denied: the AWS user lacks the permissions this operation needs."
+        }
+        if any("inconsistent result after apply") {
+            return "The state became inconsistent after apply. Check the affected resources manually."
+        }
+        if any("argument or block definition required", "invalid expression", "syntax error") {
+            return "The Terraform code has a syntax error. Run validate for details."
+        }
+        if let first = errors.first { return first.count > 200 ? String(first.prefix(200)) + "…" : first }
+        return "terraform exited with code \(exitCode). See the output for details."
+    }
+}

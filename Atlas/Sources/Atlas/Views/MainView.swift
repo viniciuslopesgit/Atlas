@@ -8,7 +8,8 @@ struct MainView: View {
         ("Compute & Storage", [.ec2, .s3]),
         ("Security", [.iam, .guardDuty, .securityAudit]),
         ("Monitoring", [.cloudWatch, .billing]),
-        ("Settings", [.settings]),
+        ("Infrastructure", [.iac, .stacks]),
+        ("Settings", [.settings, .feedback]),
     ]
 
     var body: some View {
@@ -26,7 +27,7 @@ struct MainView: View {
             .safeAreaInset(edge: .bottom) { AccountFooter() }
         } detail: {
             Group {
-                if state.activeAccount == nil && state.page != .settings {
+                if state.activeAccount == nil && state.page != .settings && state.page != .feedback {
                     EmptyStateView(icon: "person.crop.circle.badge.questionmark",
                                    title: "No AWS account configured",
                                    message: "Add an account to start managing your AWS resources.") {
@@ -38,8 +39,24 @@ struct MainView: View {
                 }
             }
             .toolbar { MainToolbar() }
+            .overlay(alignment: .bottom) {
+                if let notice = state.notice {
+                    NoticeBanner(message: notice) { state.notice = nil }
+                        .frame(maxWidth: 560)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.tile))
+                        .padding(16)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .task(id: notice) {
+                            try? await Task.sleep(nanoseconds: 8_000_000_000)
+                            if state.notice == notice { withAnimation { state.notice = nil } }
+                        }
+                }
+            }
+            .animation(.easeOut(duration: 0.2), value: state.notice)
         }
         .sheet(isPresented: $state.showSearch) { SearchSheet() }
+        .environmentObject(state.stacks)
+        .onAppear { state.stacks.startScheduler() }
     }
 
     @ViewBuilder
@@ -53,7 +70,10 @@ struct MainView: View {
         case .guardDuty: GuardDutyView()
         case .securityAudit: SecurityAuditView()
         case .billing: BillingView()
+        case .iac: IaCView()
+        case .stacks: StacksView()
         case .settings: SettingsView()
+        case .feedback: FeedbackView()
         }
     }
 }

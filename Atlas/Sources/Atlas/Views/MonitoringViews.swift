@@ -335,7 +335,19 @@ struct SearchSheet: View {
             }
             .padding(14)
             Divider()
-            List(results) { r in
+            List {
+                if !pageMatches.isEmpty {
+                    Section("Pages") {
+                        ForEach(pageMatches) { page in
+                            Button { state.page = page; dismiss() } label: {
+                                Label(page.title, systemImage: page.icon).frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                Section(results.isEmpty ? "" : "Resources") {
+                ForEach(results) { r in
                 Button {
                     state.page = switch r.kind {
                     case .ec2: .ec2
@@ -354,9 +366,11 @@ struct SearchSheet: View {
                     }
                 }
                 .buttonStyle(.plain)
+                }
+                }
             }
             .overlay {
-                if results.isEmpty && !isSearching {
+                if results.isEmpty && pageMatches.isEmpty && !isSearching {
                     Text(query.isEmpty ? "Type and press Return to search the active account." : "No results")
                         .foregroundStyle(.secondary)
                 }
@@ -370,6 +384,15 @@ struct SearchSheet: View {
             .padding(10)
         }
         .frame(width: 620, height: 440)
+    }
+
+    /// Pages whose title or keywords match, shown while typing.
+    private var pageMatches: [Page] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return [] }
+        return Page.allCases.filter { p in
+            p.title.localizedCaseInsensitiveContains(q) || p.keywords.contains { $0.localizedCaseInsensitiveContains(q) }
+        }
     }
 
     private func search() async {

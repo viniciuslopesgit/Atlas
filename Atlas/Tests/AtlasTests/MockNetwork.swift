@@ -16,14 +16,18 @@ final class MockURLProtocol: URLProtocol {
 
     nonisolated(unsafe) static var handler: ((URLRequest, Data) -> Response)?
     nonisolated(unsafe) static var requests: [(request: URLRequest, body: Data)] = []
+    /// Services may send requests concurrently; the recorded list and the handler are guarded by this lock.
+    static let lock = NSLock()
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         let body = request.httpBody ?? Self.read(request.httpBodyStream)
-        Self.requests.append((request, body))
-        let r = Self.handler?(request, body) ?? Response(status: 500, body: "no handler")
+        let r: Response = Self.lock.withLock {
+            Self.requests.append((request, body))
+            return Self.handler?(request, body) ?? Response(status: 500, body: "no handler")
+        }
         let http = HTTPURLResponse(url: request.url!, statusCode: r.status, httpVersion: "HTTP/1.1", headerFields: r.headers)!
         client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: r.body)

@@ -12,23 +12,42 @@ struct IamView: View {
     @State private var roles: [IamRole] = []
     @State private var groups: [IamGroup] = []
     @State private var policies: [IamPolicy] = []
-    @State private var selectedUser: String?
-    @State private var selectedRole: String?
-    @State private var selectedGroup: String?
-    @State private var selectedPolicy: String?
+    @State private var selectedUsers: Set<String> = []
+    @State private var selectedRoles: Set<String> = []
+    @State private var selectedGroups: Set<String> = []
+    @State private var selectedPolicys: Set<String> = []
     @State private var search = ""
     @State private var isLoading = false
     @State private var error: String?
+    @State private var showCreateUser = false
+    @State private var pendingDelete: Set<String>?
+    @State private var isDeleting = false
 
     private func matches(_ s: String) -> Bool { search.isEmpty || s.localizedCaseInsensitiveContains(search) }
 
-    private var hasSelection: Bool {
+    private var selection: Set<String> {
         switch tab {
-        case .users: selectedUser != nil
-        case .roles: selectedRole != nil
-        case .groups: selectedGroup != nil
-        case .policies: selectedPolicy != nil
+        case .users: selectedUsers
+        case .roles: selectedRoles
+        case .groups: selectedGroups
+        case .policies: selectedPolicys
         }
+    }
+
+    private var hasSelection: Bool { selection.count == 1 }
+
+    /// Singular noun for the current tab, for buttons and confirmations.
+    private var noun: String {
+        switch tab {
+        case .users: "user"
+        case .roles: "role"
+        case .groups: "group"
+        case .policies: "policy"
+        }
+    }
+
+    private func label(_ id: String) -> String {
+        tab == .policies ? (policies.first { $0.arn == id }?.policyName ?? id) : id
     }
 
     var body: some View {
@@ -40,7 +59,21 @@ struct IamView: View {
                 .pickerStyle(.segmented)
                 .frame(width: 340)
             }
-            TextField("Search \(tab.rawValue.lowercased())", text: $search).textFieldStyle(.roundedBorder).frame(maxWidth: 360)
+            HStack {
+                TextField("Search \(tab.rawValue.lowercased())", text: $search).textFieldStyle(.roundedBorder).frame(maxWidth: 360)
+                Spacer()
+                if !selection.isEmpty {
+                    Button(role: .destructive) { pendingDelete = selection } label: {
+                        Label(selection.count == 1 ? "Delete \(noun)" : "Delete \(selection.count) \(tab.rawValue.lowercased())",
+                              systemImage: "trash")
+                    }
+                    .disabled(isDeleting)
+                }
+                if tab == .users {
+                    Button { showCreateUser = true } label: { Label("Create User…", systemImage: "person.badge.plus") }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
             if let error { ErrorBanner(message: error) { self.error = nil } }
 
             Group {
@@ -56,10 +89,56 @@ struct IamView: View {
         .padding(24)
         .inspector(isPresented: .constant(hasSelection)) { inspector.inspectorColumnWidth(min: 320, ideal: 380, max: 520) }
         .task(id: "\(state.sessionKey)|\(tab)") { await load() }
+        .sheet(isPresented: $showCreateUser) {
+            if let client = state.client {
+                CreateUserSheet(service: IamService(client: client), users: users.map(\.userName)) { Task { await load() } }
+            }
+        }
+        .confirmationDialog(deleteTitle, isPresented: Binding(present: $pendingDelete), presenting: pendingDelete) { ids in
+            Button("Delete", role: .destructive) { Task { await delete(ids) } }
+        } message: { ids in
+            Text(ids.map(label).sorted().joined(separator: "\n")
+                 + "\n\nAttached policies, group memberships, keys and other dependencies are removed first. This cannot be undone.")
+        }
+    }
+
+    private var deleteTitle: String {
+        let n = pendingDelete?.count ?? 0
+        return n == 1 ? "Delete this \(noun)?" : "Delete \(n) \(tab.rawValue.lowercased())?"
+    }
+
+    private func delete(_ ids: Set<String>) async {
+        guard let client = state.client else { return }
+        let svc = IamService(client: client)
+        let tab = tab
+        isDeleting = true
+        defer { isDeleting = false }
+        var failures: [String] = []
+        await withTaskGroup(of: String?.self) { group in
+            for id in ids {
+                group.addTask {
+                    do {
+                        switch tab {
+                        case .users: try await svc.deleteUser(id)
+                        case .roles: try await svc.deleteRole(id)
+                        case .groups: try await svc.deleteGroup(id)
+                        case .policies: try await svc.deletePolicy(id)
+                        }
+                        return nil
+                    } catch {
+                        return "\(id): \(error.localizedDescription)"
+                    }
+                }
+            }
+            for await f in group { if let f { failures.append(f) } }
+        }
+        error = failures.isEmpty ? nil : failures.joined(separator: "\n")
+        selectedUsers = []; selectedRoles = []; selectedGroups = []; selectedPolicys = []
+        await load()
     }
 
     private var usersTable: some View {
-        Table(users.filter { matches($0.userName) }, selection: $selectedUser) {
+        Table(users.filter { matches($0.userName) }, selection: $selectedUsers) {
             TableColumn("User name", value: \.userName)
             TableColumn("Path", value: \.path).width(80)
             TableColumn("Created") { Text(Fmt.day($0.createDate)) }.width(120)
@@ -68,7 +147,7 @@ struct IamView: View {
     }
 
     private var rolesTable: some View {
-        Table(roles.filter { matches($0.roleName) }, selection: $selectedRole) {
+        Table(roles.filter { matches($0.roleName) }, selection: $selectedRoles) {
             TableColumn("Role name", value: \.roleName)
             TableColumn("Trusted entities", value: \.trustedEntities)
             TableColumn("Created") { Text(Fmt.day($0.createDate)) }.width(120)
@@ -76,7 +155,7 @@ struct IamView: View {
     }
 
     private var groupsTable: some View {
-        Table(groups.filter { matches($0.groupName) }, selection: $selectedGroup) {
+        Table(groups.filter { matches($0.groupName) }, selection: $selectedGroups) {
             TableColumn("Group name", value: \.groupName)
             TableColumn("Path", value: \.path).width(100)
             TableColumn("Created") { Text(Fmt.day($0.createDate)) }.width(120)
@@ -84,7 +163,7 @@ struct IamView: View {
     }
 
     private var policiesTable: some View {
-        Table(policies.filter { matches($0.policyName) }, selection: $selectedPolicy) {
+        Table(policies.filter { matches($0.policyName) }, selection: $selectedPolicys) {
             TableColumn("Policy name", value: \.policyName)
             TableColumn("Attachments") { Text("\($0.attachmentCount)") }.width(90)
             TableColumn("Description", value: \.description)
@@ -98,15 +177,22 @@ struct IamView: View {
             let service = IamService(client: client)
             switch tab {
             case .users:
-                if let u = users.first(where: { $0.id == selectedUser }) { UserDetail(user: u, service: service) }
+                if let u = users.first(where: { selectedUsers == [$0.id] }) {
+                    UserDetail(user: u, service: service, allGroups: groups) { Task { await loadGroupsIfNeeded() } }
+                }
             case .roles:
-                if let r = roles.first(where: { $0.id == selectedRole }) { RoleDetail(role: r, service: service) }
+                if let r = roles.first(where: { [$0.id] == selectedRoles }) { RoleDetail(role: r, service: service) }
             case .groups:
-                if let g = groups.first(where: { $0.id == selectedGroup }) { GroupDetail(group: g, service: service) }
+                if let g = groups.first(where: { selectedGroups == [$0.id] }) { GroupDetail(group: g, service: service) }
             case .policies:
-                if let p = policies.first(where: { $0.id == selectedPolicy }) { PolicyDetail(policy: p, service: service) }
+                if let p = policies.first(where: { selectedPolicys == [$0.id] }) { PolicyDetail(policy: p, service: service) }
             }
         }
+    }
+
+    private func loadGroupsIfNeeded() async {
+        guard groups.isEmpty, let client = state.client else { return }
+        groups = (try? await IamService(client: client).groups()) ?? []
     }
 
     private func load() async {
@@ -133,7 +219,11 @@ struct IamView: View {
 private struct UserDetail: View {
     let user: IamUser
     let service: IamService
+    let allGroups: [IamGroup]
+    let needGroups: () -> Void
     @State private var detail: IamUserDetail?
+    @State private var showAttach = false
+    @State private var showTags = false
     @State private var newKey: (id: String, secret: String)?
     @State private var pendingKeyDelete: String?
     @State private var error: String?
@@ -151,10 +241,31 @@ private struct UserDetail: View {
                 if let error { ErrorBanner(message: error) { self.error = nil } }
 
                 if let d = detail {
-                    SectionHeader("Groups (\(d.groups.count))")
-                    list(d.groups)
-                    SectionHeader("Attached policies (\(d.attachedPolicies.count))")
-                    list(d.attachedPolicies.map(\.name))
+                    HStack {
+                        SectionHeader("Groups (\(d.groups.count))")
+                        Spacer()
+                        Menu("Add to Group") {
+                            let available = allGroups.map(\.groupName).filter { !d.groups.contains($0) }
+                            if available.isEmpty { Text("No other groups") }
+                            ForEach(available, id: \.self) { g in
+                                Button(g) { Task { await run { try await service.addUserToGroup(user.userName, g) } } }
+                            }
+                        }
+                        .menuStyle(.borderlessButton).fixedSize().controlSize(.small)
+                        .onAppear(perform: needGroups)
+                    }
+                    removableList(d.groups) { g in try await service.removeUserFromGroup(user.userName, g) }
+
+                    HStack {
+                        SectionHeader("Attached policies (\(d.attachedPolicies.count))")
+                        Spacer()
+                        Button("Attach Policy…") { showAttach = true }.controlSize(.small)
+                    }
+                    removableList(d.attachedPolicies.map(\.name)) { name in
+                        if let arn = d.attachedPolicies.first(where: { $0.name == name })?.arn {
+                            try await service.detachUserPolicy(user.userName, arn)
+                        }
+                    }
                     SectionHeader("Inline policies (\(d.inlinePolicies.count))")
                     list(d.inlinePolicies)
 
@@ -167,10 +278,13 @@ private struct UserDetail: View {
                     }
                     ForEach(d.accessKeys) { key in accessKeyRow(key) }
 
-                    if !d.tags.isEmpty {
-                        SectionHeader("Tags")
-                        ForEach(d.tags, id: \.key) { DetailRow($0.key, $0.value) }
+                    HStack {
+                        SectionHeader("Tags (\(d.tags.count))")
+                        Spacer()
+                        Button("Edit Tags…") { showTags = true }.controlSize(.small)
                     }
+                    if d.tags.isEmpty { Text("None").foregroundStyle(.secondary).font(.callout) }
+                    ForEach(d.tags, id: \.key) { DetailRow($0.key, $0.value) }
                 } else {
                     ProgressView().frame(maxWidth: .infinity)
                 }
@@ -178,6 +292,17 @@ private struct UserDetail: View {
             .padding(16)
         }
         .task(id: user.id) { detail = nil; detail = await service.userDetail(user.userName) }
+        .sheet(isPresented: $showAttach) {
+            AttachPolicySheet(service: service, attached: Set(detail?.attachedPolicies.map(\.arn) ?? [])) { arns in
+                Task { await run { for arn in arns { try await service.attachUserPolicy(user.userName, arn) } } }
+            }
+        }
+        .sheet(isPresented: $showTags) {
+            TagEditorSheet(tags: detail?.tags ?? []) { new in
+                let old = detail?.tags.map(\.key) ?? []
+                Task { await run { try await service.setUserTags(user.userName, old: old, new: new) } }
+            }
+        }
         .alert("Access key created", isPresented: Binding(present: Binding(
             get: { newKey.map { $0.id } }, set: { if $0 == nil { newKey = nil } }))) {
             Button("Copy Secret") { copy(newKey?.secret ?? "") }
@@ -211,6 +336,21 @@ private struct UserDetail: View {
         }
         .padding(8)
         .card()
+    }
+
+    /// A list where each row has a remove button that runs `remove` and reloads the detail.
+    private func removableList(_ items: [String], remove: @escaping (String) async throws -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if items.isEmpty { Text("None").foregroundStyle(.secondary).font(.callout) }
+            ForEach(items, id: \.self) { item in
+                HStack {
+                    Text(item).font(.callout).textSelection(.enabled)
+                    Spacer()
+                    Button { Task { await run { try await remove(item) } } } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).foregroundStyle(.secondary).help("Remove")
+                }
+            }
+        }
     }
 
     private func list(_ items: [String]) -> some View {
