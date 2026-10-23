@@ -91,7 +91,7 @@ struct IamView: View {
         .task(id: "\(state.sessionKey)|\(tab)") { await load() }
         .sheet(isPresented: $showCreateUser) {
             if let client = state.client {
-                CreateUserSheet(service: IamService(client: client), users: users.map(\.userName)) { Task { await load() } }
+                CreateUserSheet(service: IamService(client: client), users: users.map(\.userName)) { Task { await load(force: true) } }
             }
         }
         .confirmationDialog(deleteTitle, isPresented: Binding(present: $pendingDelete), presenting: pendingDelete) { ids in
@@ -134,7 +134,7 @@ struct IamView: View {
         }
         error = failures.isEmpty ? nil : failures.joined(separator: "\n")
         selectedUsers = []; selectedRoles = []; selectedGroups = []; selectedPolicys = []
-        await load()
+        await load(force: true)
     }
 
     private var usersTable: some View {
@@ -195,17 +195,17 @@ struct IamView: View {
         groups = (try? await IamService(client: client).groups()) ?? []
     }
 
-    private func load() async {
+    private func load(force: Bool = false) async {
         guard let client = state.client else { return }
         let svc = IamService(client: client)
         isLoading = true
         defer { isLoading = false }
         do {
             switch tab {
-            case .users: users = try await svc.users()
-            case .roles: roles = try await svc.roles()
-            case .groups: groups = try await svc.groups()
-            case .policies: policies = try await svc.policies()
+            case .users: try await state.cached("iam.users", force: force, show: { users = $0 }) { try await svc.users() }
+            case .roles: try await state.cached("iam.roles", force: force, show: { roles = $0 }) { try await svc.roles() }
+            case .groups: try await state.cached("iam.groups", force: force, show: { groups = $0 }) { try await svc.groups() }
+            case .policies: try await state.cached("iam.policies", force: force, show: { policies = $0 }) { try await svc.policies() }
             }
             error = nil
         } catch {

@@ -12,6 +12,8 @@ final class StacksModel: ObservableObject {
     @Published private(set) var stacks: [StackEntry] = []
     /// Stacks with a terraform process running: one at a time per stack, or they fight over the state lock.
     @Published private(set) var busy: Set<UUID> = []
+    /// The stack the Stacks page selects when it opens next (after an import started from Infrastructure as Code).
+    var focus: UUID?
 
     private let store: StackStore
     private let clientFor: @MainActor (StackEntry) -> AWSClient?
@@ -48,7 +50,13 @@ final class StacksModel: ObservableObject {
     func stack(_ id: UUID) -> StackEntry? { stacks.first { $0.id == id } }
 
     /// The container runtime found on this Mac, if any: each stack then runs in its own container.
-    var runtime: ContainerRuntime? { locateRuntime() }
+    /// Found once; while there is none, looked for again (Docker Desktop may be installed meanwhile).
+    var runtime: ContainerRuntime? {
+        if let foundRuntime { return foundRuntime }
+        foundRuntime = locateRuntime()
+        return foundRuntime
+    }
+    private var foundRuntime: ContainerRuntime?
 
     func container(for s: StackEntry) -> StackContainer? {
         runtime.map { StackContainer(runtime: $0, stack: s.id, engine: s.engine) }
@@ -140,6 +148,7 @@ final class StacksModel: ObservableObject {
         guard let s = stack(id), !busy.contains(id) else { return }
         let container = container(for: s)
         let data = store.dataFolder(s.id, s.engine)
+        let plugins = store.pluginCacheFolder(s.engine)
         let cli = container.map { TerraformCLI(container: $0, timeout: 900) } ?? makeCLI(s.engine)
         guard cli.binary != nil else {
             record(id, StackRun(type: type, status: .failed, trigger: trigger, completedAt: Date(),
@@ -168,7 +177,7 @@ final class StacksModel: ObservableObject {
             if let container {
                 context.phase("Preparing")
                 context.log("▶ \(s.engine.label) in container \(container.name) (\(container.runtime.kind.rawValue))")
-                let ready = await container.ensure(folder: s.url, data: data, log: context.log)
+                let ready = await container.ensure(folder: s.url, data: data, plugins: plugins, log: context.log)
                 ok = Self.report(ready, context.log)
             } else if type == .setup {
                 ok = false

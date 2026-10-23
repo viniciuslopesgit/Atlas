@@ -337,6 +337,16 @@ struct StackStore {
 
     var folder: URL = AccountStore.defaultFolder
     var secrets: SecretStore
+    /// What this store already wrote or read, so a save only touches the Keychain and disk for what changed.
+    private let memo = Memo()
+
+    private final class Memo: @unchecked Sendable {
+        let lock = NSLock()
+        var key: SymmetricKey?
+        /// Keychain values as last written or read, by Keychain name.
+        var envValues: [String: String] = [:]
+        var savedLogs = Set<String>()
+    }
 
     private var file: URL {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -369,7 +379,12 @@ struct StackStore {
                 run.output = key.flatMap { Self.decrypt(sealed, key: $0) } ?? ""
                 return run
             }
-            for i in stack.envVars.indices { stack.envVars[i].value = secrets.get(Self.envKey(stack.id, stack.envVars[i].id)) ?? "" }
+            for i in stack.envVars.indices {
+                let name = Self.envKey(stack.id, stack.envVars[i].id)
+                let value = secrets.get(name)
+                stack.envVars[i].value = value ?? ""
+                if let value { memo.lock.withLock { memo.envValues[name] = value } }
+            }
             return stack
         }
     }
@@ -377,7 +392,7 @@ struct StackStore {
     func save(_ stacks: [StackEntry]) {
         let key = outputKey(create: true)
         let stored = stacks.map { stack -> Stored in
-            for v in stack.envVars { try? secrets.set(v.value, for: Self.envKey(stack.id, v.id)) }
+            for v in stack.envVars { setSecret(v.value, for: Self.envKey(stack.id, v.id)) }
             let runs = stack.runs.map { run in
                 if run.completedAt != nil, let key, saveLog(run, of: stack.id, key: key) {
                     return StoredRun(run: run, encryptedOutput: "")
@@ -395,16 +410,25 @@ struct StackStore {
         if let data = try? encoder.encode(stored) { try? data.write(to: file, options: [.atomic]) }
     }
 
+    /// Writes a Keychain value only when it differs from the one this store last wrote or read.
+    private func setSecret(_ value: String, for name: String) {
+        guard memo.lock.withLock({ memo.envValues[name] }) != value else { return }
+        if (try? secrets.set(value, for: name)) != nil { memo.lock.withLock { memo.envValues[name] = value } }
+    }
+
     /// A finished run's output does not change: its file is written once.
     private func saveLog(_ run: StackRun, of stack: UUID, key: SymmetricKey) -> Bool {
         let file = runLogFile(stack, run.id)
-        if FileManager.default.fileExists(atPath: file.path) { return true }
-        guard let sealed = Self.encrypt(run.output, key: key) else { return false }
-        do {
-            try PrivateFile.createFolder(file.deletingLastPathComponent())
-            try PrivateFile.write(Data(sealed.utf8), to: file)
-            return true
-        } catch { return false }
+        if memo.lock.withLock({ memo.savedLogs.contains(file.path) }) { return true }
+        if !FileManager.default.fileExists(atPath: file.path) {
+            guard let sealed = Self.encrypt(run.output, key: key) else { return false }
+            do {
+                try PrivateFile.createFolder(file.deletingLastPathComponent())
+                try PrivateFile.write(Data(sealed.utf8), to: file)
+            } catch { return false }
+        }
+        memo.lock.withLock { _ = memo.savedLogs.insert(file.path) }
+        return true
     }
 
     func runLogFile(_ stack: UUID, _ run: UUID) -> URL {
@@ -413,14 +437,24 @@ struct StackStore {
 
     /// Removes the Keychain items of a stack that is being deleted.
     func forget(_ stack: StackEntry) {
-        for v in stack.envVars { secrets.delete(Self.envKey(stack.id, v.id)) }
+        for v in stack.envVars { forgetSecret(Self.envKey(stack.id, v.id)) }
     }
 
-    func forget(envVar: StackEnvVar, of stack: StackEntry) { secrets.delete(Self.envKey(stack.id, envVar.id)) }
+    func forget(envVar: StackEnvVar, of stack: StackEntry) { forgetSecret(Self.envKey(stack.id, envVar.id)) }
+
+    private func forgetSecret(_ name: String) {
+        secrets.delete(name)
+        memo.lock.withLock { _ = memo.envValues.removeValue(forKey: name) }
+    }
 
     /// Where a stack's container keeps the engine's data (providers, modules, backend cache), one per engine.
     func dataFolder(_ stack: UUID, _ engine: TerraformEngine) -> URL {
         stacksFolder(stack).appendingPathComponent(engine.rawValue, isDirectory: true)
+    }
+
+    /// Providers downloaded by the containers of an engine, shared by all stacks (TF_PLUGIN_CACHE_DIR).
+    func pluginCacheFolder(_ engine: TerraformEngine) -> URL {
+        folder.appendingPathComponent("plugin-cache", isDirectory: true).appendingPathComponent(engine.rawValue, isDirectory: true)
     }
 
     func stacksFolder(_ stack: UUID) -> URL {
@@ -429,13 +463,18 @@ struct StackStore {
 
     static func envKey(_ stack: UUID, _ variable: String) -> String { "atlas-stack-env:\(stack.uuidString):\(variable)" }
 
+    /// Read from the Keychain once per store, not on every save.
     private func outputKey(create: Bool = false) -> SymmetricKey? {
+        if let key = memo.lock.withLock({ memo.key }) { return key }
         if let b64 = secrets.get(Self.outputKeyName), let data = Data(base64Encoded: b64), data.count == 32 {
-            return SymmetricKey(data: data)
+            let key = SymmetricKey(data: data)
+            memo.lock.withLock { memo.key = key }
+            return key
         }
         guard create else { return nil }
         let key = SymmetricKey(size: .bits256)
-        try? secrets.set(key.withUnsafeBytes { Data($0) }.base64EncodedString(), for: Self.outputKeyName)
+        guard (try? secrets.set(key.withUnsafeBytes { Data($0) }.base64EncodedString(), for: Self.outputKeyName)) != nil else { return key }
+        memo.lock.withLock { memo.key = key }
         return key
     }
 

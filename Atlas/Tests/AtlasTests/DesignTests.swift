@@ -40,10 +40,11 @@ struct DesignTests {
 }
 
 struct SidebarTests {
-    @Test func sidebarHasThreeFixedMenusAndOnlyResourcesHasASubmenu() {
-        #expect(SidebarMenu.allCases.map(\.title) == ["Dashboard", "Resources", "Stacks"])
+    @Test func sidebarHasFourFixedMenusAndOnlyResourcesHasASubmenu() {
+        #expect(SidebarMenu.allCases.map(\.title) == ["Dashboard", "Resources", "Stacks", "Infrastructure as Code"])
         #expect(SidebarMenu.allCases.filter(\.hasSubmenu) == [.resources])
-        #expect(SidebarMenu.resources.pages == [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing, .iac])
+        #expect(SidebarMenu.resources.pages == [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing])
+        #expect(Page.iac.menu == .iac, "Infrastructure as Code is its own menu, below Stacks")
     }
 
     @Test func everyPageIsInOneMenuExceptTheFooterPages() {

@@ -56,8 +56,10 @@ struct DashboardView: View {
     private func load() async {
         guard let client = state.client else { return }
         isLoading = true
-        let result = await DashboardService(client: client).summary(month: month)
-        if !Task.isCancelled { summary = result }
+        let month = month
+        try? await state.cached("dashboard|\(month.timeIntervalSince1970)", show: { summary = $0 }) {
+            await DashboardService(client: client).summary(month: month)
+        }
         isLoading = false
     }
 }

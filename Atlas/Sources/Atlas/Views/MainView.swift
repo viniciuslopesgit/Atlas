@@ -101,7 +101,7 @@ private struct Submenu: View {
     }
 }
 
-/// Accounts and Feedback, outside the three sidebar menus.
+/// Accounts and Feedback, outside the sidebar menus.
 private struct AccountFooter: View {
     @EnvironmentObject private var state: AppState
 

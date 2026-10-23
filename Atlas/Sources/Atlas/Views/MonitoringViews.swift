@@ -58,13 +58,22 @@ struct CloudWatchView: View {
             guard let client = state.client else { return }
             isLoading = true
             defer { isLoading = false }
-            do { alarms = try await CloudWatchService(client: client).alarms(); error = nil }
+            do {
+                try await state.cached("cloudwatch.alarms", show: { alarms = $0 }) { try await CloudWatchService(client: client).alarms() }
+                error = nil
+            }
             catch { if !Task.isCancelled { self.error = error.localizedDescription } }
         }
     }
 }
 
 // MARK: - GuardDuty
+
+/// What the GuardDuty page loads, cached together.
+private struct GuardDutyPageData {
+    var detector: GuardDutyService.Detector?
+    var findings: [GuardDutyFinding]
+}
 
 struct GuardDutyView: View {
     @EnvironmentObject private var state: AppState
@@ -244,15 +253,22 @@ struct GuardDutyView: View {
         NSPasteboard.general.setString(s, forType: .string)
     }
 
-    private func load() async {
+    private func load(force: Bool = false) async {
         guard let client = state.client else { return }
         isLoading = true
         defer { isLoading = false; hasLoaded = true }
         let service = GuardDutyService(client: client)
+        let archived = showArchived
         do {
-            detector = try await service.detector()
-            if let detector { findings = try await service.findings(detectorId: detector.id, archived: showArchived) }
-            else { findings = [] }
+            try await state.cached("guardduty|\(archived)", force: force, show: { (loaded: GuardDutyPageData) in
+                detector = loaded.detector
+                findings = loaded.findings
+                hasLoaded = true
+            }) {
+                guard let detector = try await service.detector() else { return GuardDutyPageData(detector: nil, findings: []) }
+                return GuardDutyPageData(detector: detector,
+                                         findings: try await service.findings(detectorId: detector.id, archived: archived))
+            }
             selection = selection.filter { id in findings.contains { $0.id == id } }
             error = nil
         } catch {
@@ -268,7 +284,8 @@ struct GuardDutyView: View {
             if showArchived { try await service.unarchive(detectorId: detector.id, ids: ids) }
             else { try await service.archive(detectorId: detector.id, ids: ids) }
             selection.subtract(ids)
-            await load()
+            state.cache.removeAll(prefix: "\(state.activeAccount?.id ?? "none")|\(state.region)|guardduty|")
+            await load(force: true)
         } catch {
             self.error = "\(showArchived ? "Unarchive" : "Archive") failed: \(error.localizedDescription)"
         }
@@ -463,8 +480,11 @@ struct BillingView: View {
         let end = cal.startOfDay(for: Date())
         isLoading = true
         defer { isLoading = false }
+        let groupBy = groupBy
         do {
-            report = try await CostService(client: client).breakdown(start: start, end: end, groupBy: groupBy)
+            try await state.cached("billing|\(months)|\(groupBy)", show: { report = $0 }) {
+                try await CostService(client: client).breakdown(start: start, end: end, groupBy: groupBy)
+            }
             error = nil
         } catch {
             if !Task.isCancelled { self.error = error.localizedDescription }

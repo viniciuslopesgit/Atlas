@@ -28,8 +28,11 @@ struct FakeDocker {
         echo "$*" >> "$D/docker.log"
         case "$1" in
           info) [ ! -f "$D/down" ] ;;
-          inspect) [ -f "$D/c-$2" ] ;;
+          inspect)
+            [ -f "$D/c-$2" ] || { echo "No such object: $2" >&2; exit 1; }
+            cat "$D/c-$2.args"; [ -f "$D/c-$2.running" ] && echo '"Running": true'; exit 0 ;;
           create)
+            all="$*"
             # Like Docker Desktop: pulling needs the credential helper that sits next to the CLI.
             command -v docker-credential-desktop >/dev/null || {
               echo 'error getting credentials - err: exec: "docker-credential-desktop": executable file not found in $PATH' >&2; exit 1; }
@@ -42,9 +45,10 @@ struct FakeDocker {
               shift
             done
             echo "Pulling image… done"
-            echo "$src" > "$D/c-$name" ;;
-          start) [ -f "$D/c-$2" ] ;;
-          rm) rm -f "$D/c-$3" ;;
+            echo "$src" > "$D/c-$name"; echo "$all" > "$D/c-$name.args" ;;
+          start) [ -f "$D/c-$2" ] && touch "$D/c-$2.running" ;;
+          stop) rm -f "$D/c-$2.running" ;;
+          rm) rm -f "$D/c-$3" "$D/c-$3.args" "$D/c-$3.running" ;;
           exec)
             shift; [ "$1" = "--interactive" ] && shift; [ "$1" = "--workdir" ] && shift 2
             name="$1"; shift
@@ -167,6 +171,88 @@ struct ContainerRuntimeTests {
         let odd = await c.ensure(folder: URL(fileURLWithPath: "/tmp/a,b"), log: { _ in })
         #expect(!odd.isSuccess && odd.diagnostic.contains("cannot be mounted"))
         #expect(!fake.log.contains("create"))
+    }
+}
+
+/// Every run used to ask the runtime three times (info, inspect, start) before the engine started, and each stack
+/// downloaded its own copy of the providers.
+struct StackContainerSpeedTests {
+    private func calls(_ fake: FakeDocker) -> [String] {
+        fake.log.split(separator: "\n").map { String($0.split(separator: " ").first ?? "") }
+    }
+
+    @Test func aRunningCurrentContainerCostsOneInspect() async throws {
+        let fake = try FakeDocker()
+        let c = StackContainer(runtime: fake.runtime, stack: UUID(), engine: .terraform)
+        #expect(await c.ensure(folder: fake.workspace, log: { _ in }).isSuccess)
+        #expect(calls(fake) == ["inspect", "info", "create", "start"])
+        try Data().write(to: fake.dir.appendingPathComponent("docker.log"))
+        #expect(await c.ensure(folder: fake.workspace, log: { _ in }).isSuccess)
+        #expect(calls(fake) == ["inspect"], "no info, no start: \(fake.log)")
+        // Stopped (Docker restarted): started again, not created again.
+        _ = await TerraformCLI(binary: fake.runtime.binary).run(["stop", c.name], in: fake.workspace)
+        try Data().write(to: fake.dir.appendingPathComponent("docker.log"))
+        #expect(await c.ensure(folder: fake.workspace, log: { _ in }).isSuccess)
+        #expect(calls(fake) == ["inspect", "start"])
+    }
+
+    @Test func aContainerFromAnOlderLayoutIsMadeAgainWithTheProviderCache() async throws {
+        let fake = try FakeDocker()
+        let c = StackContainer(runtime: fake.runtime, stack: UUID(), engine: .tofu)
+        // A container made by an earlier Atlas: no layout label, no provider cache.
+        try Data(fake.workspace.path.utf8).write(to: fake.dir.appendingPathComponent("c-\(c.name)"))
+        try Data("create --name \(c.name) --label io.cloud-atlas.engine=tofu".utf8).write(to: fake.dir.appendingPathComponent("c-\(c.name).args"))
+        let plugins = fake.dir.appendingPathComponent("plugin-cache/tofu", isDirectory: true)
+        var lines: [String] = []
+        let lock = NSLock()
+        #expect(await c.ensure(folder: fake.workspace, plugins: plugins, log: { l in lock.withLock { lines.append(l) } }).isSuccess)
+        #expect(fake.log.contains("rm --force \(c.name)"))
+        #expect(fake.log.contains("type=bind,source=\(plugins.path),target=\(StackContainer.pluginCacheDirectory)"))
+        #expect(fake.log.contains("--env TF_PLUGIN_CACHE_DIR=\(StackContainer.pluginCacheDirectory)"))
+        #expect(fake.log.contains("--label \(StackContainer.layoutLabel)=\(StackContainer.layout)"))
+        #expect(lock.withLock { lines }.contains { $0.contains("Updating container") })
+        var isDir: ObjCBool = false
+        #expect(FileManager.default.fileExists(atPath: plugins.path, isDirectory: &isDir) && isDir.boolValue)
+    }
+
+    @Test func inspectOutputIsReadForDockerAndAppleContainer() {
+        let docker = #"[{"State": {"Status": "running", "Running": true}, "Config": {"Labels": {"io.cloud-atlas.layout": "\#(StackContainer.layout)"}}}]"#
+        #expect(StackContainer.State(inspect: docker) == .init(isCurrent: true, isRunning: true))
+        let apple = #"[{"status":"stopped","configuration":{"labels":{"io.cloud-atlas.layout":"\#(StackContainer.layout)"}}}]"#
+        #expect(StackContainer.State(inspect: apple) == .init(isCurrent: true, isRunning: false))
+        let old = #"[{"State": {"Running": true}, "Config": {"Labels": {"io.cloud-atlas.layout": "1"}}}]"#
+        #expect(!StackContainer.State(inspect: old).isCurrent)
+        #expect(!StackContainer.State(inspect: #"[{"Config": {"Labels": {"io.cloud-atlas.layout": "\#(StackContainer.layout)0"}}}]"#).isCurrent)
+        #expect(StackContainer.State(inspect: "") == .init(isCurrent: false, isRunning: false))
+    }
+
+    @Test func theAwsStandInIsOnlyRewrittenWhenItChanged() throws {
+        let data = TestTemp.root.appendingPathComponent("tools-\(UUID().uuidString)", isDirectory: true)
+        try StackContainer.installTools(in: data)
+        let aws = data.appendingPathComponent("bin/aws")
+        let first = try FileManager.default.attributesOfItem(atPath: aws.path)[.modificationDate] as? Date
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 0)], ofItemAtPath: aws.path)
+        try StackContainer.installTools(in: data)
+        #expect(try FileManager.default.attributesOfItem(atPath: aws.path)[.modificationDate] as? Date == Date(timeIntervalSince1970: 0))
+        #expect(first != nil)
+    }
+
+    @Test @MainActor func stacksOfAnEngineShareOneProviderCache() async throws {
+        let fake = try FakeDocker()
+        let support = fake.dir.appendingPathComponent("support")
+        let store = StackStore(folder: support, secrets: InMemorySecretStore())
+        var located = 0
+        let model = StacksModel(store: store, clientFor: { _ in nil }, makeCLI: { _ in TerraformCLI(binary: nil) },
+                                runtime: { located += 1; return fake.runtime })
+        let a = model.create(name: "a", folder: fake.workspace, accountId: "acct", region: "eu-west-1", engine: .tofu)
+        await waitIdle(model, a.id)
+        let b = model.create(name: "b", folder: fake.workspace, accountId: "acct", region: "eu-west-1", engine: .tofu)
+        await waitIdle(model, b.id)
+        let cache = store.pluginCacheFolder(.tofu)
+        #expect(cache.path.hasPrefix(support.path) && cache != store.pluginCacheFolder(.terraform))
+        let mount = "type=bind,source=\(cache.path),target=\(StackContainer.pluginCacheDirectory)"
+        #expect(fake.log.components(separatedBy: mount).count == 3, "both containers mount the same cache")
+        #expect(located == 1, "the runtime is looked for once")
     }
 }
 

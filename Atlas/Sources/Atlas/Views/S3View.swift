@@ -63,7 +63,7 @@ struct S3View: View {
         .sheet(isPresented: $showCreateBucket) {
             if let service {
                 CreateBucketSheet(service: service, defaultRegion: state.region) { options in
-                    Task { await loadBuckets() }
+                    Task { await loadBuckets(force: true) }
                     Task { if let message = await TerraformAware.record({ [TerraformAware.bucket(options)] }) { state.notice = message } }
                 }
             }
@@ -218,12 +218,12 @@ struct S3View: View {
 
     // MARK: Loading
 
-    private func loadBuckets() async {
+    private func loadBuckets(force: Bool = false) async {
         guard let service else { return }
         isLoadingBuckets = true
         defer { isLoadingBuckets = false }
         do {
-            buckets = try await service.buckets()
+            try await state.cached("s3.buckets", force: force, show: { buckets = $0 }) { try await service.buckets() }
             if let sel = selectedBucket, !buckets.contains(where: { $0.name == sel }) { selectedBucket = nil }
             else if selectedBucket != nil { await loadObjects() }
             error = nil
@@ -283,7 +283,7 @@ struct S3View: View {
         do {
             try await service.deleteBucket(name)
             if selectedBucket == name { selectedBucket = nil }
-            await loadBuckets()
+            await loadBuckets(force: true)
         } catch { self.error = "Bucket deletion failed: \(error.localizedDescription)" }
     }
 

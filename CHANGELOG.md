@@ -4,6 +4,45 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.7.0] - 2026-10-23
+
+Atlas 2.7.0 makes stacks start faster and pages open instantly. A stack's container is now checked with a single
+call before each run instead of three, and the Terraform and OpenTofu providers are downloaded once and shared by
+every stack of the same engine, so Init in a new stack no longer downloads the AWS provider again. Pages keep what
+they loaded from AWS for each account and region: going back to EC2, S3, IAM, CloudWatch, GuardDuty, Billing or
+the Dashboard shows it at once and loads it again after 3 minutes, after a change made on the page, or with Refresh
+(⌘R). Infrastructure as Code is now its own menu in the sidebar, below Stacks, and Import from AWS lives there: it
+adds the resources to the open project or to a stack. A stack's runs open as a timeline of their phases, with the
+latest run's output in a bar at the bottom.
+
+### Added
+- Import from AWS, in Infrastructure as Code, can add the resources to a stack: the stack imports them in its
+  container (state in S3, generated configuration, variables in the Keychain) and Stacks opens on it
+- A stack's runs, plans and applies each have their tab; a run opens as a timeline of its phases (preparing, init,
+  plan, apply, verify) with date, time and duration, and output that can be collapsed, enlarged or downloaded;
+  every finished run keeps its whole log, encrypted
+- Each stack shows the output of its latest run (Init, Plan, Apply, drift checks, imports) as it is produced, in an
+  output bar at the bottom that follows new lines, opens when a run starts, and can be hidden or resized
+
+### Changed
+- Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against
+  each stack's lock file); existing containers are recreated once to use the shared cache
+- Stacks: a run in a container that is already running starts right away, without asking Docker whether it is up
+  and starting the container again
+- Pages show what they loaded from AWS at once when you come back to them, and refresh it after 3 minutes, after a
+  change, or with Refresh (⌘R)
+- Infrastructure as Code moved out of Resources to its own menu in the sidebar, below Stacks
+- Import from AWS moved from each stack to Infrastructure as Code
+
+### Fixed
+- Stacks with many variables or runs no longer slow the app down: saving a stack only writes to the Keychain and
+  disk what changed, and Keychain credentials are read once per account instead of on every screen update
+- Stacks with EKS clusters plan and apply in their container: 'aws eks get-token', used by the kubernetes and helm
+  providers, now works there with the stack's Atlas account, without the AWS CLI
+- Stack Init works with Docker Desktop opened from Finder (the image pull finds Docker's credential helper), and
+  each stack's container keeps its own Terraform/OpenTofu data folder, so a .terraform made on the Mac no longer
+  breaks init with "Backend configuration changed"
+
 ## [2.6.0] - 2026-10-23
 
 Atlas 2.6.0 lets you change an S3 bucket's settings and keeps a closer watch on GuardDuty. S3 › Settings shows
@@ -261,6 +300,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.7.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.0
 [2.6.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.6.0
 [2.5.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.1
 [2.5.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.0

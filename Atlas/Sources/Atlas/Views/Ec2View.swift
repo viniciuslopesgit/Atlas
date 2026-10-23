@@ -79,7 +79,7 @@ struct Ec2View: View {
         .sheet(isPresented: $showLaunch) {
             if let client = state.client {
                 LaunchInstanceSheet(service: Ec2Service(client: client)) { ids in
-                    Task { await load() }
+                    Task { await load(force: true) }
                     Task {
                         if let message = await TerraformAware.record({ try await TerraformAware.instances(ids, client: client) }) {
                             state.notice = message
@@ -145,12 +145,14 @@ struct Ec2View: View {
         catch { self.error = error.localizedDescription }
     }
 
-    private func load() async {
+    private func load(force: Bool = false) async {
         guard let client = state.client else { return }
         isLoading = true
         defer { isLoading = false }
         do {
-            instances = try await Ec2Service(client: client).instances()
+            try await state.cached("ec2.instances", force: force, show: { instances = $0 }) {
+                try await Ec2Service(client: client).instances()
+            }
             selection = selection.filter { id in instances.contains { $0.id == id } }
             error = nil
         } catch {
@@ -170,7 +172,7 @@ struct Ec2View: View {
             case .terminate: try await svc.terminate(ids)
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
-            await load()
+            await load(force: true)
         } catch {
             self.error = "\(action.title) failed: \(error.localizedDescription)"
         }

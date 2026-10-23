@@ -221,6 +221,23 @@ struct SecurityTests {
         #expect(!StackContainer.canMount(URL(fileURLWithPath: "/tmp/x:/etc")))
     }
 
+    /// The provider cache shared by an engine's stacks is a new writable mount: it lives in Atlas's own folder, one per
+    /// engine, and a path that would add mount options is refused before any container is made.
+    @Test func theSharedProviderCacheIsAtlasOwnedPerEngineAndNeverInjectsMountOptions() async throws {
+        let fake = try FakeDocker()
+        let support = fake.dir.appendingPathComponent("support")
+        let store = StackStore(folder: support, secrets: InMemorySecretStore())
+        for engine in TerraformEngine.allCases {
+            #expect(store.pluginCacheFolder(engine).path.hasPrefix(support.path + "/plugin-cache/"))
+        }
+        #expect(store.pluginCacheFolder(.terraform) != store.pluginCacheFolder(.tofu))
+        let c = StackContainer(runtime: fake.runtime, stack: UUID(), engine: .terraform)
+        let odd = fake.dir.appendingPathComponent("cache,target=/etc", isDirectory: true)
+        let r = await c.ensure(folder: fake.workspace, plugins: odd, log: { _ in })
+        #expect(!r.isSuccess && r.diagnostic.contains("cannot be mounted"))
+        #expect(!fake.log.contains("create"), "no container was made with the injected option")
+    }
+
     /// Deleting a stack removes only Atlas's data folder for it, named by the stack's id, never the stack's folder,
     /// even when the stack's folder is inside Atlas's own folder.
     @Test @MainActor func deletingAStackRemovesOnlyItsOwnDataFolder() async throws {

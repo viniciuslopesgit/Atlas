@@ -48,7 +48,7 @@ struct StacksView: View {
 
             if model.stacks.isEmpty {
                 EmptyStateView(icon: "square.stack.3d.up", title: "No stacks yet",
-                               message: "A stack is a Terraform folder that Atlas plans, applies and checks for drift. Start one from a folder, then import existing resources into it.") {
+                               message: "A stack is a Terraform folder that Atlas plans, applies and checks for drift. Start one from a folder, then import existing resources into it from Infrastructure as Code.") {
                     Button("New Stack…") { showNew = true }.buttonStyle(.borderedProminent).disabled(state.activeAccount == nil)
                 }
             } else {
@@ -73,7 +73,10 @@ struct StacksView: View {
                 selection = model.create(name: name, folder: folder, accountId: account.id, region: state.region, engine: engine).id
             }
         }
-        .onAppear { if selection == nil { selection = model.stacks.first?.id } }
+        .onAppear {
+            if let focus = model.focus { selection = focus; model.focus = nil }
+            if selection == nil { selection = model.stacks.first?.id }
+        }
     }
 }
 
@@ -137,8 +140,6 @@ private struct StackDetail: View {
     /// The run whose timeline is open in the runs tabs.
     @State private var openRun: UUID?
     @State private var confirm: Confirm?
-    @State private var showImport = false
-    @State private var remoteState = true
 
     enum Confirm: Identifiable {
         case apply, fixDrift, delete
@@ -168,8 +169,6 @@ private struct StackDetail: View {
                     Button("Apply…") { confirm = .apply }.disabled(!model.hasSavedPlan(stack))
                         .help("Applies the plan saved by the last Plan.")
                     Button("Check Drift") { start(.plans) { model.checkDrift(stack.id) } }
-                    Button { showImport = true } label: { Label("Import from AWS…", systemImage: "square.and.arrow.down") }
-                        .disabled(state.client(accountId: stack.accountId, region: stack.region) == nil)
                 }
                 .disabled(busy)
                 Spacer()
@@ -211,17 +210,6 @@ private struct StackDetail: View {
                 Text("Terraform will change real resources in \(accountName) (\(stack.region)) as the saved plan shows.")
             case .delete:
                 Text("Atlas forgets the stack, its runs and its Keychain variables, and removes its container. The folder and the resources in AWS are not touched.")
-            }
-        }
-        .sheet(isPresented: $showImport) {
-            if let client = state.client(accountId: stack.accountId, region: stack.region) {
-                VStack(spacing: 0) {
-                    ImportFromAwsSheet(client: client, region: stack.region, targetName: stack.name, offerGenerate: false) { chosen, _ in
-                        start(.runs) { model.importResources(stack.id, chosen, remoteState: remoteState) }
-                    }
-                    Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
-                        .padding([.horizontal, .bottom], 20)
-                }
             }
         }
     }

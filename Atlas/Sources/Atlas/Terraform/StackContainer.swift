@@ -71,13 +71,14 @@ struct ContainerRuntime: Sendable, Equatable {
     func startArguments(_ name: String) -> [String] { ["start", name] }
     func removeArguments(_ name: String) -> [String] { isApple ? ["delete", "--force", name] : ["rm", "--force", name] }
 
-    /// A long-lived, locked-down container: the stack folder at /workspace and its data folder are the only
-    /// writable places besides a tmpfs, no capabilities, the user's uid, idle until `exec`.
-    func createArguments(name: String, stack: UUID, folder: URL, data: URL? = nil, engine: TerraformEngine,
-                         uid: UInt32 = getuid(), gid: UInt32 = getgid()) -> [String] {
+    /// A long-lived, locked-down container: the stack folder at /workspace, its data folder and the engine's
+    /// provider cache are the only writable places besides a tmpfs, no capabilities, the user's uid, idle until `exec`.
+    func createArguments(name: String, stack: UUID, folder: URL, data: URL? = nil, plugins: URL? = nil,
+                         engine: TerraformEngine, uid: UInt32 = getuid(), gid: UInt32 = getgid()) -> [String] {
         var args = ["create", "--name", name,
                     "--label", "io.cloud-atlas.stack=\(stack.uuidString)",
                     "--label", "io.cloud-atlas.engine=\(engine.rawValue)",
+                    "--label", "\(StackContainer.layoutLabel)=\(StackContainer.layout)",
                     "--user", "\(uid):\(gid)",
                     "--workdir", StackContainer.workspace,
                     "--mount", "type=bind,source=\(folder.path),target=\(StackContainer.workspace)",
@@ -87,6 +88,12 @@ struct ContainerRuntime: Sendable, Equatable {
         if let data {
             args += ["--mount", "type=bind,source=\(data.path),target=\(StackContainer.dataDirectory)",
                      "--env", "TF_DATA_DIR=\(StackContainer.dataDirectory)"]
+        }
+        // Providers downloaded once per engine, shared by every stack. Terraform checks each cached provider
+        // against the stack's lock file before using it.
+        if let plugins {
+            args += ["--mount", "type=bind,source=\(plugins.path),target=\(StackContainer.pluginCacheDirectory)",
+                     "--env", "TF_PLUGIN_CACHE_DIR=\(StackContainer.pluginCacheDirectory)"]
         }
         if !isApple { args += ["--security-opt", "no-new-privileges", "--pids-limit", "512"] }
         return args + ["--entrypoint", "tail", engine.image, "-f", "/dev/null"]
@@ -104,6 +111,11 @@ struct StackContainer: Sendable, Equatable {
     /// The engine's own `.terraform` (TF_DATA_DIR). The one in the stack folder belongs to the engine on the Mac:
     /// macOS providers and a backend cache in another version's format, which init reads as a changed backend.
     static let dataDirectory = "/atlas-data"
+    /// The engine's provider cache (TF_PLUGIN_CACHE_DIR), shared by the stacks of that engine.
+    static let pluginCacheDirectory = "/atlas-plugins"
+    /// Bumped when the container's mounts or environment change: an older container is made again.
+    static let layoutLabel = "io.cloud-atlas.layout"
+    static let layout = 2
 
     var runtime: ContainerRuntime
     var stack: UUID
@@ -192,11 +204,31 @@ printf '{"kind":"ExecCredential","apiVersion":"%s","spec":{},"status":{"expirati
     "$(printf %s "$url" | base64 | tr -d '\n=' | tr '+/' '-_')"
 """#
 
-    /// Writes the tools into the data folder's `bin`, refreshed on every run so they follow the app's version.
+    /// Writes the tools into the data folder's `bin`, checked on every run so they follow the app's version.
     static func installTools(in data: URL) throws {
         let bin = data.appendingPathComponent("bin", isDirectory: true)
+        let aws = bin.appendingPathComponent("aws")
+        let content = Data(awsCommand.utf8)
+        if FileManager.default.isExecutableFile(atPath: aws.path), (try? Data(contentsOf: aws)) == content { return }
         try PrivateFile.createFolder(bin)
-        try PrivateFile.write(Data(awsCommand.utf8), to: bin.appendingPathComponent("aws"), permissions: 0o700)
+        try PrivateFile.write(content, to: aws, permissions: 0o700)
+    }
+
+    /// What `inspect` says about an existing container.
+    struct State: Equatable {
+        var isCurrent: Bool
+        var isRunning: Bool
+
+        init(isCurrent: Bool, isRunning: Bool) {
+            self.isCurrent = isCurrent
+            self.isRunning = isRunning
+        }
+
+        /// Reads Docker's and Apple container's JSON, and plain label lists.
+        init(inspect output: String) {
+            isCurrent = output.firstMatch(of: #/io\.cloud-atlas\.layout"?\s*[:=]\s*"?(\d+)/#).map { Int($0.1) == StackContainer.layout } ?? false
+            isRunning = output.firstMatch(of: #/"Running"\s*:\s*true|"status"\s*:\s*"running"/#) != nil
+        }
     }
 
     func execArguments(_ args: [String]) -> [String] {
@@ -216,35 +248,49 @@ printf '{"kind":"ExecCredential","apiVersion":"%s","spec":{},"status":{"expirati
 
     // MARK: Lifecycle
 
-    /// Creates the container if it is missing (pulling the image) and starts it. `data` is the host folder kept
-    /// as the engine's data folder.
-    func ensure(folder: URL, data: URL? = nil, log: @escaping @Sendable (String) -> Void) async -> TerraformResult {
+    /// Creates the container if it is missing or from an older layout (pulling the image) and starts it if it is
+    /// stopped. A running, current container costs one `inspect`. `data` is the host folder kept as the engine's
+    /// data folder, `plugins` the engine's shared provider cache.
+    func ensure(folder: URL, data: URL? = nil, plugins: URL? = nil,
+                log: @escaping @Sendable (String) -> Void) async -> TerraformResult {
         let cli = TerraformCLI(binary: runtime.binary, timeout: 20)
         let tmp = FileManager.default.temporaryDirectory
-        guard await cli.run(runtime.readyArguments, in: tmp).isSuccess else {
-            return TerraformResult(status: .failed, diagnostic: "\(runtime.kind.rawValue) is not running. \(runtime.startHint)")
-        }
-        if let data {
-            do {
+        do {
+            if let data {
                 try PrivateFile.createFolder(data)
                 try Self.installTools(in: data)
-            } catch {
-                return TerraformResult(status: .failed, diagnostic: "Could not prepare the stack's data folder: \(error.localizedDescription)")
             }
+            if let plugins { try PrivateFile.createFolder(plugins) }
+        } catch {
+            return TerraformResult(status: .failed, diagnostic: "Could not prepare the stack's data folder: \(error.localizedDescription)")
         }
-        if !(await cli.run(runtime.existsArguments(name), in: tmp)).isSuccess {
-            guard Self.canMount(folder), data.map(Self.canMount) ?? true else {
+        let inspected = await cli.run(runtime.existsArguments(name), in: tmp)
+        var state = inspected.isSuccess ? State(inspect: inspected.stdout) : nil
+        if let current = state, !current.isCurrent {
+            log("▶ Updating container \(name) (shared provider cache)…")
+            await remove()
+            state = nil
+        }
+        if state == nil {
+            // Missing: tell a stopped runtime from a missing container before creating it.
+            guard await cli.run(runtime.readyArguments, in: tmp).isSuccess else {
+                return TerraformResult(status: .failed, diagnostic: "\(runtime.kind.rawValue) is not running. \(runtime.startHint)")
+            }
+            guard Self.canMount(folder), data.map(Self.canMount) ?? true, plugins.map(Self.canMount) ?? true else {
                 return TerraformResult(status: .failed,
                                        diagnostic: "The stack folder's path has a comma, colon or equals sign; it cannot be mounted in a container.")
             }
             log("▶ Creating container \(name) from \(engine.image) (the first time downloads the image)…")
             let created = await TerraformCLI(binary: runtime.binary, timeout: 900)
-                .run(runtime.createArguments(name: name, stack: stack, folder: folder, data: data, engine: engine), in: tmp, onLine: log)
+                .run(runtime.createArguments(name: name, stack: stack, folder: folder, data: data, plugins: plugins, engine: engine),
+                     in: tmp, onLine: log)
             guard created.isSuccess else {
                 var r = created
                 r.diagnostic = "Could not create the container: \(created.errors.first ?? created.stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
                 return r
             }
+        } else if state?.isRunning == true {
+            return TerraformResult(status: .success, exitCode: 0)
         }
         var started = await cli.run(runtime.startArguments(name), in: tmp)
         if !started.isSuccess { started.diagnostic = "Could not start the container \(name)." }
