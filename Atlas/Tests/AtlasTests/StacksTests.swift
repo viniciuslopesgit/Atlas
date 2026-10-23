@@ -226,3 +226,26 @@ struct StacksModelTests {
         #expect(!after.isDriftDue(), "next check is an hour away")
     }
 }
+
+struct FeedbackTests {
+    @Test func mailLinkCarriesSubjectBodyAndVersions() throws {
+        var f = Feedback()
+        #expect(!f.isReady)
+        f.kind = .suggestion
+        f.subject = "Dark mode & more"
+        f.description = "Line one\nLine two"
+        #expect(f.isReady)
+
+        let url = try #require(f.mailURL(systemInfo: "Atlas 2.0.0 · macOS 26.0.0"))
+        let c = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(c.scheme == "mailto" && c.path == Feedback.recipient)
+        let items = Dictionary(uniqueKeysWithValues: (c.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        #expect(items["subject"]?.hasSuffix("[Suggestion] Dark mode & more") == true)
+        #expect(items["body"] == "Type: Suggestion\n\nDescription:\nLine one\nLine two\n\n---\nAtlas 2.0.0 · macOS 26.0.0")
+        #expect(!url.absoluteString.contains("&more"), "the subject's & is escaped")
+
+        f.includeSystemInfo = false
+        #expect(!f.githubIssue(systemInfo: "X").contains("X"))
+        #expect(f.githubIssue().hasPrefix("## Suggestion: Dark mode & more\n\nLine one"))
+    }
+}

@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, ec2, s3, iam, cloudWatch, guardDuty, securityAudit, billing, iac, stacks, settings
+    case dashboard, ec2, s3, iam, cloudWatch, guardDuty, securityAudit, billing, iac, stacks, settings, feedback
 
     var id: String { rawValue }
 
@@ -19,6 +19,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .iac: "Infrastructure as Code"
         case .stacks: "Stacks"
         case .settings: "Accounts"
+        case .feedback: "Feedback"
         }
     }
 
@@ -36,6 +37,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .iac: ["terraform", "iac", "infrastructure", "code", "init", "plan", "apply", "import", "hcl"]
         case .stacks: ["stacks", "terraform", "runs", "drift", "import", "plan", "apply", "history", "cron"]
         case .settings: ["settings", "config", "accounts", "preferences", "keys", "updates"]
+        case .feedback: ["contact", "feedback", "bug", "report", "suggestion", "help", "issue"]
         }
     }
 
@@ -52,6 +54,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .iac: "chevron.left.forwardslash.chevron.right"
         case .stacks: "square.stack.3d.up"
         case .settings: "person.crop.circle.badge.plus"
+        case .feedback: "envelope"
         }
     }
 }

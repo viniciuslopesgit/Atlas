@@ -9,7 +9,7 @@ struct MainView: View {
         ("Security", [.iam, .guardDuty, .securityAudit]),
         ("Monitoring", [.cloudWatch, .billing]),
         ("Infrastructure", [.iac, .stacks]),
-        ("Settings", [.settings]),
+        ("Settings", [.settings, .feedback]),
     ]
 
     var body: some View {
@@ -27,7 +27,7 @@ struct MainView: View {
             .safeAreaInset(edge: .bottom) { AccountFooter() }
         } detail: {
             Group {
-                if state.activeAccount == nil && state.page != .settings {
+                if state.activeAccount == nil && state.page != .settings && state.page != .feedback {
                     EmptyStateView(icon: "person.crop.circle.badge.questionmark",
                                    title: "No AWS account configured",
                                    message: "Add an account to start managing your AWS resources.") {
@@ -73,6 +73,7 @@ struct MainView: View {
         case .iac: IaCView()
         case .stacks: StacksView()
         case .settings: SettingsView()
+        case .feedback: FeedbackView()
         }
     }
 }
