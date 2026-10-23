@@ -59,6 +59,27 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// The sidebar's three menus. Accounts and Feedback live in the sidebar footer instead.
+enum SidebarMenu: String, CaseIterable, Identifiable {
+    case dashboard, resources, stacks
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+
+    var pages: [Page] {
+        switch self {
+        case .dashboard: [.dashboard, .billing]
+        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit]
+        case .stacks: [.stacks, .iac]
+        }
+    }
+}
+
+extension Page {
+    /// The sidebar menu that lists this page; nil for the footer pages (Accounts, Feedback).
+    var menu: SidebarMenu? { SidebarMenu.allCases.first { $0.pages.contains(self) } }
+}
+
 enum AppTheme: String, CaseIterable, Identifiable {
     case system, light, dark
     var id: String { rawValue }

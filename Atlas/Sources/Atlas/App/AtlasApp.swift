@@ -100,15 +100,22 @@ struct AtlasApp: App {
                     .disabled(!Updater.isInstalled)
             }
             CommandMenu("Go") {
-                // ⌘1…⌘9 for the first nine pages; the rest are in the menu without a shortcut.
-                ForEach(Array(Page.allCases.enumerated()), id: \.element) { index, page in
-                    if index < 9 {
-                        Button(page.title) { state.page = page }
-                            .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
-                    } else {
-                        Button(page.title) { state.page = page }
+                // ⌘1…⌘3 open the three sidebar menus; their pages follow without a shortcut.
+                ForEach(Array(SidebarMenu.allCases.enumerated()), id: \.element) { index, menu in
+                    Section(menu.title) {
+                        ForEach(menu.pages) { page in
+                            if page == menu.pages[0] {
+                                Button(page.title) { state.page = page }
+                                    .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+                            } else {
+                                Button(page.title) { state.page = page }
+                            }
+                        }
                     }
                 }
+                Divider()
+                Button("Accounts") { state.page = .settings }
+                Button("Feedback") { state.page = .feedback }
             }
         }
     }
