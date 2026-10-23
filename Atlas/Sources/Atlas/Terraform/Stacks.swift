@@ -4,7 +4,7 @@ import CryptoKit
 // MARK: - Model (ported from Models/StackEntry.cs of Atlas 1.0.1)
 
 enum StackStatus: String, Codable, Sendable, CaseIterable { case ready, queued, running, finished, failed }
-enum StackRunType: String, Codable, Sendable { case importResources = "import", initialize = "init", fix, plan, apply, fixDrift }
+enum StackRunType: String, Codable, Sendable { case importResources = "import", initialize = "init", fix, plan, apply, fixDrift, setup }
 enum StackRunStatus: String, Codable, Sendable { case running, success, failed, cancelled }
 enum DriftStatus: String, Codable, Sendable { case unknown, checking, clean, drifted, error }
 
@@ -62,7 +62,13 @@ struct StackEntry: Codable, Identifiable, Sendable {
     var lastDriftCheckAt: Date?
     var driftAcknowledged = false
     var autoFixOnDrift = false
+    /// Optional so stacks saved before 2.5 still decode; nil is Terraform.
+    var engineChoice: TerraformEngine?
 
+    var engine: TerraformEngine {
+        get { engineChoice ?? .terraform }
+        set { engineChoice = newValue }
+    }
     var url: URL { URL(fileURLWithPath: projectPath, isDirectory: true) }
     var lastRun: StackRun? { runs.first }
     var driftEnabled: Bool { driftInterval != .off || !driftCron.isEmpty }

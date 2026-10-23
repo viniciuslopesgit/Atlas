@@ -178,7 +178,7 @@ struct StacksModelTests {
     @Test @MainActor func driftCheckRecordsTheDriftAndFixAppliesTheSavedPlan() async throws {
         let (bin, dir) = try fakeTerraform(planExit: 2)
         let store = StackStore(folder: dir.appendingPathComponent("support"), secrets: InMemorySecretStore())
-        let model = StacksModel(store: store, clientFor: { _ in nil }, makeCLI: { TerraformCLI(binary: bin) })
+        let model = StacksModel(store: store, clientFor: { _ in nil }, makeCLI: { _ in TerraformCLI(binary: bin) })
         let s = model.create(name: "prod", folder: dir, accountId: "acct", region: "eu-west-1")
 
         model.checkDrift(s.id)
@@ -215,7 +215,7 @@ struct StacksModelTests {
     @Test @MainActor func cleanPlanMarksTheStackInSync() async throws {
         let (bin, dir) = try fakeTerraform(planExit: 0)
         let model = StacksModel(store: StackStore(folder: dir.appendingPathComponent("support"), secrets: InMemorySecretStore()),
-                                clientFor: { _ in nil }, makeCLI: { TerraformCLI(binary: bin) })
+                                clientFor: { _ in nil }, makeCLI: { _ in TerraformCLI(binary: bin) })
         let s = model.create(name: "dev", folder: dir, accountId: "acct", region: "us-east-1")
         model.update(s.id) { $0.driftInterval = .hourly }
         model.runDueDriftChecks()

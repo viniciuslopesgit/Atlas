@@ -231,7 +231,7 @@ private struct UserDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(user.userName).font(.title3.weight(.semibold))
+                Text(user.userName).font(Typo.panelTitle)
                 DetailRow("ARN", user.arn, copyable: true)
                 DetailRow("User ID", user.userId, copyable: true)
                 DetailRow("Path", user.path)
@@ -384,7 +384,7 @@ private struct RoleDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(role.roleName).font(.title3.weight(.semibold))
+                Text(role.roleName).font(Typo.panelTitle)
                 DetailRow("ARN", role.arn, copyable: true)
                 DetailRow("Role ID", role.roleId)
                 DetailRow("Description", role.description)
@@ -408,7 +408,7 @@ private struct GroupDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(group.groupName).font(.title3.weight(.semibold))
+                Text(group.groupName).font(Typo.panelTitle)
                 DetailRow("ARN", group.arn, copyable: true)
                 DetailRow("Group ID", group.groupId)
                 DetailRow("Path", group.path)
@@ -447,7 +447,7 @@ private struct PolicyDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(policy.policyName).font(.title3.weight(.semibold))
+                Text(policy.policyName).font(Typo.panelTitle)
                 DetailRow("ARN", policy.arn, copyable: true)
                 DetailRow("Description", policy.description)
                 DetailRow("Attachments", "\(policy.attachmentCount)")

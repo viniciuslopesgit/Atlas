@@ -2,7 +2,8 @@ name: CI
 
 # Every push and Pull Request to dev: the full check (Atlas/scripts/check.sh --full) on macOS 14 and 15.
 # On a push to dev, a version that has no Release yet is published as a beta (pre-release) with the app
-# that was just checked, Atlas-X.Y.Z.zip, SHA256SUMS and the notes from its CHANGELOG section.
+# that was just checked: Atlas-X.Y.Z.dmg (the installer) with its .sha256, Atlas-X.Y.Z.zip with SHA256SUMS (what
+# the automatic updater downloads) and the notes from its CHANGELOG section.
 # A push that changed the app after a published version without a new one (a Pull Request merged on GitHub)
 # first gets its version automatically: the "version" job commits it and runs CI again on that commit.
 on:
@@ -93,8 +94,11 @@ jobs:
         working-directory: Atlas
         run: |
           VERSION=$(scripts/version.sh)
+          scripts/make-dmg.sh "$VERSION"
           ditto -c -k --keepParent dist/Atlas.app "dist/Atlas-$VERSION.zip"
-          (cd dist && shasum -a 256 "Atlas-$VERSION.zip" > SHA256SUMS)
+          # SHA256SUMS keeps only the zip: installed updaters run `shasum -c` on it and would fail on a file
+          # they did not download. The installer gets its own checksum file.
+          (cd dist && shasum -a 256 "Atlas-$VERSION.zip" > SHA256SUMS && shasum -a 256 "Atlas-$VERSION.dmg" > "Atlas-$VERSION.dmg.sha256")
           scripts/release_notes.sh "$VERSION" --beta > dist/NOTES.md
           echo "$VERSION" > dist/VERSION
           echo "Swift: $(swift --version 2>&1 | head -1) · $(sw_vers -productName) $(sw_vers -productVersion)" >> dist/NOTES.md
@@ -104,6 +108,8 @@ jobs:
         with:
           name: release
           path: |
+            Atlas/dist/Atlas-*.dmg
+            Atlas/dist/Atlas-*.dmg.sha256
             Atlas/dist/Atlas-*.zip
             Atlas/dist/SHA256SUMS
             Atlas/dist/NOTES.md
@@ -132,6 +138,6 @@ jobs:
             exit 0
           fi
           # Published as a pre-release (beta): it only becomes "Latest" when promote.yml makes it stable.
-          gh release create "$VERSION" "Atlas-$VERSION.zip" SHA256SUMS \
+          gh release create "$VERSION" "Atlas-$VERSION.dmg" "Atlas-$VERSION.dmg.sha256" "Atlas-$VERSION.zip" SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --title "Atlas $VERSION" --notes-file NOTES.md
           echo "### Atlas $VERSION published as beta" >> "$GITHUB_STEP_SUMMARY"

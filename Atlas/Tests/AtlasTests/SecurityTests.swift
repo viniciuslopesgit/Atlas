@@ -203,6 +203,32 @@ struct SecurityTests {
         #expect(ProcessInfo.processInfo.environment["AWS_SECRET_ACCESS_KEY"] != "very-secret-value")
     }
 
+    @Test func stackContainersGetSecretsOnlyThroughStdinAndNeverEvaluateThem() async throws {
+        let fake = try FakeDocker()
+        let c = StackContainer(runtime: fake.runtime, stack: UUID(), engine: .terraform)
+        #expect(await c.ensure(folder: fake.workspace, log: { _ in }).isSuccess)
+        let pwned = fake.workspace.appendingPathComponent("pwned")
+        let creds = TerraformCredentials(accessKeyId: "AKIDBOX", secretAccessKey: "box-secret-value", region: "eu-west-1")
+        let r = await TerraformCLI(container: c, timeout: 30).run(
+            ["plan"], in: fake.workspace, credentials: creds,
+            tfVars: ["db_password": "$(touch \(pwned.path))`touch \(pwned.path)`", "x;touch \(pwned.path)": "1"])
+        #expect(r.isSuccess)
+        #expect(r.stdout.contains("secret=box-secret-value"), "terraform in the container got the secret")
+        #expect(!fake.log.contains("box-secret-value") && !fake.log.contains("AKIDBOX"), "a secret reached the command line")
+        #expect(!FileManager.default.fileExists(atPath: pwned.path), "a value or name was evaluated by the shell")
+        // A path that would add mount options is refused.
+        #expect(!StackContainer.canMount(URL(fileURLWithPath: "/tmp/x,target=/etc")))
+        #expect(!StackContainer.canMount(URL(fileURLWithPath: "/tmp/x:/etc")))
+    }
+
+    @Test func dockerDesktopComesOnlyFromDockerAndMustBeSignedByDocker() {
+        let url = DockerDesktopInstaller.downloadURL
+        #expect(url.scheme == "https" && url.host == "desktop.docker.com")
+        // Apple-signed code that is not Docker Inc's, and code that does not exist, are refused.
+        #expect(!DockerDesktopInstaller.isSignedByDocker(URL(fileURLWithPath: "/usr/bin/true")))
+        #expect(!DockerDesktopInstaller.isSignedByDocker(URL(fileURLWithPath: "/nonexistent/Docker.app")))
+    }
+
     @Test func stackSecretsAndOutputNeverReachTheDiskInPlainText() throws {
         let folder = try tempFolder()
         let secrets = InMemorySecretStore()
@@ -232,6 +258,96 @@ struct SecurityTests {
         var bytes = try #require(Data(base64Encoded: sealed))
         bytes[bytes.count - 1] ^= 0x01
         #expect(StackStore.decrypt(bytes.base64EncodedString(), key: key) == nil)
+    }
+
+    // MARK: Where signed requests go
+
+    @Test(arguments: ["evil.example#", "evil.example/x?", "x.evil.example:443/", "us-east-1@evil.example"])
+    func aRegionCannotSendSignedRequestsToAnotherHost(region: String) async throws {
+        let client = MockURLProtocol.client(region: region) { _, _ in .init(body: "<R/>") }
+        await #expect(throws: AWSError.self) { _ = try await client.query(.ec2, "DescribeInstances") }
+        await #expect(throws: AWSError.self) { _ = try await client.s3(method: "GET", bucket: "b") }
+        #expect(MockURLProtocol.requests.isEmpty, "a signed request left for a non-AWS host")
+    }
+
+    @Test func aBucketNameCannotSendSignedRequestsToAnotherHost() async throws {
+        let client = MockURLProtocol.client { _, _ in .init(body: "x") }
+        let folder = try tempFolder()
+        for bucket in ["evil#", "evil?x", "me@evil", "evil/x"] {
+            client.rememberBucketRegion(bucket, "us-east-1")
+            await #expect(throws: AWSError.self) {
+                try await S3Service(client: client).download(bucket: bucket, key: "k", to: folder.appendingPathComponent("f")) { _ in }
+            }
+        }
+        #expect(MockURLProtocol.requests.isEmpty)
+        #expect(AWSClient.isAWSEndpoint(URL(string: "https://s3.eu-west-1.amazonaws.com/b")))
+        #expect(AWSClient.isAWSEndpoint(URL(string: "https://ec2.cn-north-1.amazonaws.com.cn/")))
+        #expect(!AWSClient.isAWSEndpoint(URL(string: "http://ec2.us-east-1.amazonaws.com/")))
+        #expect(!AWSClient.isAWSEndpoint(URL(string: "https://amazonaws.com.evil.example/")))
+    }
+
+    @Test func awsResponsesAreNeverCachedOnDiskOrGiveCookies() {
+        let client = AWSClient(credentials: AWSCredentials(accessKeyId: "AKID", secretAccessKey: "s"), region: "us-east-1")
+        #expect(client.session.configuration.urlCache == nil)
+        #expect(client.session.configuration.httpCookieStorage == nil)
+        #expect(client.session.configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
+    }
+
+    @Test func aNonAWSErrorPageIsCutShort() {
+        let page = "<html>" + String(repeating: "x", count: 100_000)
+        let e = AWSClient.error(from: Data(page.utf8), status: 502)
+        #expect(e.message.count <= AWSClient.maxErrorBody + 1)
+    }
+
+    // MARK: Private files
+
+    private func permissions(_ url: URL) throws -> Int {
+        try #require(FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int)
+    }
+
+    @Test func accountsFileIsReadableOnlyByTheUser() throws {
+        let folder = try tempFolder().appendingPathComponent("Atlas")
+        let store = AccountStore(folder: folder)
+        store.save([AwsAccount(name: "prod", accessKeyId: "AKIDPROD", defaultRegion: "us-east-1", isActive: true)])
+        #expect(try permissions(folder.appendingPathComponent("accounts.json")) == 0o600)
+        #expect(try permissions(folder) == 0o700)
+        #expect(store.load().map(\.accessKeyId) == ["AKIDPROD"])
+    }
+
+    @Test func privateKeyIsWrittenOwnerOnlyAndCanReplaceAnOldOne() throws {
+        let folder = try tempFolder()
+        let pem = folder.appendingPathComponent("key.pem")
+        try PrivateFile.write(Data("old".utf8), to: pem, permissions: 0o400)
+        try PrivateFile.write(Data("new key".utf8), to: pem, permissions: 0o400)
+        #expect(try permissions(pem) == 0o400)
+        #expect(try String(contentsOf: pem, encoding: .utf8) == "new key")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path) == ["key.pem"], "a temporary file was left")
+    }
+
+    @Test func privateFileNeverWritesThroughASymlink() throws {
+        let folder = try tempFolder()
+        let target = folder.appendingPathComponent("elsewhere")
+        try Data("keep".utf8).write(to: target)
+        let link = folder.appendingPathComponent("key.pem")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        try PrivateFile.write(Data("secret".utf8), to: link)
+        #expect(try String(contentsOf: target, encoding: .utf8) == "keep")
+        #expect(try permissions(link) == 0o600)
+    }
+
+    @Test func privateFileNeverReplacesAFolderAndLeavesNoTemporaryFile() throws {
+        let folder = try tempFolder()
+        let target = folder.appendingPathComponent("key.pem", isDirectory: true)
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
+        try Data("keep".utf8).write(to: target.appendingPathComponent("inside"))
+        #expect(throws: POSIXError.self) { try PrivateFile.write(Data("secret".utf8), to: target) }
+        #expect(try String(contentsOf: target.appendingPathComponent("inside"), encoding: .utf8) == "keep")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path) == ["key.pem"], "a temporary file was left")
+    }
+
+    @Test func privateFileFailsCleanlyInAMissingFolder() throws {
+        let missing = try tempFolder().appendingPathComponent("no/such/key.pem")
+        #expect(throws: POSIXError.self) { try PrivateFile.write(Data("x".utf8), to: missing) }
     }
 
     // MARK: Feedback

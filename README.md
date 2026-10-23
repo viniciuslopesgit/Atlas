@@ -17,7 +17,7 @@ The console spreads EC2, S3, IAM and costs across dozens of pages. Atlas brings 
 
 ## Installation
 
-Download `Atlas-X.Y.Z.zip` from the [latest release](https://github.com/viniciuslopesgit/Atlas/releases/latest), unzip it and drag `Atlas.app` to Applications. Check the download with `shasum -a 256 -c SHA256SUMS`.
+Download `Atlas-X.Y.Z.dmg` from the [latest release](https://github.com/viniciuslopesgit/Atlas/releases/latest), open it and drag `Atlas.app` to Applications. Check the download with `shasum -a 256 -c Atlas-X.Y.Z.dmg.sha256`.
 Betas (new versions not yet stable) appear as *pre-releases*.
 
 > The app is not notarized: the first time, allow it in *System Settings ▸ Privacy & Security ▸ Open Anyway*.

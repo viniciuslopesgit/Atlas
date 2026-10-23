@@ -24,10 +24,10 @@ print(summary.strip())
 print(f"""
 ## Install
 
-1. Download **Atlas-{v}.zip** (under *Assets*), unzip it and move Atlas to **Applications**.
+1. Download **Atlas-{v}.dmg** (under *Assets*), open it and drag Atlas to **Applications**.
 2. The app is not notarized: on first launch, allow it in *System Settings ▸ Privacy & Security ▸ Open Anyway*.
 
-Verify the file: `shasum -a 256 -c SHA256SUMS` in the folder where you downloaded both files.
+Verify the file: `shasum -a 256 -c Atlas-{v}.dmg.sha256` in the folder where you downloaded both files.
 
 macOS 14 or later · Apple silicon and Intel.
 """)

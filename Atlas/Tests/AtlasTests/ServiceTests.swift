@@ -56,6 +56,14 @@ struct ServiceTests {
         #expect(MockURLProtocol.requests[0].request.url?.host == "iam.amazonaws.com")
     }
 
+    @Test func transferProgressReachesTheUIAtMostOncePerPercent() {
+        let throttle = ProgressThrottle()
+        let reported = (0...100_000).map { Double($0) / 100_000 }.filter(throttle.shouldReport)
+        #expect(reported.count <= 101, "\(reported.count) UI updates for one transfer")
+        #expect(reported.first == 0 && reported.last == 1)
+        #expect(!throttle.shouldReport(1), "the end is reported once")
+    }
+
     @Test func s3ListsFoldersThenFiles() async throws {
         let client = MockURLProtocol.client { _, _ in
             .init(body: """
@@ -177,3 +185,4 @@ struct AppStateTests {
         #expect(secrets.get(dev.id) == nil)
     }
 }
+

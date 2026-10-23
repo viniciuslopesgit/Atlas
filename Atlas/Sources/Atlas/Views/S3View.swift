@@ -79,7 +79,7 @@ struct S3View: View {
     private var bucketPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Buckets").font(.headline)
+                Text("Buckets").font(Typo.panelTitle)
                 Text("\(buckets.count)").foregroundStyle(.secondary)
                 Spacer()
                 Button { showCreateBucket = true } label: { Image(systemName: "plus") }.help("Create bucket")
@@ -174,7 +174,7 @@ struct S3View: View {
                 }
                 .overlay {
                     if isDropTargeted {
-                        RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.accent, style: StrokeStyle(lineWidth: 2, dash: [6]))
+                        RoundedRectangle(cornerRadius: Radius.tile).strokeBorder(Palette.accent, style: StrokeStyle(lineWidth: 2, dash: [6]))
                     }
                 }
                 .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
@@ -199,7 +199,7 @@ struct S3View: View {
             Spacer()
             Text("\(objects.count) items").foregroundStyle(.secondary).font(.callout)
         }
-        .font(.headline)
+        .font(.callout)
     }
 
     private func open(prefix newPrefix: String) {
@@ -377,7 +377,7 @@ private struct CreateBucketSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Create Bucket").font(.title3.weight(.semibold)).padding()
+            Text("Create Bucket").font(Typo.panelTitle).padding()
             Divider()
             Form {
                 Section("General") {
@@ -474,7 +474,7 @@ private struct S3TextEditorSheet: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading) {
-                    Text(object.displayName).font(.headline)
+                    Text(object.displayName).font(Typo.panelTitle)
                     Text("s3://\(bucket)/\(object.key)").font(.caption.monospaced()).foregroundStyle(.secondary)
                 }
                 Spacer()

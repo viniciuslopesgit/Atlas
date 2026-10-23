@@ -114,8 +114,7 @@ struct SettingsView: View {
                     Button(role: .destructive) { pendingRemoval = account } label: { Image(systemName: "trash") }
                         .help("Remove account")
                 }
-                .padding(10)
-                .background(Color(nsColor: .windowBackgroundColor).opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                .padding(.vertical, 6)
             }
         }
         .padding(16)
@@ -140,7 +139,10 @@ struct SettingsView: View {
 
 /// Installed version and the state written by the updater LaunchAgent (scripts/install-updater.sh).
 private struct UpdateStatusView: View {
-    @State private var status = Updater.status()
+    /// Read when the view appears: a `@State` initial value is evaluated again on every parent render,
+    /// and this one reads and decodes a file.
+    @State private var status = Updater.Status()
+    @State private var isInstalled = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -151,7 +153,7 @@ private struct UpdateStatusView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             Spacer()
-            if Updater.isInstalled {
+            if isInstalled {
                 Button("Check for Updates Now") {
                     Updater.checkNow()
                     Task {
@@ -161,6 +163,10 @@ private struct UpdateStatusView: View {
                 }
                 .controlSize(.small)
             }
+        }
+        .task {
+            isInstalled = Updater.isInstalled
+            status = Updater.status()
         }
     }
 }

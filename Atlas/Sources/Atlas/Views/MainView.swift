@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject private var state: AppState
+    @AppStorage(DockerDesktopInstaller.promptedKey) private var dockerPrompted = false
+    @State private var showDockerSetup = false
 
     var body: some View {
         NavigationSplitView {
@@ -56,7 +58,12 @@ struct MainView: View {
         }
         .sheet(isPresented: $state.showSearch) { SearchSheet() }
         .environmentObject(state.stacks)
-        .onAppear { state.stacks.startScheduler() }
+        .sheet(isPresented: $showDockerSetup, onDismiss: { dockerPrompted = true }) { DockerSetupSheet() }
+        .onAppear {
+            state.stacks.startScheduler()
+            // First launch: with Docker there is nothing to say; without it, offer Docker Desktop once.
+            if !dockerPrompted && !SmokeTest.isEnabled && state.stacks.runtime == nil { showDockerSetup = true }
+        }
     }
 
     @ViewBuilder

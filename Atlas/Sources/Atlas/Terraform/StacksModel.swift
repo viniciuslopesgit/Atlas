@@ -17,13 +17,17 @@ final class StacksModel: ObservableObject {
     private let clientFor: @MainActor (StackEntry) -> AWSClient?
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var timer: Timer?
-    private let makeCLI: () -> TerraformCLI
+    /// Runs on this Mac when there is no container runtime.
+    private let makeCLI: (TerraformEngine) -> TerraformCLI
+    private let locateRuntime: () -> ContainerRuntime?
 
     init(store: StackStore, clientFor: @escaping @MainActor (StackEntry) -> AWSClient?,
-         makeCLI: @escaping () -> TerraformCLI = { TerraformCLI(timeout: 900) }) {
+         makeCLI: @escaping (TerraformEngine) -> TerraformCLI = { TerraformCLI(binary: TerraformCLI.locate(command: $0.command), timeout: 900) },
+         runtime: @escaping () -> ContainerRuntime? = { nil }) {
         self.store = store
         self.clientFor = clientFor
         self.makeCLI = makeCLI
+        self.locateRuntime = runtime
         stacks = store.load()
         // A run that was in progress when Atlas quit didn't finish.
         for i in stacks.indices {
@@ -37,6 +41,13 @@ final class StacksModel: ObservableObject {
     }
 
     func stack(_ id: UUID) -> StackEntry? { stacks.first { $0.id == id } }
+
+    /// The container runtime found on this Mac, if any: each stack then runs in its own container.
+    var runtime: ContainerRuntime? { locateRuntime() }
+
+    func container(for s: StackEntry) -> StackContainer? {
+        runtime.map { StackContainer(runtime: $0, stack: s.id, engine: s.engine) }
+    }
 
     // MARK: Scheduler
 
@@ -53,13 +64,24 @@ final class StacksModel: ObservableObject {
 
     // MARK: Editing
 
+    /// Adds the stack and, with a container runtime, creates its container right away.
     @discardableResult
-    func create(name: String, folder: URL, accountId: String, region: String) -> StackEntry {
+    func create(name: String, folder: URL, accountId: String, region: String, engine: TerraformEngine = .terraform) -> StackEntry {
         IaCModel.scaffoldIfEmpty(folder)
-        let s = StackEntry(name: name, projectPath: folder.path, accountId: accountId, region: region)
+        var s = StackEntry(name: name, projectPath: folder.path, accountId: accountId, region: region)
+        s.engine = engine
         stacks.append(s)
         save()
+        if runtime != nil { run(s.id, .setup, trigger: "stack created") { _ in true } }
         return s
+    }
+
+    /// Switches Terraform ⇄ OpenTofu; the old engine's container goes away, the next run creates the new one.
+    func setEngine(_ engine: TerraformEngine, for id: UUID) {
+        guard let s = stack(id), s.engine != engine, !busy.contains(id) else { return }
+        let old = container(for: s)
+        update(id) { $0.engine = engine }
+        if let old { Task { await old.remove() } }
     }
 
     func update(_ id: UUID, _ change: (inout StackEntry) -> Void) {
@@ -68,12 +90,17 @@ final class StacksModel: ObservableObject {
         save()
     }
 
-    /// Forgets the stack and its secrets; the folder is left as it is.
-    func delete(_ id: UUID) {
-        guard let s = stack(id), !busy.contains(id) else { return }
+    /// Forgets the stack and its secrets and removes its containers; the folder is left as it is.
+    @discardableResult
+    func delete(_ id: UUID) -> Task<Void, Never>? {
+        guard let s = stack(id), !busy.contains(id) else { return nil }
         store.forget(s)
         stacks.removeAll { $0.id == id }
         save()
+        guard let runtime else { return nil }
+        // Both engines: a container may be left from before an engine switch.
+        let containers = TerraformEngine.allCases.map { StackContainer(runtime: runtime, stack: id, engine: $0) }
+        return Task { for c in containers { await c.remove() } }
     }
 
     func removeEnvVar(_ variable: StackEnvVar, from id: UUID) {
@@ -91,6 +118,8 @@ final class StacksModel: ObservableObject {
     private struct Context: Sendable {
         let dir: URL
         let cli: TerraformCLI
+        /// `terraform` or `tofu`, for the log.
+        let tool: String
         let credentials: TerraformCredentials?
         let tfVars: [String: String]
         let log: @Sendable (String) -> Void
@@ -100,25 +129,36 @@ final class StacksModel: ObservableObject {
     private func run(_ id: UUID, _ type: StackRunType, trigger: String,
                      _ body: @escaping @Sendable (Context) async -> Bool) {
         guard let s = stack(id), !busy.contains(id) else { return }
-        let cli = makeCLI()
+        let container = container(for: s)
+        let cli = container.map { TerraformCLI(container: $0, timeout: 900) } ?? makeCLI(s.engine)
         guard cli.binary != nil else {
             record(id, StackRun(type: type, status: .failed, trigger: trigger, completedAt: Date(),
-                                output: "Terraform isn't installed. Install it with: brew install terraform"))
+                                output: "\(s.engine.label) isn't installed and there is no container runtime.\n"
+                                    + "Install Docker Desktop (Stacks › Settings › Install Docker Desktop…) so each stack runs in its own "
+                                    + "container, or install it on this Mac: \(s.engine.installCommand)"))
             return
         }
         let client = clientFor(s)
         let context = Context(
-            dir: s.url, cli: cli, credentials: client.map(TerraformCredentials.init),
+            dir: s.url, cli: cli, tool: s.engine.command, credentials: client.map(TerraformCredentials.init),
             tfVars: Dictionary(s.envVars.map { ($0.tfVarName, $0.value) }, uniquingKeysWith: { a, _ in a }),
             log: { [weak self] line in DispatchQueue.main.async { MainActor.assumeIsolated { self?.append(line, to: id) } } })
 
         busy.insert(id)
         record(id, StackRun(type: type, trigger: trigger))
         update(id) { $0.status = .running }
-        if client == nil { context.log("⚠ The stack's Atlas account is missing; terraform runs without AWS credentials.") }
+        if client == nil { context.log("⚠ The stack's Atlas account is missing; \(s.engine.command) runs without AWS credentials.") }
 
         tasks[id] = Task {
-            let ok = await body(context)
+            var ok = true
+            if let container {
+                context.log("▶ \(s.engine.label) in container \(container.name) (\(container.runtime.kind.rawValue))")
+                let ready = await container.ensure(folder: s.url, log: context.log)
+                ok = Self.report(ready, context.log)
+            } else if type == .setup {
+                ok = false
+            }
+            if ok, !Task.isCancelled { ok = await body(context) }
             await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } }
             finish(id, ok: ok, cancelled: Task.isCancelled)
         }
@@ -149,7 +189,7 @@ final class StacksModel: ObservableObject {
     }
 
     nonisolated private static func report(_ r: TerraformResult, _ log: @Sendable (String) -> Void) -> Bool {
-        if !r.isSuccess { log("✗ \(r.diagnostic.isEmpty ? "terraform exited with code \(r.exitCode)" : r.diagnostic)") }
+        if !r.isSuccess { log("✗ \(r.diagnostic.isEmpty ? "the command exited with code \(r.exitCode)" : r.diagnostic)") }
         return r.isSuccess
     }
 
@@ -157,7 +197,7 @@ final class StacksModel: ObservableObject {
 
     func initialize(_ id: UUID) {
         run(id, .initialize, trigger: "manual") { c in
-            c.log("▶ terraform init")
+            c.log("▶ \(c.tool) init")
             return Self.report(await c.cli.initialize(c.dir, credentials: c.credentials, onLine: c.log), c.log)
         }
     }
@@ -165,7 +205,7 @@ final class StacksModel: ObservableObject {
     /// Saves the plan so Apply runs exactly what was reviewed.
     func plan(_ id: UUID) {
         run(id, .plan, trigger: "manual") { c in
-            c.log("▶ terraform plan -out=\(Self.planFile)")
+            c.log("▶ \(c.tool) plan -out=\(Self.planFile)")
             let r = await c.cli.plan(c.dir, outFile: Self.planFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             if r.status == .noChanges { try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.planFile)) }
             return Self.report(r, c.log)
@@ -178,7 +218,7 @@ final class StacksModel: ObservableObject {
 
     func apply(_ id: UUID) {
         run(id, .apply, trigger: "manual") { c in
-            c.log("▶ terraform apply \(Self.planFile)")
+            c.log("▶ \(c.tool) apply \(Self.planFile)")
             let r = await c.cli.apply(c.dir, planFile: Self.planFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.planFile))
             return Self.report(r, c.log)
@@ -190,7 +230,7 @@ final class StacksModel: ObservableObject {
         guard !busy.contains(id) else { return }
         update(id) { $0.driftStatus = .checking }
         run(id, .plan, trigger: "drift check (\(trigger))") { [weak self] c in
-            c.log("▶ terraform plan -detailed-exitcode -out=\(Self.driftPlanFile)")
+            c.log("▶ \(c.tool) plan -detailed-exitcode -out=\(Self.driftPlanFile)")
             let r = await c.cli.plan(c.dir, outFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             let ok = r.isSuccess
             await self?.recordDrift(id, r)
@@ -238,7 +278,7 @@ final class StacksModel: ObservableObject {
         update(id) { $0.driftStatus = .checking }
         run(id, .fixDrift, trigger: trigger) { [weak self] c in
             c.log("━━━ Fix drift ━━━")
-            c.log("▶ terraform apply \(Self.driftPlanFile)")
+            c.log("▶ \(c.tool) apply \(Self.driftPlanFile)")
             let applied = await c.cli.apply(c.dir, planFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.driftPlanFile))
             guard Self.report(applied, c.log) else {
@@ -246,7 +286,7 @@ final class StacksModel: ObservableObject {
                 return false
             }
             c.log("\n━━━ Verify ━━━")
-            c.log("▶ terraform plan -detailed-exitcode")
+            c.log("▶ \(c.tool) plan -detailed-exitcode")
             let verify = await c.cli.plan(c.dir, outFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             c.log(verify.status == .noChanges ? "✔ No drift: the infrastructure matches the configuration."
                   : verify.status == .planHasChanges ? "⚠ Drift is still present." : "✗ Verification failed.")
@@ -285,7 +325,7 @@ final class StacksModel: ObservableObject {
                 return false
             }
 
-            c.log("\n━━━ Init ━━━\n▶ terraform init")
+            c.log("\n━━━ Init ━━━\n▶ \(c.tool) init")
             guard Self.report(await c.cli.initialize(c.dir, credentials: c.credentials, onLine: c.log), c.log) else { return false }
 
             c.log("\n━━━ Import ━━━")
@@ -297,7 +337,7 @@ final class StacksModel: ObservableObject {
                 return false
             }
 
-            c.log("\n▶ terraform plan -generate-config-out=\(Self.generatedFile)")
+            c.log("\n▶ \(c.tool) plan -generate-config-out=\(Self.generatedFile)")
             let generate = await c.cli.planGeneratingConfig(c.dir, outFile: Self.generatedFile, credentials: c.credentials,
                                                            tfVars: c.tfVars, onLine: c.log)
             if generate.status == .cancelled || generate.status == .timedOut { return Self.report(generate, c.log) }
@@ -323,7 +363,7 @@ final class StacksModel: ObservableObject {
             let extracted = vars
             await self?.merge(extracted, into: id)
 
-            c.log("\n━━━ Validate ━━━\n▶ terraform validate")
+            c.log("\n━━━ Validate ━━━\n▶ \(c.tool) validate")
             return Self.report(await c.cli.validate(c.dir, onLine: c.log), c.log)
         }
     }

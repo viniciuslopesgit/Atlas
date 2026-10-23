@@ -155,7 +155,8 @@ final class AppState: ObservableObject {
     /// Stacks and their drift scheduler live as long as the app.
     private(set) lazy var stacks = StacksModel(
         store: StackStore(folder: store.folder, secrets: secrets),
-        clientFor: { [unowned self] stack in self.client(accountId: stack.accountId, region: stack.region) })
+        clientFor: { [unowned self] stack in self.client(accountId: stack.accountId, region: stack.region) },
+        runtime: { ContainerRuntime.locate() })
 
     func refresh() { refreshToken += 1 }
 

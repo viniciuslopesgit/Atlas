@@ -4,6 +4,40 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.5.0] - 2026-10-23
+
+Atlas 2.5.0 runs each Stack in its own isolated container. When Docker Desktop, OrbStack, Colima or Apple's
+`container` is on the Mac, creating a stack creates a container dedicated to it, and Init, Plan, Apply, drift
+checks and Import from AWS run inside it with the official Terraform or OpenTofu image, so neither has to be
+installed. On first launch without Docker, Atlas offers to install Docker Desktop; without a container runtime,
+stacks keep running with the terraform on the Mac. Atlas is now installed from a .dmg.
+
+### Added
+- Each new stack gets its own container (stack folder mounted, read-only system, no capabilities, your user);
+  plan, apply, drift checks and imports run inside it
+- Stacks choose Terraform or OpenTofu, when created and later in Settings
+- Atlas finds Docker Desktop, OrbStack, Colima or Apple's container on its own; with one there is nothing to do
+- On first launch without Docker, Atlas offers to install Docker Desktop: it downloads it from docker.com, checks
+  that it is signed by Docker Inc and copies it to Applications (also from Stacks › Settings)
+- Atlas-X.Y.Z.dmg installer: open it and drag Atlas to Applications
+
+### Changed
+- AWS credentials and stack variables reach the container through its standard input for each run: never in a
+  file, an image or a command line
+- Removing a stack also removes its container
+- Releases offer the .dmg instead of the .zip; the .zip stays only for the automatic updater
+- Sheet, inspector and panel titles follow the minimal design (no bold or expanded type); account rows, the EC2
+  selection count and the S3 drop target lose their boxes and pills
+- Large S3 uploads and downloads update their progress at most once per percent, keeping the window responsive
+- The Accounts page no longer reads the updater's state on every redraw
+
+### Fixed
+- Signed AWS requests only go to HTTPS AWS endpoints: a region or bucket name can no longer send them to another host
+- AWS responses are never cached on disk and AWS calls never use cookies
+- A new key pair's .pem is never readable by other users, not even while it is being written
+- accounts.json is readable only by you (0600, its folder 0700)
+- Error pages that do not come from AWS (a proxy, a captive portal) are cut to their first lines
+
 ## [2.4.1] - 2026-10-23
 
 Atlas 2.4.1 corrects the wording of the text in the app, on the website and in the documentation.
@@ -196,6 +230,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.5.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.0
 [2.4.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.4.1
 [2.4.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.4.0
 [2.3.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.3.0

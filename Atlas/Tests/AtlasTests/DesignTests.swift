@@ -10,6 +10,32 @@ struct DesignTests {
         #expect(StatCard.figureColor(Palette.success) == Palette.success)
     }
 
+    /// The old look, by pattern: bold or expanded titles, hard-coded radii and colors, filled selection pills.
+    /// StacksView and IaCView are being rebuilt in another change and are checked once it lands.
+    @Test func viewsUseTheMinimalDesignTokens() throws {
+        let views = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../Sources/Atlas/Views").standardizedFileURL
+        let pending: Set<String> = ["StacksView.swift", "IaCView.swift"]
+        let banned = [#"\.width\(\.expanded\)"#, #"\.(semibold|bold|heavy)\b"#, #"\.font\(\.(headline|title2?|largeTitle)\)"#,
+                      #"cornerRadius: [0-9]"#, #"Color\((red|white):"#, #"\.foregroundColor\(\.(blue|red|green|orange)"#,
+                      #"in: Capsule\(\)"#]
+        let files = try #require(FileManager.default.enumerator(at: views, includingPropertiesForKeys: nil))
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" && !pending.contains($0.lastPathComponent) }
+        #expect(files.count > 10)
+        for file in files {
+            let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: "\n")
+            for (n, line) in lines.enumerated() where !line.trimmingCharacters(in: .whitespaces).hasPrefix("//") {
+                for pattern in banned where line.range(of: pattern, options: .regularExpression) != nil {
+                    Issue.record("\(file.lastPathComponent):\(n + 1) uses the old look (\(pattern)): \(line.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+        }
+    }
+
+    @Test func panelTitlesSitBelowThePageTitleWithoutBold() {
+        #expect(Typo.panelTitle == Font.system(size: 15, weight: .medium))
+    }
+
     @Test func figuresAreLightWithTabularDigits() {
         #expect(Typo.figure(28) == Font.system(size: 28, weight: .light).monospacedDigit())
     }

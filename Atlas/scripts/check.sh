@@ -35,6 +35,7 @@ typeset -A MIN_COVERAGE=(
     AWS/XNode.swift 95
     AWS/AWSClient.swift 85
     Storage/AccountStore.swift 35
+    Storage/PrivateFile.swift 85
     Services/S3Service.swift 30
     Services/SsmService.swift 50
     Services/SsmProtocol.swift 90
@@ -47,21 +48,23 @@ typeset -A MIN_COVERAGE=(
     Terraform/ImportDiscovery.swift 55
     Terraform/Stacks.swift 90
     Terraform/StacksModel.swift 45
+    Terraform/StackContainer.swift 85
+    Services/DockerDesktop.swift 75
     Views/FeedbackView.swift 15
 )
 
 # Code that reaches the network, the Keychain, runs programs, opens files or links, or moves and deletes
 # files only lives in these files. A new place needs a review and an attack test in SecurityTests.swift.
 typeset -A REVIEWED=(
-    URLSession              "AWS/AWSClient.swift Services/SsmShell.swift"
+    URLSession              "AWS/AWSClient.swift Services/SsmShell.swift Services/DockerDesktop.swift"
     SecItem                 "Storage/AccountStore.swift"
     'Process()'             "Terraform/TerraformCLI.swift App/AppState.swift"
-    NSWorkspace.shared.open "Views/FeedbackView.swift Services/SsmService.swift"
-    removeItem              "Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
-    moveItem                "Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
+    NSWorkspace.shared.open "Views/FeedbackView.swift Services/SsmService.swift Views/DockerSetupSheet.swift"
+    removeItem              "Services/DockerDesktop.swift Storage/PrivateFile.swift Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
+    moveItem                "Services/DockerDesktop.swift Storage/PrivateFile.swift Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
     'unlink('               ""
     posix_spawn             ""
-    '/bin/sh'               ""
+    '/bin/sh'               "Terraform/StackContainer.swift"
 )
 
 STEP=0
