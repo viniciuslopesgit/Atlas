@@ -8,9 +8,10 @@ The console spreads EC2, S3, IAM and costs across dozens of pages. Atlas brings 
 - **EC2 without tabs** — start, stop, reboot or terminate several instances at once, see every detail with metrics, and launch new ones with a wizard.
 - **S3 like Finder** — browse folders, drag files to upload, follow upload and download progress, and edit text files in place.
 - **Security in one click** — IAM (users, roles, groups, policies and access keys), GuardDuty findings, CloudWatch alarms and a quick audit: root MFA, password policy, old keys, IMDSv1 and public S3 buckets.
+- **Terraform without leaving the app** — import existing resources into a project, plan and apply what you reviewed, and keep stacks under watch for drift.
 - **Multiple accounts, instant switching** — change account or region from the toolbar, and find any resource with ⌘K.
 
-> Requires macOS 14 Sonoma or later. Terraform/drift and the SSM terminal from the old Windows version are not yet available on macOS.
+> Requires macOS 14 Sonoma or later. Terraform features need `terraform` 1.5+; EC2 › Connect needs the Session Manager plugin.
 
 ---
 
@@ -20,6 +21,8 @@ Download `Atlas-X.Y.Z.zip` from the [latest release](https://github.com/vinicius
 Development builds (`X.Y.Z-dev.N`) appear as *pre-releases*.
 
 > The app has an ad-hoc signature: the first time, open it with right-click → **Open**.
+
+To keep it up to date automatically (every new release, dev builds included), run `Atlas/scripts/install-updater.sh` once — details in [Atlas/README.md](Atlas/README.md#automatic-updates-on-this-mac).
 
 ## Development
 
