@@ -4,6 +4,13 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.4.0] - 2026-10-23
+
+Atlas 2.4.0 brings 1 new feature.
+
+### Added
+- EC2 › Connect works without the Session Manager plugin — Atlas speaks the protocol itself
+
 ## [2.3.0] - 2026-10-23
 
 Atlas 2.3.0 brings 1 new feature.
@@ -180,6 +187,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.4.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.4.0
 [2.3.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.3.0
 [2.2.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.2.0
 [2.1.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.1.0

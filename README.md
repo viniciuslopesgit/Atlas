@@ -11,7 +11,7 @@ The console spreads EC2, S3, IAM and costs across dozens of pages. Atlas brings 
 - **Terraform without leaving the app** — import existing resources into a project, plan and apply what you reviewed, and keep stacks under watch for drift.
 - **Multiple accounts, instant switching** — change account or region from the toolbar, and find any resource with ⌘K.
 
-> Requires macOS 14 Sonoma or later. Terraform features need `terraform` 1.5+; EC2 › Connect needs the Session Manager plugin.
+> Requires macOS 14 Sonoma or later. Terraform features need `terraform` 1.5+.
 
 ---
 

@@ -37,6 +37,7 @@ typeset -A MIN_COVERAGE=(
     Storage/AccountStore.swift 35
     Services/S3Service.swift 30
     Services/SsmService.swift 50
+    Services/SsmProtocol.swift 90
     Services/IamService+Write.swift 60
     Terraform/Hcl.swift 90
     Terraform/GeneratedHcl.swift 85
@@ -52,12 +53,12 @@ typeset -A MIN_COVERAGE=(
 # Code that reaches the network, the Keychain, runs programs, opens files or links, or moves and deletes
 # files only lives in these files. A new place needs a review and an attack test in SecurityTests.swift.
 typeset -A REVIEWED=(
-    URLSession              "AWS/AWSClient.swift"
+    URLSession              "AWS/AWSClient.swift Services/SsmShell.swift"
     SecItem                 "Storage/AccountStore.swift"
     'Process()'             "Terraform/TerraformCLI.swift App/AppState.swift"
     NSWorkspace.shared.open "Views/FeedbackView.swift Services/SsmService.swift"
-    removeItem              "Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
-    moveItem                "Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
+    removeItem              "Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
+    moveItem                "Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
     'unlink('               ""
     posix_spawn             ""
     '/bin/sh'               ""

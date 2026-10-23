@@ -88,7 +88,7 @@ The README's download link points to **Latest**, which is always the latest stab
 ## 4. What a version does not promise
 
 - AWS behaviour is tested against recorded responses, not live accounts. A new AWS API change can break a feature without any test failing.
-- The Terraform and SSM features depend on the user's own `terraform` and `session-manager-plugin` binaries.
+- The Terraform features depend on the user's own `terraform` binary. The SSM shell is Atlas's own implementation of the Session Manager protocol, tested against recorded messages; KMS-encrypted sessions are not supported.
 - The app is not notarized (see [RISK_REGISTER.md](RISK_REGISTER.md), R3).
 
 ## 5. Manual checks

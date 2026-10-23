@@ -80,11 +80,13 @@ Atlas calls these only when you use the feature that needs them, and tells you h
 | Feature | Tool | Install |
 |---|---|---|
 | Infrastructure as Code, Stacks | `terraform` 1.5+ | `brew install terraform` |
-| EC2 › Connect | `session-manager-plugin` | `brew install --cask session-manager-plugin` |
 | Automatic updates | `gh`, signed in | `brew install gh && gh auth login` |
 
-Credentials reach `terraform` and the plugin only through the child process's environment; they are never
-written to `.tf` files or passed on a command line.
+Credentials reach `terraform` only through the child process's environment; they are never written to `.tf`
+files or passed on a command line.
+
+EC2 › Connect needs nothing extra: Atlas speaks the Session Manager protocol itself and opens the shell in
+Terminal. KMS-encrypted sessions (a Session Manager preference) are not supported yet.
 
 ## Automatic updates on this Mac
 

@@ -112,36 +112,32 @@ struct SecurityTests {
         #expect(!all.contains("resource \"aws_iam_user\""))
     }
 
-    // MARK: SSM: the script Terminal runs
+    // MARK: SSM: the script Terminal runs and the data channel
 
     @Test(arguments: ["i-1;rm -rf ~", "i-0123456789abcdef0/../../x", "$(id)", "i-ABCDEF12", ""])
     func ssmRejectsTargetsThatAreNotInstanceIds(target: String) {
         #expect(throws: SsmService.SsmError.self) {
-            try SsmService.commandScript(plugin: "/p", session: .init(sessionId: "s", streamUrl: "u", tokenValue: "t"),
-                                         region: "us-east-1", instanceId: target)
+            try SsmService.commandScript(executable: "/p", sessionFile: "/t/s", region: "us-east-1", instanceId: target)
         }
     }
 
     @Test func ssmRejectsRegionsThatAreNotRegions() {
         for region in ["us-east-1; curl evil", "$(id)", "eu-west-1.evil.com/x", ""] {
             #expect(throws: SsmService.SsmError.self) {
-                try SsmService.commandScript(plugin: "/p", session: .init(sessionId: "s", streamUrl: "u", tokenValue: "t"),
-                                             region: region, instanceId: "i-0123456789abcdef0")
+                try SsmService.commandScript(executable: "/p", sessionFile: "/t/s", region: region, instanceId: "i-0123456789abcdef0")
             }
         }
     }
 
-    @Test func ssmSessionValuesNeverReachTheShellUnquoted() throws {
-        let hostile = "'; touch /tmp/pwned; echo '$(id)`id`"
-        let script = try SsmService.commandScript(
-            plugin: "/opt/homebrew/bin/session-manager-plugin",
-            session: .init(sessionId: hostile, streamUrl: hostile, tokenValue: hostile),
-            region: "eu-west-1", instanceId: "mi-0123456789abcdef0")
-        // Run the script's argument list through a real shell, with the plugin replaced by printf.
+    @Test func ssmScriptPathsNeverReachTheShellUnquoted() throws {
+        let hostile = "/tmp/'; touch /tmp/pwned; echo '$(id)`id`"
+        let script = try SsmService.commandScript(executable: "/Applications/Atlas.app/Contents/MacOS/Atlas",
+                                                  sessionFile: hostile, region: "eu-west-1", instanceId: "mi-0123456789abcdef0")
+        // Run the script's argument list through a real shell, with Atlas replaced by printf.
         let dir = try tempFolder()
         let file = dir.appendingPathComponent("s.sh")
         let exec = try #require(script.components(separatedBy: "\n").first { $0.hasPrefix("exec ") })
-        let line = exec.replacingOccurrences(of: "exec '/opt/homebrew/bin/session-manager-plugin'", with: "printf '%s\\n'")
+        let line = exec.replacingOccurrences(of: "exec '/Applications/Atlas.app/Contents/MacOS/Atlas'", with: "printf '%s\\n'")
         try Data((line + "\n").utf8).write(to: file)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/bash")
@@ -153,12 +149,42 @@ struct SecurityTests {
         let args = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             .split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         #expect(p.terminationStatus == 0)
-        #expect(args.count >= 6)
-        let response = try JSONSerialization.jsonObject(with: Data(args[0].utf8)) as? [String: String]
-        #expect(response?["TokenValue"] == hostile, "the token reached the plugin intact, as one argument")
-        #expect(args[1] == "eu-west-1" && args[2] == "StartSession" && args[3] == "")
-        #expect(args[5] == "https://ssm.eu-west-1.amazonaws.com")
+        #expect(args.prefix(2) == ["--ssm-session", hostile], "the path reached Atlas intact, as one argument")
         #expect(!FileManager.default.fileExists(atPath: "/tmp/pwned"))
+    }
+
+    @Test(arguments: ["wss://evil.example.com/v1/data-channel/s", "ws://ssmmessages.us-east-1.amazonaws.com/x",
+                      "https://ssmmessages.us-east-1.amazonaws.com/x", "wss://ssmmessages.us-east-1.amazonaws.com.evil.io/x",
+                      "wss://user:pw@ssmmessages.us-east-1.amazonaws.com/x", "wss://amazonaws.com/x", "not a url"])
+    func ssmShellOnlyConnectsToSessionManager(url: String) {
+        #expect(throws: SsmShell.ShellError.self) { try SsmShell.streamURL(url) }
+    }
+
+    @Test func ssmShellAcceptsRealEndpoints() throws {
+        #expect(try SsmShell.streamURL("wss://ssmmessages.eu-west-1.amazonaws.com/v1/data-channel/s-1?role=publish_subscribe").host
+                == "ssmmessages.eu-west-1.amazonaws.com")
+        _ = try SsmShell.streamURL("wss://ssmmessages.cn-north-1.amazonaws.com.cn/v1/data-channel/s-1")
+    }
+
+    @Test func ssmDecoderRejectsMalformedMessages() {
+        let good = SsmProtocol.encode(.init(type: "output_stream_data", payloadType: 1, payload: Data("hi".utf8)))
+        #expect(throws: SsmProtocol.DecodeError.tooShort) { try SsmProtocol.decode(good.prefix(50)) }
+        var lying = good
+        lying[116..<120] = Data([0x7F, 0xFF, 0xFF, 0xFF]) // claims a 2 GB payload
+        #expect(throws: SsmProtocol.DecodeError.badLength) { try SsmProtocol.decode(lying) }
+        var huge = [UInt8](good)
+        huge[0..<4] = [0xFF, 0xFF, 0xFF, 0xFF] // header longer than the frame
+        #expect(throws: SsmProtocol.DecodeError.badHeader) { try SsmProtocol.decode(Data(huge)) }
+        var tampered = good
+        tampered[tampered.count - 1] ^= 0xFF
+        #expect(throws: SsmProtocol.DecodeError.badDigest) { try SsmProtocol.decode(tampered) }
+        #expect(throws: SsmProtocol.DecodeError.badLength) { try SsmProtocol.decode(good + Data([0])) }
+    }
+
+    @Test func ssmSessionIgnoresGarbageFromTheSocket() {
+        let s = SsmProtocol.Session()
+        #expect(s.receive(Data(repeating: 0xFF, count: 4096)).isEmpty)
+        #expect(s.receive(Data()).isEmpty)
     }
 
     // MARK: Credentials
