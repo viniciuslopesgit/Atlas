@@ -30,11 +30,14 @@ struct FakeDocker {
           info) [ ! -f "$D/down" ] ;;
           inspect) [ -f "$D/c-$2" ] ;;
           create)
+            # Like Docker Desktop: pulling needs the credential helper that sits next to the CLI.
+            command -v docker-credential-desktop >/dev/null || {
+              echo 'error getting credentials - err: exec: "docker-credential-desktop": executable file not found in $PATH' >&2; exit 1; }
             shift; name=""; src=""
             while [ $# -gt 0 ]; do
               case "$1" in
                 --name) name="$2"; shift ;;
-                --mount) src="${2#type=bind,source=}"; src="${src%%,target=*}"; shift ;;
+                --mount) [ -z "$src" ] && { src="${2#type=bind,source=}"; src="${src%%,target=*}"; }; shift ;;
               esac
               shift
             done
@@ -51,6 +54,7 @@ struct FakeDocker {
             PATH="$D/engine:$PATH" exec "$@" ;;
         esac
         """)
+        try Self.write(dir.appendingPathComponent("docker-credential-desktop"), "#!/bin/bash\nexit 0\n")
         let planOutput = DriftReportTests.plan.replacingOccurrences(of: "'", with: "'\\''")
         for engine in TerraformEngine.allCases {
             try Self.write(engines.appendingPathComponent(engine.command), """
@@ -202,6 +206,45 @@ struct StacksContainerModelTests {
         await model.delete(s.id)?.value
         #expect(!fake.exists(tf.name) && !fake.exists(container.name))
         #expect(model.stack(s.id) == nil)
+    }
+
+    /// The folder's own `.terraform` came from the engine on the Mac (another version, macOS providers, a backend
+    /// cache that `tofu init` reads as "Backend configuration changed"): the container keeps its own data folder.
+    @Test @MainActor func theContainerKeepsItsOwnDataFolderOutsideTheStack() async throws {
+        let fake = try FakeDocker()
+        let support = fake.dir.appendingPathComponent("support")
+        let store = StackStore(folder: support, secrets: InMemorySecretStore())
+        let model = StacksModel(store: store, clientFor: { _ in nil }, makeCLI: { _ in TerraformCLI(binary: nil) },
+                                runtime: { fake.runtime })
+        let s = model.create(name: "omnium", folder: fake.workspace, accountId: "acct", region: "eu-west-1", engine: .tofu)
+        await waitIdle(model, s.id)
+        model.initialize(s.id)
+        await waitIdle(model, s.id)
+        let run = try #require(model.stack(s.id)?.runs.first)
+        #expect(run.type == .initialize && run.status == .success, "\(run.output)")
+        #expect(fake.engineCalls.contains("tofu init -no-color"))
+
+        let data = store.dataFolder(s.id, .tofu)
+        #expect(data.path.hasPrefix(support.path) && data.path.contains(s.id.uuidString))
+        var isDir: ObjCBool = false
+        #expect(FileManager.default.fileExists(atPath: data.path, isDirectory: &isDir) && isDir.boolValue)
+        #expect(fake.log.contains("type=bind,source=\(data.path),target=\(StackContainer.dataDirectory)"))
+        #expect(fake.log.contains("--env TF_DATA_DIR=\(StackContainer.dataDirectory)"))
+        #expect(store.dataFolder(s.id, .terraform) != data, "one per engine")
+
+        await model.delete(s.id)?.value
+        #expect(!FileManager.default.fileExists(atPath: data.path), "deleting the stack removes its data folder")
+        #expect(FileManager.default.fileExists(atPath: fake.workspace.path), "and leaves the stack's folder as it is")
+    }
+
+    /// Docker Desktop's CLI runs `docker-credential-desktop` from PATH to pull an image; Atlas opened from Finder
+    /// does not have Docker.app's folder in PATH, so creating the container failed before init ever ran.
+    @Test func theRuntimeFindsTheHelpersNextToItsCLI() {
+        let env = TerraformCLI.environment(base: ["PATH": "/usr/bin:/bin"], credentials: nil, tfVars: [:],
+                                           binary: "/Applications/Docker.app/Contents/Resources/bin/docker")
+        let path = (env["PATH"] ?? "").split(separator: ":").map(String.init)
+        #expect(path.first == "/Applications/Docker.app/Contents/Resources/bin")
+        #expect(path.contains("/usr/bin") && path.contains("/opt/homebrew/bin"))
     }
 
     @Test @MainActor func withoutRuntimeOrBinaryTheRunExplainsTheSetup() async throws {

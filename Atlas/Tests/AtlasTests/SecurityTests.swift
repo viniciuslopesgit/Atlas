@@ -221,6 +221,24 @@ struct SecurityTests {
         #expect(!StackContainer.canMount(URL(fileURLWithPath: "/tmp/x:/etc")))
     }
 
+    /// Deleting a stack removes only Atlas's data folder for it, named by the stack's id, never the stack's folder,
+    /// even when the stack's folder is inside Atlas's own folder.
+    @Test @MainActor func deletingAStackRemovesOnlyItsOwnDataFolder() async throws {
+        let support = TestTemp.root.appendingPathComponent("support-\(UUID().uuidString)", isDirectory: true)
+        let project = support.appendingPathComponent("stacks", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        try Data("resource {}".utf8).write(to: project.appendingPathComponent("main.tf"))
+        let store = StackStore(folder: support, secrets: InMemorySecretStore())
+        let model = StacksModel(store: store, clientFor: { _ in nil }, makeCLI: { _ in TerraformCLI(binary: nil) })
+        let s = model.create(name: "inside", folder: project, accountId: "a", region: "eu-west-1")
+        let other = UUID()
+        try PrivateFile.createFolder(store.dataFolder(other, .terraform))
+        #expect(store.stacksFolder(s.id).deletingLastPathComponent().standardizedFileURL == project.standardizedFileURL)
+        _ = model.delete(s.id)
+        #expect(FileManager.default.fileExists(atPath: project.appendingPathComponent("main.tf").path))
+        #expect(FileManager.default.fileExists(atPath: store.dataFolder(other, .terraform).path), "another stack's data stays")
+    }
+
     @Test func dockerDesktopComesOnlyFromDockerAndMustBeSignedByDocker() {
         let url = DockerDesktopInstaller.downloadURL
         #expect(url.scheme == "https" && url.host == "desktop.docker.com")

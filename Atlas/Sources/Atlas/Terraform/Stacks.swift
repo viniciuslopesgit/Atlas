@@ -307,6 +307,15 @@ struct StackStore {
 
     func forget(envVar: StackEnvVar, of stack: StackEntry) { secrets.delete(Self.envKey(stack.id, envVar.id)) }
 
+    /// Where a stack's container keeps the engine's data (providers, modules, backend cache), one per engine.
+    func dataFolder(_ stack: UUID, _ engine: TerraformEngine) -> URL {
+        stacksFolder(stack).appendingPathComponent(engine.rawValue, isDirectory: true)
+    }
+
+    func stacksFolder(_ stack: UUID) -> URL {
+        folder.appendingPathComponent("stacks", isDirectory: true).appendingPathComponent(stack.uuidString, isDirectory: true)
+    }
+
     static func envKey(_ stack: UUID, _ variable: String) -> String { "atlas-stack-env:\(stack.uuidString):\(variable)" }
 
     private func outputKey(create: Bool = false) -> SymmetricKey? {

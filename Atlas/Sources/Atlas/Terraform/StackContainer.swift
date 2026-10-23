@@ -71,9 +71,9 @@ struct ContainerRuntime: Sendable, Equatable {
     func startArguments(_ name: String) -> [String] { ["start", name] }
     func removeArguments(_ name: String) -> [String] { isApple ? ["delete", "--force", name] : ["rm", "--force", name] }
 
-    /// A long-lived, locked-down container: the stack folder at /workspace is the only writable place
-    /// besides a tmpfs, no capabilities, the user's uid, idle until `exec`.
-    func createArguments(name: String, stack: UUID, folder: URL, engine: TerraformEngine,
+    /// A long-lived, locked-down container: the stack folder at /workspace and its data folder are the only
+    /// writable places besides a tmpfs, no capabilities, the user's uid, idle until `exec`.
+    func createArguments(name: String, stack: UUID, folder: URL, data: URL? = nil, engine: TerraformEngine,
                          uid: UInt32 = getuid(), gid: UInt32 = getgid()) -> [String] {
         var args = ["create", "--name", name,
                     "--label", "io.cloud-atlas.stack=\(stack.uuidString)",
@@ -84,6 +84,10 @@ struct ContainerRuntime: Sendable, Equatable {
                     "--read-only", "--tmpfs", "/tmp",
                     "--cap-drop", "ALL",
                     "--env", "HOME=/tmp"]
+        if let data {
+            args += ["--mount", "type=bind,source=\(data.path),target=\(StackContainer.dataDirectory)",
+                     "--env", "TF_DATA_DIR=\(StackContainer.dataDirectory)"]
+        }
         if !isApple { args += ["--security-opt", "no-new-privileges", "--pids-limit", "512"] }
         return args + ["--entrypoint", "tail", engine.image, "-f", "/dev/null"]
     }
@@ -97,6 +101,9 @@ struct ContainerRuntime: Sendable, Equatable {
 /// The container of one stack. Its name has the engine, so switching engine gets a fresh image.
 struct StackContainer: Sendable, Equatable {
     static let workspace = "/workspace"
+    /// The engine's own `.terraform` (TF_DATA_DIR). The one in the stack folder belongs to the engine on the Mac:
+    /// macOS providers and a backend cache in another version's format, which init reads as a changed backend.
+    static let dataDirectory = "/atlas-data"
 
     var runtime: ContainerRuntime
     var stack: UUID
@@ -135,21 +142,27 @@ struct StackContainer: Sendable, Equatable {
 
     // MARK: Lifecycle
 
-    /// Creates the container if it is missing (pulling the image) and starts it.
-    func ensure(folder: URL, log: @escaping @Sendable (String) -> Void) async -> TerraformResult {
+    /// Creates the container if it is missing (pulling the image) and starts it. `data` is the host folder kept
+    /// as the engine's data folder.
+    func ensure(folder: URL, data: URL? = nil, log: @escaping @Sendable (String) -> Void) async -> TerraformResult {
         let cli = TerraformCLI(binary: runtime.binary, timeout: 20)
         let tmp = FileManager.default.temporaryDirectory
         guard await cli.run(runtime.readyArguments, in: tmp).isSuccess else {
             return TerraformResult(status: .failed, diagnostic: "\(runtime.kind.rawValue) is not running. \(runtime.startHint)")
         }
         if !(await cli.run(runtime.existsArguments(name), in: tmp)).isSuccess {
-            guard Self.canMount(folder) else {
+            guard Self.canMount(folder), data.map(Self.canMount) ?? true else {
                 return TerraformResult(status: .failed,
                                        diagnostic: "The stack folder's path has a comma, colon or equals sign; it cannot be mounted in a container.")
             }
+            if let data {
+                do { try PrivateFile.createFolder(data) } catch {
+                    return TerraformResult(status: .failed, diagnostic: "Could not create the stack's data folder: \(error.localizedDescription)")
+                }
+            }
             log("▶ Creating container \(name) from \(engine.image) (the first time downloads the image)…")
             let created = await TerraformCLI(binary: runtime.binary, timeout: 900)
-                .run(runtime.createArguments(name: name, stack: stack, folder: folder, engine: engine), in: tmp, onLine: log)
+                .run(runtime.createArguments(name: name, stack: stack, folder: folder, data: data, engine: engine), in: tmp, onLine: log)
             guard created.isSuccess else {
                 var r = created
                 r.diagnostic = "Could not create the container: \(created.errors.first ?? created.stderr.trimmingCharacters(in: .whitespacesAndNewlines))"

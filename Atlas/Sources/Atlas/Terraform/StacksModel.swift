@@ -100,6 +100,8 @@ final class StacksModel: ObservableObject {
         store.forget(s)
         stacks.removeAll { $0.id == id }
         save()
+        // Only Atlas's own folder for this stack (named by its id); the stack's folder is the user's.
+        try? FileManager.default.removeItem(at: store.stacksFolder(id))
         guard let runtime else { return nil }
         // Both engines: a container may be left from before an engine switch.
         let containers = TerraformEngine.allCases.map { StackContainer(runtime: runtime, stack: id, engine: $0) }
@@ -133,6 +135,7 @@ final class StacksModel: ObservableObject {
                      _ body: @escaping @Sendable (Context) async -> Bool) {
         guard let s = stack(id), !busy.contains(id) else { return }
         let container = container(for: s)
+        let data = store.dataFolder(s.id, s.engine)
         let cli = container.map { TerraformCLI(container: $0, timeout: 900) } ?? makeCLI(s.engine)
         guard cli.binary != nil else {
             record(id, StackRun(type: type, status: .failed, trigger: trigger, completedAt: Date(),
@@ -156,7 +159,7 @@ final class StacksModel: ObservableObject {
             var ok = true
             if let container {
                 context.log("▶ \(s.engine.label) in container \(container.name) (\(container.runtime.kind.rawValue))")
-                let ready = await container.ensure(folder: s.url, log: context.log)
+                let ready = await container.ensure(folder: s.url, data: data, log: context.log)
                 ok = Self.report(ready, context.log)
             } else if type == .setup {
                 ok = false

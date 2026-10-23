@@ -139,10 +139,17 @@ struct TerraformCLI: Sendable {
     // MARK: Process
 
     /// Environment of the child: the app's own, plus automation flags, credentials and TF_VAR_*.
+    /// The binary's own folder goes first in PATH: Docker Desktop's CLI pulls images through
+    /// `docker-credential-desktop`, which sits next to it inside Docker.app and is in no PATH of an app opened from Finder.
     static func environment(base: [String: String], credentials: TerraformCredentials?,
-                            tfVars: [String: String]) -> [String: String] {
+                            tfVars: [String: String], binary: String? = nil) -> [String: String] {
         var env = base
-        env["PATH"] = ((env["PATH"].map { [$0] } ?? []) + searchPaths).joined(separator: ":")
+        let own = binary.map { b in
+            [URL(fileURLWithPath: b), URL(fileURLWithPath: b).resolvingSymlinksInPath()].map { $0.deletingLastPathComponent().path }
+        } ?? []
+        var seen = Set<String>()
+        env["PATH"] = (own + (env["PATH"].map { $0.split(separator: ":").map(String.init) } ?? []) + searchPaths)
+            .filter { seen.insert($0).inserted }.joined(separator: ":")
         env["TF_IN_AUTOMATION"] = "1"
         env["TF_INPUT"] = "0"
         if let c = credentials {
@@ -170,12 +177,12 @@ struct TerraformCLI: Sendable {
         var input: Data?
         if let container {
             process.arguments = container.execArguments(args)
-            process.environment = Self.environment(base: base, credentials: nil, tfVars: [:])
+            process.environment = Self.environment(base: base, credentials: nil, tfVars: [:], binary: binary)
             let forwarded = Self.environment(base: [:], credentials: credentials, tfVars: tfVars)
             input = StackContainer.stdinBlock(forwarded.filter { $0.key != "PATH" })
         } else {
             process.arguments = args
-            process.environment = Self.environment(base: base, credentials: credentials, tfVars: tfVars)
+            process.environment = Self.environment(base: base, credentials: credentials, tfVars: tfVars, binary: binary)
         }
         let out = Pipe(), err = Pipe(), inPipe = Pipe()
         process.standardOutput = out
