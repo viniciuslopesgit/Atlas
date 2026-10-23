@@ -169,12 +169,16 @@ private struct StackDetail: View {
             }
             Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
                 .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 420)
-            switch tab {
-            case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
-            case .runs: RunsTab(stack: stack)
-            case .variables: VariablesTab(stack: stack)
-            case .settings: settings
+            Group {
+                switch tab {
+                case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
+                case .runs: RunsTab(stack: stack)
+                case .variables: VariablesTab(stack: stack)
+                case .settings: settings
+                }
             }
+            .frame(maxHeight: .infinity, alignment: .top)
+            StackLogBar(stack: stack, isBusy: busy)
         }
         .padding(.leading, 16)
         .confirmationDialog(title, isPresented: Binding(present: $confirm), presenting: confirm) { c in
@@ -347,38 +351,16 @@ private struct RunsTab: View {
         } else {
             VSplitView {
                 Table(stack.runs, selection: $selected) {
-                    TableColumn("Status") { r in Badge(text: r.status.rawValue.capitalized, color: color(r.status)) }.width(90)
-                    TableColumn("Run") { r in Text(label(r.type)) }.width(min: 80, ideal: 100)
+                    TableColumn("Status") { r in Badge(text: r.status.rawValue.capitalized, color: r.status.color) }.width(90)
+                    TableColumn("Run") { r in Text(r.type.label) }.width(min: 80, ideal: 100)
                     TableColumn("Trigger", value: \.trigger)
                     TableColumn("Started") { r in Text(Fmt.dt(r.startedAt)) }.width(min: 130, ideal: 150)
                     TableColumn("Duration") { r in Text(r.durationText) }.width(70)
                 }
                 .frame(minHeight: 120, idealHeight: 170)
-                TerminalPanel(lines: (run?.output ?? "").components(separatedBy: "\n").enumerated()
-                    .map { IaCModel.Line(id: $0.offset, text: $0.element) })
+                TerminalPanel(lines: StackLogBar.lines(run))
                     .frame(minHeight: 160)
             }
-        }
-    }
-
-    private func label(_ t: StackRunType) -> String {
-        switch t {
-        case .importResources: "Import"
-        case .initialize: "Init"
-        case .fix: "Fix"
-        case .plan: "Plan"
-        case .apply: "Apply"
-        case .fixDrift: "Fix drift"
-        case .setup: "Container"
-        }
-    }
-
-    private func color(_ s: StackRunStatus) -> Color {
-        switch s {
-        case .running: Palette.accent
-        case .success: Palette.success
-        case .failed: Palette.danger
-        case .cancelled: Palette.neutral
         }
     }
 }
