@@ -12,7 +12,7 @@ struct AWSError: LocalizedError {
 
 /// AWS services spoken over the Query protocol (form-encoded POST, XML response).
 enum QueryService {
-    case ec2, sts, iam, cloudWatch
+    case ec2, sts, iam, cloudWatch, autoScaling, elbv2, rds, elastiCache, sns
 
     var version: String {
         switch self {
@@ -20,6 +20,11 @@ enum QueryService {
         case .sts: "2011-06-15"
         case .iam: "2010-05-08"
         case .cloudWatch: "2010-08-01"
+        case .autoScaling: "2011-01-01"
+        case .elbv2: "2015-12-01"
+        case .rds: "2014-10-31"
+        case .elastiCache: "2015-02-02"
+        case .sns: "2010-03-31"
         }
     }
 
@@ -29,6 +34,11 @@ enum QueryService {
         case .sts: "sts"
         case .iam: "iam"
         case .cloudWatch: "monitoring"
+        case .autoScaling: "autoscaling"
+        case .elbv2: "elasticloadbalancing"
+        case .rds: "rds"
+        case .elastiCache: "elasticache"
+        case .sns: "sns"
         }
     }
 
@@ -124,14 +134,14 @@ final class AWSClient: @unchecked Sendable {
         } while token != nil
     }
 
-    // MARK: JSON 1.1 protocol (Cost Explorer)
+    // MARK: JSON protocol (1.1 by default; DynamoDB and SQS speak 1.0)
 
     func json(host: String, signingName: String, signingRegion: String, target: String,
-              body: [String: Any]) async throws -> [String: Any] {
+              body: [String: Any], version: String = "1.1") async throws -> [String: Any] {
         let bodyData = try JSONSerialization.data(withJSONObject: body)
         let req = signer.request(
             method: "POST", host: host, encodedPath: "/",
-            headers: ["content-type": "application/x-amz-json-1.1", "x-amz-target": target],
+            headers: ["content-type": "application/x-amz-json-\(version)", "x-amz-target": target],
             body: bodyData, service: signingName, region: signingRegion)
         let (data, http) = try await send(req)
         guard (200..<300).contains(http.statusCode) else { throw Self.error(from: data, status: http.statusCode) }
@@ -152,6 +162,20 @@ final class AWSClient: @unchecked Sendable {
         guard (200..<300).contains(http.statusCode) else { throw Self.error(from: data, status: http.statusCode) }
         if data.isEmpty { return [:] }
         return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
+    // MARK: REST-XML protocol (Route 53)
+
+    func restXML(method: String = "GET", host: String, signingName: String, signingRegion: String,
+                 path: String, query: [(String, String)] = []) async throws -> XNode {
+        let req = signer.request(method: method, host: host, encodedPath: path, query: query,
+                                 service: signingName, region: signingRegion)
+        let (data, http) = try await send(req)
+        guard (200..<300).contains(http.statusCode) else { throw Self.error(from: data, status: http.statusCode) }
+        guard let xml = XNode.parse(data) else {
+            throw AWSError(code: "InvalidXML", message: "Could not parse \(path) response", status: http.statusCode)
+        }
+        return xml
     }
 
     // MARK: S3 (REST-XML)
