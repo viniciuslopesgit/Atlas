@@ -172,7 +172,12 @@ struct S3Service {
                 }
                 do {
                     let fm = FileManager.default
-                    if fm.fileExists(atPath: destination.path) { try fm.removeItem(at: destination) }
+                    // Replaces a file the user chose to overwrite, never a folder.
+                    var isFolder: ObjCBool = false
+                    if fm.fileExists(atPath: destination.path, isDirectory: &isFolder) {
+                        guard !isFolder.boolValue else { throw CocoaError(.fileWriteFileExists, userInfo: [NSFilePathErrorKey: destination.path]) }
+                        try fm.removeItem(at: destination)
+                    }
                     try fm.moveItem(at: tmp, to: destination)
                     cont.resume()
                 } catch {
@@ -281,5 +286,30 @@ struct S3Service {
         } catch {
             return false
         }
+    }
+}
+
+/// Where an object goes when it is downloaded into a folder: a key is chosen by whoever wrote the
+/// bucket, so its name never escapes the folder and never replaces what is already there.
+enum S3Download {
+    /// The key's last component, usable as a file name ("." and ".." are not).
+    static func fileName(forKey key: String) -> String {
+        let last = key.split(separator: "/").last.map(String.init) ?? ""
+        let clean = last.replacingOccurrences(of: "\0", with: "")
+        return clean.isEmpty || clean == "." || clean == ".." ? "download" : clean
+    }
+
+    /// A file in `folder` for the key, numbered ("name (2).ext") when the name is taken.
+    static func destination(forKey key: String, in folder: URL, fileManager: FileManager = .default) -> URL {
+        let name = fileName(forKey: key) as NSString
+        var url = folder.appendingPathComponent(name as String)
+        var n = 2
+        while fileManager.fileExists(atPath: url.path) {
+            let numbered = name.pathExtension.isEmpty
+                ? "\(name) (\(n))" : "\(name.deletingPathExtension) (\(n)).\(name.pathExtension)"
+            url = folder.appendingPathComponent(numbered)
+            n += 1
+        }
+        return url
     }
 }

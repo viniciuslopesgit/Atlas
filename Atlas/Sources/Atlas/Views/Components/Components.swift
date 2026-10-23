@@ -1,7 +1,8 @@
 import SwiftUI
 import AppKit
 
-/// Atlas visual identity: cartographic teal + muted state colors, legible in light and dark mode.
+/// Atlas visual identity, minimal: greys carry the layout; one teal accent for actions and spend,
+/// state colors only on small dots and figures that need attention.
 enum Palette {
     /// "Meridian" — the app's accent (replaces the system blue).
     static let accent = adaptive(light: 0x16797A, dark: 0x3FB8B4)
@@ -40,12 +41,12 @@ enum Radius {
     static let tile: CGFloat = 8
 }
 
-/// Typography: page titles in Expanded width (map legend), figures in Condensed with tabular digits.
+/// Typography: quiet titles, figures in a light weight with tabular digits; the numbers are the page.
 enum Typo {
-    static let pageTitle = Font.system(size: 22, weight: .semibold).width(.expanded)
-    static let sectionTitle = Font.system(size: 13, weight: .semibold)
-    static func figure(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-        .system(size: size, weight: weight).width(.condensed).monospacedDigit()
+    static let pageTitle = Font.system(size: 20, weight: .medium)
+    static let sectionTitle = Font.system(size: 12, weight: .regular)
+    static func figure(_ size: CGFloat, weight: Font.Weight = .light) -> Font {
+        .system(size: size, weight: weight).monospacedDigit()
     }
 }
 
@@ -57,8 +58,8 @@ struct EmptyStateView<Actions: View>: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 30, weight: .light)).foregroundStyle(Palette.accent.opacity(0.7))
-            Text(title).font(.title3.weight(.semibold).width(.expanded))
+            Image(systemName: icon).font(.system(size: 26, weight: .ultraLight)).foregroundStyle(.tertiary)
+            Text(title).font(.title3.weight(.medium))
             Text(message).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 380)
             actions()
         }
@@ -85,9 +86,7 @@ struct ErrorBanner: View {
                 Button(action: onDismiss) { Image(systemName: "xmark") }.buttonStyle(.plain).foregroundStyle(.secondary)
             }
         }
-        .padding(10)
-        .background(Palette.danger.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.tile))
-        .overlay(RoundedRectangle(cornerRadius: Radius.tile).strokeBorder(Palette.danger.opacity(0.3)))
+        .padding(.vertical, 6)
     }
 }
 
@@ -99,22 +98,22 @@ struct StatCard: View {
     var subtitle: String?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 26, height: 26)
-                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value).font(Typo.figure(24))
-                Text(title).font(.callout).foregroundStyle(.secondary)
-                if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.tertiary) }
-            }
-            Spacer(minLength: 0)
+        // `icon` stays in the API for VoiceOver; the minimal design shows only the figure and its label.
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(Typo.figure(28)).foregroundStyle(Self.figureColor(tint))
+            Text(title).font(.callout).foregroundStyle(.secondary)
+            if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.tertiary) }
         }
-        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .card(radius: Radius.tile)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(value)")
+    }
+}
+
+extension StatCard {
+    /// Figures stay in the text color; only a state color (success, warning, danger…) tints them.
+    static func figureColor(_ tint: Color) -> Color {
+        tint == Palette.accent || tint == Palette.neutral ? .primary : tint
     }
 }
 
@@ -122,8 +121,7 @@ struct CardModifier: ViewModifier {
     var radius: CGFloat
     func body(content: Content) -> some View {
         content
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: radius))
-            .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Color(nsColor: .separatorColor).opacity(0.7)))
+            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: radius))
     }
 }
 
@@ -138,11 +136,8 @@ struct Badge: View {
     var body: some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 6, height: 6)
-            Text(text).font(.caption.weight(.medium)).foregroundStyle(color)
+            Text(text).font(.caption).foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 2)
-        .background(color.opacity(0.1), in: Capsule())
     }
 }
 

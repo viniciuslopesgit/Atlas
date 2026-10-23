@@ -292,10 +292,13 @@ struct S3View: View {
         Task {
             var urls: [URL] = []
             for p in providers {
-                if let data = try? await p.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    urls.append(url)
+                // The callback API keeps the (non-Sendable) provider on the main actor; only the URL crosses.
+                let url: URL? = await withCheckedContinuation { cont in
+                    _ = p.loadDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
+                        cont.resume(returning: data.flatMap { URL(dataRepresentation: $0, relativeTo: nil) })
+                    }
                 }
+                if let url { urls.append(url) }
             }
             await upload(urls.filter { !$0.hasDirectoryPath })
         }
@@ -328,13 +331,13 @@ struct S3View: View {
         panel.prompt = "Download Here"
         guard panel.runModal() == .OK, let dir = panel.url else { return }
         Task {
-            for o in files { await download(o, to: dir.appendingPathComponent(o.displayName)) }
+            for o in files { await download(o, to: S3Download.destination(forKey: o.key, in: dir)) }
         }
     }
 
     private func download(_ o: S3Object) {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = o.displayName
+        panel.nameFieldStringValue = S3Download.fileName(forKey: o.key)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { await download(o, to: url) }
     }

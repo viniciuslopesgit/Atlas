@@ -3,22 +3,13 @@ import SwiftUI
 struct MainView: View {
     @EnvironmentObject private var state: AppState
 
-    private let sections: [(String, [Page])] = [
-        ("Overview", [.dashboard]),
-        ("Compute & Storage", [.ec2, .s3]),
-        ("Security", [.iam, .guardDuty, .securityAudit]),
-        ("Monitoring", [.cloudWatch, .billing]),
-        ("Infrastructure", [.iac, .stacks]),
-        ("Settings", [.settings, .feedback]),
-    ]
-
     var body: some View {
         NavigationSplitView {
             List(selection: $state.page) {
-                ForEach(sections, id: \.0) { title, pages in
-                    Section(title) {
-                        ForEach(pages) { page in
-                            Label(page.title, systemImage: page.icon).tag(page)
+                ForEach(SidebarMenu.allCases) { menu in
+                    Section(menu.title) {
+                        ForEach(menu.pages) { page in
+                            Text(page.title).tag(page)
                         }
                     }
                 }
@@ -78,21 +69,34 @@ struct MainView: View {
     }
 }
 
+/// Accounts and Feedback, outside the three sidebar menus.
 private struct AccountFooter: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
-        if let account = state.activeAccount {
-            HStack(spacing: 8) {
-                Initials(name: account.name)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(account.name).font(.callout.weight(.medium)).lineLimit(1)
-                    Text(account.accessKeyId).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+        HStack(spacing: 8) {
+            Button { state.page = .settings } label: {
+                HStack(spacing: 8) {
+                    Initials(name: state.activeAccount?.name ?? "")
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(state.activeAccount?.name ?? "Add account").font(.callout).lineLimit(1)
+                        if let account = state.activeAccount {
+                            Text(account.accessKeyId).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer()
+                .contentShape(Rectangle())
             }
-            .padding(10)
+            .buttonStyle(.plain)
+            .help("Accounts")
+
+            Button { state.page = .feedback } label: { Image(systemName: "envelope") }
+                .buttonStyle(.borderless)
+                .foregroundStyle(state.page == .feedback ? .primary : .secondary)
+                .help("Send feedback")
         }
+        .padding(10)
     }
 }
 
@@ -101,10 +105,10 @@ struct Initials: View {
     var body: some View {
         let letters = name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
         Text(letters.isEmpty ? "?" : letters)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.white)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
             .frame(width: 26, height: 26)
-            .background(Circle().fill(Palette.accent))
+            .background(Circle().strokeBorder(.tertiary))
     }
 }
 

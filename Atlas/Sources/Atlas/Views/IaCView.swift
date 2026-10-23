@@ -337,8 +337,6 @@ struct NoticeBanner: View {
             }
         }
         .padding(10)
-        .background(Palette.success.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.tile))
-        .overlay(RoundedRectangle(cornerRadius: Radius.tile).strokeBorder(Palette.success.opacity(0.3)))
     }
 }
 

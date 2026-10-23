@@ -67,23 +67,23 @@ struct DashboardBody: View {
     let summary: DashboardSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 28) {
             let s = summary
             SpendStrip(summary: s)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 24) {
                 StatCard(title: "Instances running", value: "\(s.runningInstances)", icon: "play.fill",
-                         tint: Palette.success, subtitle: "of \(s.totalInstances) in this region")
-                StatCard(title: "Instances stopped", value: "\(s.stoppedInstances)", icon: "stop.fill", tint: Palette.danger)
+                         tint: Palette.neutral, subtitle: "of \(s.totalInstances) in this region")
+                StatCard(title: "Instances stopped", value: "\(s.stoppedInstances)", icon: "stop.fill", tint: Palette.neutral)
                 StatCard(title: "S3 buckets", value: "\(s.s3BucketCount)", icon: "archivebox.fill")
                 StatCard(title: "Alarms firing", value: "\(s.activeAlarms)", icon: "bell.fill",
                          tint: s.activeAlarms > 0 ? Palette.danger : Palette.neutral)
             }
             .fixedSize(horizontal: false, vertical: true)
 
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .top, spacing: 40) {
                 dailyChart(s).frame(maxWidth: .infinity)
-                serviceList(s).frame(width: 340)
+                serviceList(s).frame(width: 320)
             }
         }
     }
@@ -96,18 +96,19 @@ struct DashboardBody: View {
             } else {
                 Chart(s.dailyCosts) { d in
                     BarMark(x: .value("Day", d.date, unit: .day), y: .value("Cost", d.amount))
-                        .foregroundStyle(Palette.accent)
-                        .cornerRadius(2)
+                        .foregroundStyle(Color.primary.opacity(0.22))
+                        .cornerRadius(1)
                 }
-                .chartYAxis { AxisMarks { v in
-                    AxisGridLine()
+                .chartXAxis { AxisMarks(values: .stride(by: .weekOfYear)) { _ in
+                    AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                } }
+                .chartYAxis { AxisMarks(values: .automatic(desiredCount: 3)) { v in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     AxisValueLabel { if let d = v.as(Double.self) { Text(Fmt.money(d, s.currency)) } }
                 } }
                 .frame(height: 240)
             }
         }
-        .padding(16)
-        .card()
     }
 
     private func serviceList(_ s: DashboardSummary) -> some View {
@@ -122,19 +123,17 @@ struct DashboardBody: View {
                     HStack {
                         Text(svc.serviceName).font(.callout).lineLimit(1)
                         Spacer()
-                        Text(Fmt.money(svc.amount, s.currency)).font(Typo.figure(13, weight: .medium))
+                        Text(Fmt.money(svc.amount, s.currency)).font(Typo.figure(13, weight: .regular)).foregroundStyle(.secondary)
                     }
                     GeometryReader { g in
-                        Capsule().fill(Palette.accent.opacity(0.75))
-                            .frame(width: max(4, g.size.width * svc.amount / maxAmount))
+                        Rectangle().fill(Color.primary.opacity(0.22))
+                            .frame(width: max(2, g.size.width * svc.amount / maxAmount))
                     }
-                    .frame(height: 4)
+                    .frame(height: 2)
                 }
             }
         }
-        .padding(16)
         .frame(maxHeight: .infinity, alignment: .top)
-        .card()
     }
 
 }
@@ -157,43 +156,41 @@ struct SpendStrip: View {
             HStack(alignment: .firstTextBaseline, spacing: 28) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Spent this month").font(.callout).foregroundStyle(.secondary)
-                    Text(Fmt.money(summary.currentMonthCost, summary.currency)).font(Typo.figure(40, weight: .bold))
+                    Text(Fmt.money(summary.currentMonthCost, summary.currency)).font(Typo.figure(52, weight: .ultraLight))
                 }
-                figure("Forecast", summary.forecastedMonthCost, color: Palette.accent)
+                figure("Forecast", summary.forecastedMonthCost, color: .primary)
                 figure("Last month", summary.lastMonthCost, color: .secondary)
                 Spacer()
                 if let change {
-                    Text(change.text).font(.callout.weight(.medium)).foregroundStyle(change.color)
+                    Text(change.text).font(.callout).foregroundStyle(change.color)
                 }
             }
 
             GeometryReader { g in
                 let w = g.size.width
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.07))
-                    Capsule().fill(Palette.accent.opacity(0.28))
+                    Rectangle().fill(Color.primary.opacity(0.08))
+                    Rectangle().fill(Palette.accent.opacity(0.3))
                         .frame(width: w * summary.forecastedMonthCost / scale)
-                    Capsule().fill(Palette.accent)
-                        .frame(width: max(6, w * summary.currentMonthCost / scale))
+                    Rectangle().fill(Palette.accent)
+                        .frame(width: max(2, w * summary.currentMonthCost / scale))
                     if summary.lastMonthCost > 0 {
                         Rectangle().fill(Color.primary.opacity(0.6))
-                            .frame(width: 2, height: 18)
+                            .frame(width: 1, height: 12)
                             .offset(x: min(w - 2, w * summary.lastMonthCost / scale))
                     }
                 }
             }
-            .frame(height: 10)
+            .frame(height: 3)
             .accessibilityElement()
             .accessibilityLabel("Spent \(Fmt.money(summary.currentMonthCost, summary.currency)) of a forecast of \(Fmt.money(summary.forecastedMonthCost, summary.currency))")
         }
-        .padding(18)
-        .card()
     }
 
     private func figure(_ title: String, _ value: Double, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.callout).foregroundStyle(.secondary)
-            Text(Fmt.money(value, summary.currency)).font(Typo.figure(20)).foregroundStyle(color)
+            Text(Fmt.money(value, summary.currency)).font(Typo.figure(20, weight: .light)).foregroundStyle(color)
         }
     }
 }
