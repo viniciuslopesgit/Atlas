@@ -14,7 +14,8 @@ It replaces the original WPF/.NET version for Windows, which has been removed fr
 cd Atlas
 swift run                    # development
 ./scripts/build-app.sh       # creates dist/Atlas.app (release, ad-hoc signature)
-./scripts/test.sh            # unit tests (SigV4, XML/JSON parsing)
+./scripts/test.sh            # unit tests
+./scripts/test-isolated.sh   # same tests in an isolated environment (sandbox, no network)
 open dist/Atlas.app
 ```
 
