@@ -59,18 +59,21 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// The sidebar's three menus. Accounts and Feedback live in the sidebar footer instead.
+/// The sidebar's three menus. Only IaC shows a header; Accounts and Feedback live in the sidebar footer.
 enum SidebarMenu: String, CaseIterable, Identifiable {
-    case dashboard, resources, stacks
+    case dashboard, resources, iac
 
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    /// Name in the Go menu.
+    var title: String { self == .iac ? "IaC" : rawValue.capitalized }
+    /// Header shown above the menu in the sidebar.
+    var header: String? { self == .iac ? title : nil }
 
     var pages: [Page] {
         switch self {
-        case .dashboard: [.dashboard, .billing]
-        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit]
-        case .stacks: [.stacks, .iac]
+        case .dashboard: [.dashboard, .stacks]
+        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing]
+        case .iac: [.iac]
         }
     }
 }

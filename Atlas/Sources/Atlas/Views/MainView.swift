@@ -7,10 +7,12 @@ struct MainView: View {
         NavigationSplitView {
             List(selection: $state.page) {
                 ForEach(SidebarMenu.allCases) { menu in
-                    Section(menu.title) {
+                    Section {
                         ForEach(menu.pages) { page in
                             Text(page.title).tag(page)
                         }
+                    } header: {
+                        if let header = menu.header { Text(header) }
                     }
                 }
             }

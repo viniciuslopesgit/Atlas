@@ -16,8 +16,14 @@ struct DesignTests {
 }
 
 struct SidebarTests {
-    @Test func sidebarHasDashboardResourcesAndStacks() {
-        #expect(SidebarMenu.allCases.map(\.title) == ["Dashboard", "Resources", "Stacks"])
+    @Test func onlyIaCHasAHeader() {
+        #expect(SidebarMenu.allCases.map(\.header) == [nil, nil, "IaC"])
+    }
+
+    @Test func stacksFollowsDashboardAndBillingIsAResource() {
+        #expect(SidebarMenu.dashboard.pages == [.dashboard, .stacks])
+        #expect(SidebarMenu.resources.pages.last == .billing)
+        #expect(SidebarMenu.iac.pages == [.iac])
     }
 
     @Test func everyPageIsInOneMenuExceptTheFooterPages() {
@@ -25,6 +31,5 @@ struct SidebarTests {
         #expect(Set(listed).count == listed.count)
         #expect(Set(listed).union([.settings, .feedback]) == Set(Page.allCases))
         #expect(Page.settings.menu == nil && Page.feedback.menu == nil)
-        #expect(Page.ec2.menu == .resources && Page.iac.menu == .stacks && Page.billing.menu == .dashboard)
     }
 }
