@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'cloud-atlas.io/**'
+  workflow_dispatch: # triggered by promote.yml (pushes made with GITHUB_TOKEN don't trigger workflows)
 
 jobs:
   deploy:
@@ -21,7 +22,7 @@ jobs:
 
       - name: Inject latest version into website
         run: |
-          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.1")
+          LATEST=$(git describe --tags --abbrev=0 --exclude '*-*' 2>/dev/null || echo "0.0.1")
           sed -i "s/__VERSION__/$LATEST/g" cloud-atlas.io/index.html
 
       - name: Deploy to atlas-site repo

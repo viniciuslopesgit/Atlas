@@ -1,0 +1,94 @@
+name: CI
+
+# Every push to dev (and every PR): build, tests, Atlas.app, smoke test and a dev pre-release.
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'Atlas/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'Atlas/**'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: Atlas
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # version.sh needs tags and history
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Swift version
+        run: swift --version
+
+      - uses: actions/cache@v4
+        with:
+          path: Atlas/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Atlas/Package.swift', 'Atlas/Sources/**', 'Atlas/Tests/**') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Version
+        id: version
+        run: |
+          echo "version=$(scripts/version.sh --dev)" >> "$GITHUB_OUTPUT"
+          echo "Version: $(scripts/version.sh --dev)"
+
+      - name: Build
+        run: swift build
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Build Atlas.app (release)
+        run: VERSION="${{ steps.version.outputs.version }}" scripts/build-app.sh
+
+      - name: Smoke test
+        run: |
+          ATLAS_SMOKE_TEST=1 dist/Atlas.app/Contents/MacOS/Atlas &
+          pid=$!
+          ( sleep 90; kill $pid 2>/dev/null ) &
+          wait $pid
+
+      - name: Package
+        run: ditto -c -k --keepParent dist/Atlas.app "dist/Atlas-${{ steps.version.outputs.version }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Atlas-${{ steps.version.outputs.version }}
+          path: Atlas/dist/Atlas-${{ steps.version.outputs.version }}.zip
+          retention-days: 14
+
+      - name: Dev pre-release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Pre-release $VERSION already exists"; exit 0
+          fi
+          gh release create "$VERSION" "dist/Atlas-$VERSION.zip" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Atlas $VERSION" \
+            --notes "Development build of \`dev\` ($GITHUB_SHA). Becomes stable after 24h without new commits.
+
+          $(scripts/version.sh --notes)"

@@ -1,0 +1,145 @@
+name: Promote to main
+
+# Daily: if dev has had no new commits for 24h and CI is green, re-runs the production pipeline,
+# fast-forwards main and publishes the stable X.Y.Z release.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Simulate only (no push, tag or release)'
+        type: boolean
+        default: true
+      skip_wait:
+        description: 'Ignore the 24h wait'
+        type: boolean
+        default: false
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      promote: ${{ steps.check.outputs.promote }}
+      sha: ${{ steps.check.outputs.sha }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Check promotion conditions
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_WAIT: ${{ inputs.skip_wait || 'false' }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          DEV=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+          echo "sha=$DEV" >> "$GITHUB_OUTPUT"
+          skip() { echo "⏭  $1"; echo "promote=false" >> "$GITHUB_OUTPUT"; echo "### ⏭ $1" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+
+          [ "$DEV" != "$MAIN" ] || skip "main is already up to date with dev"
+          git merge-base --is-ancestor "$MAIN" "$DEV" || {
+            echo "::error::main has commits that are not in dev — a fast-forward is impossible. Merge main into dev."; exit 1; }
+
+          AGE=$(( $(date +%s) - $(git log -1 --format=%ct "$DEV") ))
+          if [ "$SKIP_WAIT" != "true" ] && [ "$AGE" -lt 86400 ]; then
+            skip "Last commit on dev is $((AGE / 3600))h old — waiting for 24h without changes"
+          fi
+
+          # If CI ran for this commit, it must have passed (commits outside Atlas/ don't trigger CI).
+          CONCLUSION=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$DEV&event=push" \
+            --jq '.workflow_runs[0].conclusion // "none"')
+          case "$CONCLUSION" in
+            success|none) ;;
+            *) echo "::error::CI for $DEV ended with '$CONCLUSION'"; exit 1 ;;
+          esac
+
+          VERSION=$(Atlas/scripts/version.sh --next)
+          [ "$VERSION" != "$(Atlas/scripts/version.sh)" ] || skip "No new commits since the last version"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "promote=true" >> "$GITHUB_OUTPUT"
+          echo "### 🚀 Promoting $DEV as $VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+  production:
+    needs: check
+    if: needs.check.outputs.promote == 'true'
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: Atlas
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      SHA: ${{ needs.check.outputs.sha }}
+    steps:
+      # Clean checkout, no cache: the production pipeline always builds from scratch.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          fetch-depth: 0
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Isolated tests (sandbox with no network) + smoke test
+        run: scripts/test-isolated.sh --smoke
+
+      - name: Build Atlas.app ${{ env.VERSION }}
+        run: scripts/build-app.sh
+
+      - name: Smoke test of the final app
+        run: |
+          ATLAS_SMOKE_TEST=1 dist/Atlas.app/Contents/MacOS/Atlas &
+          pid=$!
+          ( sleep 90; kill $pid 2>/dev/null ) &
+          wait $pid
+
+      - name: Package
+        run: |
+          ditto -c -k --keepParent dist/Atlas.app "dist/Atlas-$VERSION.zip"
+          scripts/version.sh --notes > dist/NOTES.md
+          cat dist/NOTES.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote main and publish release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          OLD_MAIN=$(git rev-parse origin/main)
+
+          # Fast-forward only: the push fails if main has diverged.
+          git push origin "$SHA:refs/heads/main"
+          git tag -a "$VERSION" -m "Atlas $VERSION" "$SHA"
+          git push origin "$VERSION"
+
+          gh release create "$VERSION" "dist/Atlas-$VERSION.zip" \
+            --title "Atlas $VERSION" --notes-file dist/NOTES.md --latest
+
+          # Pushes made with GITHUB_TOKEN don't trigger workflows: publish the site explicitly if it changed.
+          if ! git diff --quiet "$OLD_MAIN" "$SHA" -- ../cloud-atlas.io; then
+            gh workflow run deploy-site.yml --ref main
+          fi
+
+      - name: Dry run summary
+        if: ${{ inputs.dry_run }}
+        run: echo "### 🧪 Dry run — would promote $SHA to main as $VERSION" >> "$GITHUB_STEP_SUMMARY"
