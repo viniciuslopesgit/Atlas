@@ -222,8 +222,10 @@ struct IaCView: View {
         }
         .sheet(isPresented: $showImport) {
             if let client = state.client, let project = model.active {
-                ImportFromAwsSheet(client: client, region: state.region, project: project) { message, generate in
-                    notice = message
+                ImportFromAwsSheet(client: client, region: state.region, targetName: project.name) { chosen, generate in
+                    let files = try TerraformAware.adopt(chosen, into: project.url)
+                    let names = files.map(\.lastPathComponent).joined(separator: ", ")
+                    notice = "Added \(chosen.count) resource(s) to \(project.name)\(names.isEmpty ? "" : ": \(names)")."
                     if generate { model.run(.generate, client: state.client) }
                 }
             }
@@ -413,9 +415,10 @@ struct TerraformMissingView: View {
 struct ImportFromAwsSheet: View {
     let client: AWSClient
     let region: String
-    let project: TerraformProject
-    /// (message, run generate config next)
-    let onDone: (String, Bool) -> Void
+    let targetName: String
+    var offerGenerate = true
+    /// Called with the chosen resources and whether to generate their configuration next.
+    let onImport: ([DiscoveredResource], Bool) throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var types = Set(AwsResourceType.allCases)
@@ -431,7 +434,7 @@ struct ImportFromAwsSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Import from AWS").font(.title2.weight(.semibold))
-            Text("Find existing resources in \(region) and add them to \(project.name) as import blocks.")
+            Text("Find existing resources in \(region) and add them to \(targetName) as import blocks.")
                 .foregroundStyle(.secondary)
             if let analysis { results(analysis) } else { options }
             if let error { ErrorBanner(message: error) }
@@ -444,7 +447,7 @@ struct ImportFromAwsSheet: View {
                         .keyboardShortcut(.defaultAction).disabled(types.isEmpty || isWorking)
                 } else {
                     Button("Back") { analysis = nil }
-                    Button("Add \(selected.count) to Project") { add() }
+                    Button("Import \(selected.count)") { add() }
                         .keyboardShortcut(.defaultAction).disabled(selected.isEmpty)
                 }
             }
@@ -521,7 +524,9 @@ struct ImportFromAwsSheet: View {
                     }
                 }
             }
-            Toggle("Generate configuration for the imported resources now", isOn: $generateNow)
+            if offerGenerate {
+                Toggle("Generate configuration for the imported resources now", isOn: $generateNow)
+            }
         }
     }
 
@@ -553,9 +558,7 @@ struct ImportFromAwsSheet: View {
         guard let a = analysis else { return }
         let chosen = a.resources.filter { selected.contains($0.id) }
         do {
-            let files = try TerraformAware.adopt(chosen, into: project.url)
-            let names = files.map(\.lastPathComponent).joined(separator: ", ")
-            onDone("Added \(chosen.count) resource(s) to \(project.name)\(names.isEmpty ? "" : ": \(names)").", generateNow)
+            try onImport(chosen, generateNow)
             dismiss()
         } catch {
             self.error = error.localizedDescription

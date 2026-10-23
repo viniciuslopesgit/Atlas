@@ -12,6 +12,7 @@ enum Snapshots {
             ("dashboard", AnyView(DashboardBody(summary: fixture).padding(24).frame(width: 1100))),
             ("components", AnyView(components.padding(24).frame(width: 720))),
             ("iac", AnyView(iac.padding(24).frame(width: 900))),
+            ("stacks", AnyView(stacks.padding(24).frame(width: 900))),
         ]
         for (name, view) in pages {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
@@ -84,6 +85,46 @@ enum Snapshots {
             TerminalLines(lines: output)
                 .background(Color(nsColor: .textBackgroundColor))
                 .card(radius: Radius.tile)
+        }
+    }
+
+    private static var stacks: some View {
+        var drifted = StackEntry(name: "production-network", projectPath: "/p", accountId: "a", region: "eu-west-1")
+        drifted.driftStatus = .drifted
+        var clean = StackEntry(name: "data-platform", projectPath: "/p", accountId: "a", region: "eu-west-1")
+        clean.driftStatus = .clean
+        var failed = StackEntry(name: "legacy-batch", projectPath: "/p", accountId: "a", region: "us-east-1")
+        failed.status = .failed
+        let diff = """
+          # aws_security_group.web will be updated in-place
+          ~ resource "aws_security_group" "web" {
+              ~ ingress = [
+                  - { from_port = 22, cidr_blocks = ["0.0.0.0/0"] },
+                ]
+            }
+        """.components(separatedBy: "\n").enumerated().map { IaCModel.Line(id: $0.offset, text: $0.element) }
+        return VStack(alignment: .leading, spacing: 12) {
+            PageHeader(title: "Stacks", subtitle: "Terraform stacks with run history and drift checks")
+            HStack(spacing: 14) {
+                StatCard(title: "Ready", value: "4", icon: "checkmark.circle.fill", tint: Palette.success)
+                StatCard(title: "Running", value: "1", icon: "play.circle.fill", tint: Palette.accent)
+                StatCard(title: "Drifted", value: "1", icon: "arrow.triangle.branch", tint: Palette.warning)
+                StatCard(title: "Failed", value: "1", icon: "xmark.octagon.fill", tint: Palette.danger)
+            }
+            .frame(height: 74)
+            HStack(spacing: 10) {
+                ForEach([drifted, clean, failed]) { s in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(s.name).font(.body.weight(.medium))
+                        StackBadges(stack: s)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(radius: Radius.tile)
+                }
+            }
+            Text("1 to change").font(.headline)
+            TerminalLines(lines: diff).background(Color(nsColor: .textBackgroundColor)).card(radius: Radius.tile)
         }
     }
 

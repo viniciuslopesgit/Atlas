@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 enum Page: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, ec2, s3, iam, cloudWatch, guardDuty, securityAudit, billing, iac, settings
+    case dashboard, ec2, s3, iam, cloudWatch, guardDuty, securityAudit, billing, iac, stacks, settings
 
     var id: String { rawValue }
 
@@ -17,6 +17,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .securityAudit: "Security Audit"
         case .billing: "Billing"
         case .iac: "Infrastructure as Code"
+        case .stacks: "Stacks"
         case .settings: "Accounts"
         }
     }
@@ -33,6 +34,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .securityAudit: ["audit", "mfa", "password policy", "imds", "public"]
         case .billing: ["costs", "spend", "invoice", "forecast"]
         case .iac: ["terraform", "iac", "infrastructure", "code", "init", "plan", "apply", "import", "hcl"]
+        case .stacks: ["stacks", "terraform", "runs", "drift", "import", "plan", "apply", "history", "cron"]
         case .settings: ["settings", "config", "accounts", "preferences", "keys", "updates"]
         }
     }
@@ -48,6 +50,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .securityAudit: "checkmark.shield"
         case .billing: "dollarsign.circle"
         case .iac: "chevron.left.forwardslash.chevron.right"
+        case .stacks: "square.stack.3d.up"
         case .settings: "person.crop.circle.badge.plus"
         }
     }
@@ -106,6 +109,17 @@ final class AppState: ObservableObject {
     }
 
     private var cachedClient: (key: String, client: AWSClient)?
+
+    /// Client for any configured account (stacks run against the account they were created with).
+    func client(accountId: String, region: String) -> AWSClient? {
+        guard let account = accounts.first(where: { $0.id == accountId }), let secret = secrets.get(account.id) else { return nil }
+        return AWSClient(credentials: AWSCredentials(accessKeyId: account.accessKeyId, secretAccessKey: secret), region: region)
+    }
+
+    /// Stacks and their drift scheduler live as long as the app.
+    private(set) lazy var stacks = StacksModel(
+        store: StackStore(folder: store.folder, secrets: secrets),
+        clientFor: { [unowned self] stack in self.client(accountId: stack.accountId, region: stack.region) })
 
     func refresh() { refreshToken += 1 }
 

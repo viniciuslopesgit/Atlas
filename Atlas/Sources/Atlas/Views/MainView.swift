@@ -8,7 +8,7 @@ struct MainView: View {
         ("Compute & Storage", [.ec2, .s3]),
         ("Security", [.iam, .guardDuty, .securityAudit]),
         ("Monitoring", [.cloudWatch, .billing]),
-        ("Infrastructure", [.iac]),
+        ("Infrastructure", [.iac, .stacks]),
         ("Settings", [.settings]),
     ]
 
@@ -55,6 +55,8 @@ struct MainView: View {
             .animation(.easeOut(duration: 0.2), value: state.notice)
         }
         .sheet(isPresented: $state.showSearch) { SearchSheet() }
+        .environmentObject(state.stacks)
+        .onAppear { state.stacks.startScheduler() }
     }
 
     @ViewBuilder
@@ -69,6 +71,7 @@ struct MainView: View {
         case .securityAudit: SecurityAuditView()
         case .billing: BillingView()
         case .iac: IaCView()
+        case .stacks: StacksView()
         case .settings: SettingsView()
         }
     }
