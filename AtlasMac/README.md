@@ -1,7 +1,7 @@
 # Atlas for macOS
 
 Native macOS version of Atlas, written in **Swift + SwiftUI** (macOS 14+).
-It sits next to the original WPF/.NET version in `../Atlas` and does not depend on it.
+It replaces the original WPF/.NET version for Windows, which has been removed from this repository.
 
 ## Requirements
 
