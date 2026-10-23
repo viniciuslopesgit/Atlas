@@ -59,6 +59,10 @@ struct AtlasApp: App {
                     ForEach(AppTheme.allCases) { Text($0.label).tag($0) }
                 }
             }
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { Updater.checkNow() }
+                    .disabled(!Updater.isInstalled)
+            }
             CommandMenu("Go") {
                 ForEach(Array(Page.allCases.enumerated()), id: \.element) { index, page in
                     Button(page.title) { state.page = page }

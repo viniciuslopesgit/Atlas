@@ -39,10 +39,7 @@ struct SettingsView: View {
                 .padding(16)
                 .card()
 
-                Text("Atlas \(AppInfo.version) (build \(AppInfo.build))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                UpdateStatusView()
             }
             .padding(24)
         }
@@ -137,6 +134,33 @@ struct SettingsView: View {
             name = ""; accessKeyId = ""; secret = ""
         } catch {
             feedback = (false, "Validation failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+/// Installed version and the state written by the updater LaunchAgent (scripts/install-updater.sh).
+private struct UpdateStatusView: View {
+    @State private var status = Updater.status()
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Atlas \(AppInfo.version) (build \(AppInfo.build))").textSelection(.enabled)
+                Text(status.description).foregroundStyle(.tertiary)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            Spacer()
+            if Updater.isInstalled {
+                Button("Check for Updates Now") {
+                    Updater.checkNow()
+                    Task {
+                        try? await Task.sleep(for: .seconds(8))
+                        status = Updater.status()
+                    }
+                }
+                .controlSize(.small)
+            }
         }
     }
 }

@@ -127,3 +127,43 @@ enum AppInfo {
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev" }
     static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0" }
 }
+
+/// Talks to the updater LaunchAgent installed by scripts/install-updater.sh.
+enum Updater {
+    static let label = "io.cloud-atlas.updater"
+    private static var support: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Atlas/updater")
+    }
+
+    static var isInstalled: Bool {
+        FileManager.default.fileExists(atPath: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents/\(label).plist").path)
+    }
+
+    struct Status {
+        var lastCheck: Date?
+        var result = ""
+        var latest = ""
+
+        var description: String {
+            guard let lastCheck else { return isInstalled ? "Automatic updates on, not checked yet" : "Automatic updates off" }
+            let when = lastCheck.formatted(.relative(presentation: .named))
+            return result.isEmpty ? "Checked \(when)" : "Checked \(when): \(result)"
+        }
+    }
+
+    static func status() -> Status {
+        struct Raw: Decodable { let lastCheck: String; let result: String; let latest: String }
+        guard let data = try? Data(contentsOf: support.appendingPathComponent("state.json")),
+              let raw = try? JSONDecoder().decode(Raw.self, from: data) else { return Status() }
+        return Status(lastCheck: ISO8601DateFormatter().date(from: raw.lastCheck), result: raw.result, latest: raw.latest)
+    }
+
+    /// Runs the agent immediately; it quits and relaunches Atlas if a newer release exists.
+    static func checkNow() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        task.arguments = ["kickstart", "gui/\(getuid())/\(label)"]
+        try? task.run()
+    }
+}

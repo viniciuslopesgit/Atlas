@@ -60,6 +60,9 @@ if ! run "${SANDBOX[@]}" swift build "${SWIFT_ARGS[@]}" > "$WORK/build.log" 2>&1
 fi
 quiet < "$WORK/build.log" | grep -E "error|warning:|Build complete" || true
 
+echo "▸ Updater self-test"
+run bash "$WORK/src/Atlas/scripts/updater.sh" --self-test
+
 echo "▸ Tests"
 run "${SANDBOX[@]}" swift test "${SWIFT_ARGS[@]}" ${TEST_ARGS[@]+"${TEST_ARGS[@]}"} \
   > "$WORK/test.log" 2>&1 || true
