@@ -187,7 +187,7 @@ for file min in ${(kv)MIN_COVERAGE}; do
 done
 [ $LOW = 0 ] || fail "Coverage below the minimum."
 TOTAL=$(print -r -- "$REPORT" | awk '$1 == "TOTAL" { print $10 }')
-ok "${#MIN_COVERAGE} critical files above their minimum (total line coverage ${TOTAL%\%}%)"
+ok "${#MIN_COVERAGE} critical files above their minimum (total line coverage ${TOTAL%\%}%%)"
 
 if [ $FULL = 1 ]; then
     step "Version and CHANGELOG"

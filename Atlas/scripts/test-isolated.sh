@@ -44,6 +44,12 @@ if [ -d "$DEV/Frameworks/Testing.framework" ] && [ "$(xcode-select -p 2>/dev/nul
     SWIFT_ARGS=(-Xswiftc -F"$DEV/Frameworks" -Xlinker -F"$DEV/Frameworks"
                 -Xlinker -rpath -Xlinker "$DEV/Frameworks" -Xlinker -rpath -Xlinker "$DEV/usr/lib")
 fi
+# With Xcode, Swift Testing lives in the macOS platform folder. swift test finds it through DYLD_FRAMEWORK_PATH,
+# which does not survive the system binaries that start the sandbox: the test binary carries the path instead.
+XDEV=$(xcode-select -p 2>/dev/null)/Platforms/MacOSX.platform/Developer
+if [ -d "$XDEV/Library/Frameworks/Testing.framework" ]; then
+    SWIFT_ARGS+=(-Xlinker -rpath -Xlinker "$XDEV/Library/Frameworks" -Xlinker -rpath -Xlinker "$XDEV/usr/lib")
+fi
 # Newer Command Line Tools keep the Swift Testing macros in a folder of their own.
 TESTING_PLUGINS=/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing
 if [ "$(xcode-select -p 2>/dev/null)" = /Library/Developer/CommandLineTools ] && [ -d "$TESTING_PLUGINS" ]; then
