@@ -17,61 +17,41 @@ The console spreads EC2, S3, IAM and costs across dozens of pages. Atlas brings 
 
 ## Installation
 
-Download `Atlas-X.Y.Z.zip` from the [latest release](https://github.com/viniciuslopesgit/Atlas/releases/latest), unzip it and drag `Atlas.app` to Applications.
-Development builds (`X.Y.Z-dev.N`) appear as *pre-releases*.
+Download `Atlas-X.Y.Z.zip` from the [latest release](https://github.com/viniciuslopesgit/Atlas/releases/latest), unzip it and drag `Atlas.app` to Applications. Check the download with `shasum -a 256 -c SHA256SUMS`.
+Betas (new versions not yet stable) appear as *pre-releases*.
 
-> The app has an ad-hoc signature: the first time, open it with right-click → **Open**.
+> The app is not notarized: the first time, allow it in *System Settings ▸ Privacy & Security ▸ Open Anyway*.
 
-To keep it up to date automatically (every new release, dev builds included), run `Atlas/scripts/install-updater.sh` once — details in [Atlas/README.md](Atlas/README.md#automatic-updates-on-this-mac).
+To keep it up to date automatically (every new release, betas included), run `Atlas/scripts/install-updater.sh` once — details in [Atlas/README.md](Atlas/README.md#automatic-updates-on-this-mac).
 
 ## Development
 
 ```bash
-cd Atlas
-./scripts/install-hooks.sh          # once per clone: commit-msg + pre-push hooks
-swift run                           # run in development
-./scripts/test-isolated.sh --smoke  # build + tests + smoke test in an isolated environment
-./scripts/build-app.sh              # dist/Atlas.app with the version computed from commits
+Atlas/scripts/install-hooks.sh          # once per clone: pre-commit, commit-msg and pre-push hooks
+cd Atlas && swift run                   # run in development
+Atlas/scripts/check.sh                  # quick check: build without warnings, every test in a sandbox, coverage
+Atlas/scripts/ship.sh "feat: message"   # new version if the app changed → full check → commit → push dev → beta
 ```
 
 Needs Swift 5.9+; the Xcode Command Line Tools are enough. To open in Xcode: `open Atlas/Package.swift`.
-
-### Tests
-
-| Command | What it does |
-|---|---|
-| `scripts/test.sh` | Unit tests (`swift test`) in the local tree |
-| `scripts/test-isolated.sh` | Temporary copy of the tree, its own `HOME`/`TMPDIR`/build, `sandbox-exec` with no external network and writes only in the temporary folder |
-| `scripts/test-isolated.sh --smoke` | The above + opens the app in `ATLAS_SMOKE_TEST` mode and checks the window |
-| `scripts/snapshots.sh [folder]` | Renders the dashboard and components (light and dark) with fixture data to PNG, for design review |
-
-Tests never use the network or the Keychain: AWS responses come from fixtures (`MockURLProtocol`) and secrets live in memory.
+How tests, versions and releases work: [docs/development.md](docs/development.md) and [docs/RELEASE_CRITERIA.md](docs/RELEASE_CRITERIA.md). How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md). Vulnerabilities: [SECURITY.md](SECURITY.md).
 
 ## Branch flow and releases
 
 ```
-feature ──► commit (Conventional Commits) ──► pre-push: isolated tests ──► dev
-                                                                            │  CI: build, tests, smoke, pre-release X.Y.Z-dev.N
-                                                     24h without commits on dev ▼
-                                         promote.yml: production pipeline ──► main + stable release X.Y.Z
+change ──► ship.sh: new version + CHANGELOG ──► full check ──► commit ──► push dev
+                                                                    │  CI: full check on macOS 14 and 15
+                                                                    ▼
+                                                      beta Release X.Y.Z (pre-release, zip + SHA256SUMS)
+                                                                    │  approved automatically: 24 h (72 h for a major),
+                                                                    │  CI green, no open bug or hold-release issue, no later fixes
+                                                                    ▼
+                                    promote.yml: verified again ──► Pull Request ──► main + stable Release "Latest"
 ```
 
-- **`dev`** receives every implementation. Each push triggers [`ci.yml`](.github/workflows/ci.yml).
-- **`main`** only receives promotions. [`promote.yml`](.github/workflows/promote.yml) runs daily at 06:00 UTC. When dev has had no new commits for 24h and CI is green, it re-runs the full pipeline from a clean checkout, adds the release to [`CHANGELOG.md`](CHANGELOG.md), fast-forwards `main` and publishes the release. It can also be run manually, with `dry_run`.
-- **Releases on GitHub** are automatic: every push to `dev` publishes a pre-release `X.Y.Z-dev.N` with its notes, and every promotion publishes the stable `X.Y.Z` (marked *latest*) with its CHANGELOG section. Nothing is versioned, tagged or written to the changelog by hand.
-
-### Versioning
-
-The version is computed from commits since the last stable tag ([`scripts/version.sh`](Atlas/scripts/version.sh)):
-
-| Commit | Effect |
-|---|---|
-| `feat: …` | minor (2.**1**.0) |
-| `fix: …` / `perf: …` | patch (2.0.**1**) |
-| `feat!: …` or `BREAKING CHANGE:` | major (**3**.0.0) |
-| `docs:`, `ci:`, `chore:`… | patch, when there is no feat/fix |
-
-`version.sh --next` shows the next stable version, `--dev` the pre-release and `--notes` the release notes. [`scripts/changelog.sh`](Atlas/scripts/changelog.sh) writes `CHANGELOG.md` from the same commits (`--release X.Y.Z`, `--rebuild`, `--check`).
+- **`dev`** receives every change. [`ci.yml`](.github/workflows/ci.yml) runs [`check.sh --full`](Atlas/scripts/check.sh) on macOS 14 and 15 and publishes a version that has no Release yet as a beta, with the notes from its [`CHANGELOG.md`](CHANGELOG.md) section.
+- **`main`** only has the stable version, without tests or development scripts ([`.mainignore`](.mainignore)). [`promote.yml`](.github/workflows/promote.yml) runs every 6 hours, approves the newest beta that meets the [release criteria](docs/RELEASE_CRITERIA.md) and publishes it as the stable Release. To stop one, open an issue labelled `hold-release`.
+- **Versions** live in [`Atlas/Resources/Info.plist`](Atlas/Resources/Info.plist) and are created automatically when the app changes: the kind comes from the Conventional Commits (`feat:` → minor, `fix:` → patch, `feat!:` → major) and the CHANGELOG section is written from them (`bump_version.sh --auto`). A published version never changes: the full check refuses it.
 
 ## Repository layout
 
@@ -79,5 +59,10 @@ The version is computed from commits since the last stable tag ([`scripts/versio
 |---|---|
 | [`Atlas/`](Atlas/) | The macOS app (Swift Package) — architecture in [Atlas/README.md](Atlas/README.md) |
 | [`cloud-atlas.io/`](cloud-atlas.io/) | Website, published by `deploy-site.yml` |
-| [`.githooks/`](.githooks/) | `commit-msg` and `pre-push` |
+| [`.githooks/`](.githooks/) | `pre-commit`, `commit-msg` and `pre-push` |
+| [`docs/`](docs/) | Development, release criteria and risk register |
 | [`.github/workflows/`](.github/workflows/) | `ci.yml`, `promote.yml`, `deploy-site.yml` |
+
+## License
+
+[MIT](LICENSE) © 2026 Vinicius Lopes

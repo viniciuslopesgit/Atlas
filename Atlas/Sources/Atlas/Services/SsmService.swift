@@ -15,6 +15,7 @@ struct SsmService {
     enum SsmError: LocalizedError {
         case pluginMissing
         case notConnected(String)
+        case invalidTarget(String)
 
         var errorDescription: String? {
             switch self {
@@ -23,6 +24,8 @@ struct SsmService {
             case .notConnected(let id):
                 "Instance \(id) is not connected to SSM. Check that the SSM Agent is running, the instance profile has "
                     + "AmazonSSMManagedInstanceCore, and the instance can reach the SSM endpoints."
+            case .invalidTarget(let id):
+                "\"\(id)\" is not an EC2 instance or managed node id."
             }
         }
     }
@@ -50,11 +53,23 @@ struct SsmService {
         }
     }
 
+    /// An instance (`i-…`) or managed node (`mi-…`) id: it names the script file and goes into it.
+    static func isValidTarget(_ id: String) -> Bool {
+        id.range(of: #"^m?i-[0-9a-f]{8,17}$"#, options: .regularExpression) != nil
+    }
+
+    /// A region name such as eu-west-1 or us-gov-west-1: it becomes part of the endpoint.
+    static func isValidRegion(_ region: String) -> Bool {
+        region.range(of: #"^[a-z]{2}(-[a-z]+)+-[0-9]$"#, options: .regularExpression) != nil
+    }
+
     /// Shell script that removes itself and hands the session to the plugin.
     static func commandScript(plugin: String, session: Session, region: String, instanceId: String) throws -> String {
         func json(_ o: [String: String]) throws -> String {
             String(decoding: try JSONSerialization.data(withJSONObject: o, options: [.sortedKeys]), as: UTF8.self)
         }
+        guard isValidTarget(instanceId) else { throw SsmError.invalidTarget(instanceId) }
+        guard isValidRegion(region) else { throw SsmError.invalidTarget(region) }
         func quote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
         let response = try json(["SessionId": session.sessionId, "StreamUrl": session.streamUrl,
                                  "TokenValue": session.tokenValue])
@@ -63,7 +78,7 @@ struct SsmService {
         #!/bin/bash
         rm -f "$0"
         clear
-        echo "Atlas — SSM session to \(instanceId) (\(region)). Type exit to close."
+        echo \(quote("Atlas — SSM session to \(instanceId) (\(region)). Type exit to close."))
         exec \(quote(plugin)) \(quote(response)) \(quote(region)) StartSession '' \(quote(request)) \
         \(quote("https://ssm.\(region).amazonaws.com"))
 

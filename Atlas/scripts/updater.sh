@@ -82,6 +82,11 @@ fi
 log "updating ${INSTALLED:-(not installed)} → $LATEST"
 gh release download "$LATEST" --repo "$REPO" --pattern "Atlas-$LATEST.zip" --dir "$WORK" \
   || { log "download failed"; state "error: download failed" "$LATEST"; exit 1; }
+# Releases from 2.0.0 carry SHA256SUMS: the archive must match it.
+if gh release download "$LATEST" --repo "$REPO" --pattern SHA256SUMS --dir "$WORK" 2>/dev/null; then
+  (cd "$WORK" && shasum -a 256 -c SHA256SUMS >/dev/null 2>&1) \
+    || { log "checksum mismatch for Atlas-$LATEST.zip"; state "error: checksum mismatch" "$LATEST"; exit 1; }
+fi
 ditto -x -k "$WORK/Atlas-$LATEST.zip" "$WORK/unzipped"
 NEW="$WORK/unzipped/Atlas.app"
 [[ -x "$NEW/Contents/MacOS/Atlas" ]] || { log "archive has no Atlas.app"; state "error: bad archive" "$LATEST"; exit 1; }
