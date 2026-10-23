@@ -23,7 +23,7 @@ mkdir -p "$WORK/src" "$WORK/home" "$WORK/tmp"
 DEV=/Library/Developer/CommandLineTools/Library/Developer
 SWIFT_ARGS=(--package-path "$WORK/src/Atlas" --scratch-path "$WORK/build" --disable-sandbox)
 TEST_ARGS=()
-if [ -d "$DEV/Frameworks/Testing.framework" ] && ! xcode-select -p | grep -q Xcode.app; then
+if [ -d "$DEV/Frameworks/Testing.framework" ] && [ "$(xcode-select -p 2>/dev/null)" = /Library/Developer/CommandLineTools ]; then
   TEST_ARGS=(-Xswiftc -F"$DEV/Frameworks" -Xlinker -F"$DEV/Frameworks"
              -Xlinker -rpath -Xlinker "$DEV/Frameworks" -Xlinker -rpath -Xlinker "$DEV/usr/lib")
 fi
