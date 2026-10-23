@@ -158,6 +158,12 @@ final class AppState: ObservableObject {
         clientFor: { [unowned self] stack in self.client(accountId: stack.accountId, region: stack.region) },
         runtime: { ContainerRuntime.locate() })
 
+    /// GuardDuty desktop notifications for the active account and region, while the app is open.
+    private(set) lazy var guardDutyAlerts = GuardDutyAlerts(folder: store.folder) { [unowned self] in
+        guard let account = self.activeAccount, let client = self.client else { return nil }
+        return GuardDutyAlerts.Context(key: "\(account.id)|\(self.region)", client: client)
+    }
+
     func refresh() { refreshToken += 1 }
 
     // MARK: Account management

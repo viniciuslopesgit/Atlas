@@ -68,68 +68,226 @@ struct CloudWatchView: View {
 
 struct GuardDutyView: View {
     @EnvironmentObject private var state: AppState
+    @State private var detector: GuardDutyService.Detector?
     @State private var findings: [GuardDutyFinding] = []
-    @State private var selection: String?
+    @State private var showArchived = false
+    @State private var search = ""
+    @State private var severity: GuardDutySeverity?
+    @State private var type: String?
+    @State private var resourceType: String?
+    @State private var selection = Set<String>()
+    @State private var pendingChange: [GuardDutyFinding]?
     @State private var isLoading = false
+    @State private var hasLoaded = false
     @State private var error: String?
 
-    private func color(_ f: GuardDutyFinding) -> Color {
-        f.severity >= 7 ? Palette.danger : f.severity >= 4 ? Palette.warning : Palette.accent
+    static func color(_ level: GuardDutySeverity) -> Color {
+        switch level {
+        case .critical, .high: Palette.danger
+        case .medium: Palette.warning
+        case .low: Palette.neutral
+        }
     }
+
+    private var visible: [GuardDutyFinding] {
+        GuardDutyFilter(search: search, severity: severity, type: type, resourceType: resourceType).apply(findings)
+    }
+
+    private var selected: [GuardDutyFinding] { findings.filter { selection.contains($0.id) } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            PageHeader(title: "GuardDuty Findings", subtitle: "Active (non-archived) findings · \(state.region)")
-            HStack(spacing: 14) {
-                StatCard(title: "High", value: "\(findings.filter { $0.severity >= 7 }.count)",
-                         icon: "exclamationmark.octagon.fill", tint: Palette.danger)
-                StatCard(title: "Medium", value: "\(findings.filter { $0.severity >= 4 && $0.severity < 7 }.count)",
-                         icon: "exclamationmark.triangle.fill", tint: Palette.warning)
-                StatCard(title: "Low", value: "\(findings.filter { $0.severity < 4 }.count)", icon: "info.circle.fill")
+            PageHeader(title: "GuardDuty", subtitle: subtitle) {
+                Picker("Findings", selection: $showArchived) {
+                    Text("Active").tag(false)
+                    Text("Archived").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 180)
+                .disabled(detector == nil)
             }
             if let error { ErrorBanner(message: error) { self.error = nil } }
-            Table(findings, selection: $selection) {
-                TableColumn("Severity") { f in Badge(text: "\(f.severityLabel) \(String(format: "%.1f", f.severity))", color: color(f)) }
-                    .width(min: 100, ideal: 120)
-                TableColumn("Title", value: \.title)
-                TableColumn("Type", value: \.type)
-                TableColumn("Resource", value: \.resourceType).width(min: 90, ideal: 120)
-                TableColumn("Updated") { f in Text(Fmt.dt(f.updatedAt)) }.width(min: 130, ideal: 160)
-            }
-            .overlay {
-                if isLoading && findings.isEmpty { ProgressView() }
-                else if !isLoading && findings.isEmpty && error == nil {
-                    EmptyStateView(icon: "checkmark.shield", title: "No active findings",
-                                   message: "GuardDuty has no active findings in \(state.region), or no detector is enabled.")
+            if hasLoaded && detector == nil && error == nil {
+                EmptyStateView(icon: "shield.slash", title: "GuardDuty is not enabled in \(state.region)",
+                               message: "GuardDuty works per region: enable it in this region in the AWS console "
+                                   + "(GuardDuty › Get started) to see and be notified of its findings here.")
+            } else {
+                if detector?.enabled == false {
+                    Label("GuardDuty is suspended in \(state.region): it keeps its findings but generates no new ones.",
+                          systemImage: "pause.circle").font(.callout).foregroundStyle(Palette.warning)
                 }
+                HStack(spacing: 14) {
+                    ForEach(GuardDutySeverity.allCases.reversed()) { level in
+                        StatCard(title: level.label, value: "\(findings.filter { $0.level == level }.count)",
+                                 icon: "shield.lefthalf.filled", tint: Self.color(level), subtitle: level.range)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                filters
+                table
             }
         }
         .padding(24)
-        .inspector(isPresented: .constant(selection != nil)) {
-            if let f = findings.first(where: { $0.id == selection }) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Badge(text: f.severityLabel, color: color(f))
-                        Text(f.title).font(Typo.panelTitle)
-                        Text(f.description).textSelection(.enabled)
-                        DetailRow("Type", f.type, copyable: true)
-                        DetailRow("Resource", f.resourceType)
-                        DetailRow("Account", f.accountId)
-                        DetailRow("Region", f.region)
-                        DetailRow("Finding ID", f.id, copyable: true)
-                        DetailRow("Updated", Fmt.dt(f.updatedAt))
-                    }
-                    .padding(16)
-                }
-                .inspectorColumnWidth(min: 300, ideal: 360)
+        .inspector(isPresented: .constant(selected.count == 1)) {
+            if selected.count == 1, let f = selected.first { inspector(f).inspectorColumnWidth(min: 320, ideal: 380) }
+        }
+        .confirmationDialog(showArchived ? "Unarchive \(pendingChange?.count ?? 0) finding(s)?" : "Archive \(pendingChange?.count ?? 0) finding(s)?",
+                            isPresented: Binding(present: $pendingChange), presenting: pendingChange) { items in
+            Button(showArchived ? "Unarchive" : "Archive") { Task { await change(items) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { items in
+            Text(items.prefix(8).map(\.title).joined(separator: "\n")
+                 + (showArchived ? "\n\nThey become active findings again."
+                                 : "\n\nArchived findings leave the active list; GuardDuty still updates them if the activity recurs."))
+        }
+        .task(id: "\(state.sessionKey)|\(showArchived)") { await load() }
+    }
+
+    private var subtitle: String {
+        let what = showArchived ? "Archived findings" : "Active findings"
+        return detector == nil ? state.region : "\(what) · \(state.region)"
+    }
+
+    private var filters: some View {
+        HStack {
+            TextField("Search title, type or resource", text: $search).textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+            Picker("Severity", selection: $severity) {
+                Text("All").tag(GuardDutySeverity?.none)
+                ForEach(GuardDutySeverity.allCases.reversed()) { Text($0.label).tag(Optional($0)) }
+            }
+            .frame(width: 160)
+            Picker("Type", selection: $type) {
+                Text("All").tag(String?.none)
+                ForEach(Array(Set(findings.map(\.type))).sorted(), id: \.self) { Text($0).tag(Optional($0)) }
+            }
+            .frame(maxWidth: 280)
+            Picker("Resource", selection: $resourceType) {
+                Text("All").tag(String?.none)
+                ForEach(Array(Set(findings.map(\.resourceType))).sorted(), id: \.self) { Text($0).tag(Optional($0)) }
+            }
+            .frame(width: 200)
+            Spacer()
+            Button { pendingChange = selected } label: {
+                Label(showArchived ? "Unarchive" : "Archive", systemImage: showArchived ? "tray.and.arrow.up" : "archivebox")
+            }
+            .disabled(selection.isEmpty)
+        }
+    }
+
+    private var table: some View {
+        Table(visible, selection: $selection) {
+            TableColumn("Severity") { f in Badge(text: "\(f.level.label) \(String(format: "%.1f", f.severity))", color: Self.color(f.level)) }
+                .width(min: 100, ideal: 120)
+            TableColumn("Title", value: \.title).width(min: 200, ideal: 320)
+            TableColumn("Type", value: \.type).width(min: 160, ideal: 240)
+            TableColumn("Resource") { f in Text(f.resourceLabel).lineLimit(1) }.width(min: 120, ideal: 200)
+            TableColumn("Count") { f in Text("\(f.count)").monospacedDigit() }.width(min: 44, ideal: 56)
+            TableColumn("Last seen") { f in Text(Fmt.dt(f.lastSeen ?? f.updatedAt)) }.width(min: 130, ideal: 160)
+        }
+        .contextMenu(forSelectionType: String.self) { ids in
+            let items = findings.filter { ids.contains($0.id) }
+            Button("Copy Finding ID") { copy(items.map(\.id).joined(separator: "\n")) }
+            Divider()
+            Button(showArchived ? "Unarchive…" : "Archive…") { pendingChange = items }
+        }
+        .overlay {
+            if isLoading && findings.isEmpty { ProgressView() }
+            else if hasLoaded && !isLoading && visible.isEmpty && error == nil {
+                EmptyStateView(icon: "checkmark.shield",
+                               title: findings.isEmpty ? (showArchived ? "No archived findings" : "No active findings") : "No matching findings",
+                               message: findings.isEmpty ? "GuardDuty has nothing to report in \(state.region)." : "Change or clear the filters.")
             }
         }
-        .task(id: state.sessionKey) {
-            guard let client = state.client else { return }
-            isLoading = true
-            defer { isLoading = false }
-            do { findings = try await GuardDutyService(client: client).findings(); error = nil }
-            catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+    }
+
+    private func inspector(_ f: GuardDutyFinding) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                Badge(text: "\(f.level.label) · \(String(format: "%.1f", f.severity))", color: Self.color(f.level))
+                Text(f.title).font(Typo.panelTitle)
+                Text(f.description).font(.callout).textSelection(.enabled)
+                Text(f.level.meaning).font(.caption).foregroundStyle(.secondary)
+
+                SectionHeader("Overview")
+                DetailRow("Type", f.type, copyable: true)
+                DetailRow("Threat purpose", f.threatPurpose)
+                DetailRow("Count", "\(f.count)")
+                DetailRow("First seen", Fmt.dt(f.firstSeen))
+                DetailRow("Last seen", Fmt.dt(f.lastSeen))
+                DetailRow("Created", Fmt.dt(f.createdAt))
+                DetailRow("Updated", Fmt.dt(f.updatedAt))
+                DetailRow("Account", f.accountId)
+                DetailRow("Region", f.region)
+                DetailRow("Finding ID", f.id, copyable: true)
+
+                details("Resource · \(f.resourceType)", f.resource)
+                details(f.actionType.isEmpty ? "Action" : "Action · \(f.actionType.replacingOccurrences(of: "_", with: " ").capitalized)", f.action)
+                details("Actor", f.actor)
+
+                Button(f.archived ? "Unarchive…" : "Archive…") { pendingChange = [f] }.padding(.top, 6)
+            }
+            .padding(16)
+        }
+    }
+
+    @ViewBuilder
+    private func details(_ title: String, _ rows: [GuardDutyDetail]) -> some View {
+        if !rows.isEmpty {
+            SectionHeader(title)
+            ForEach(rows, id: \.self) { DetailRow($0.label, $0.value, copyable: true) }
+        }
+    }
+
+    private func copy(_ s: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(s, forType: .string)
+    }
+
+    private func load() async {
+        guard let client = state.client else { return }
+        isLoading = true
+        defer { isLoading = false; hasLoaded = true }
+        let service = GuardDutyService(client: client)
+        do {
+            detector = try await service.detector()
+            if let detector { findings = try await service.findings(detectorId: detector.id, archived: showArchived) }
+            else { findings = [] }
+            selection = selection.filter { id in findings.contains { $0.id == id } }
+            error = nil
+        } catch {
+            if !Task.isCancelled { self.error = error.localizedDescription }
+        }
+    }
+
+    private func change(_ items: [GuardDutyFinding]) async {
+        guard let client = state.client, let detector else { return }
+        let service = GuardDutyService(client: client)
+        do {
+            let ids = items.map(\.id)
+            if showArchived { try await service.unarchive(detectorId: detector.id, ids: ids) }
+            else { try await service.archive(detectorId: detector.id, ids: ids) }
+            selection.subtract(ids)
+            await load()
+        } catch {
+            self.error = "\(showArchived ? "Unarchive" : "Archive") failed: \(error.localizedDescription)"
+        }
+    }
+}
+
+/// The GuardDuty page's filters: severity level, finding type, resource type and free text.
+struct GuardDutyFilter {
+    var search = ""
+    var severity: GuardDutySeverity?
+    var type: String?
+    var resourceType: String?
+
+    func apply(_ findings: [GuardDutyFinding]) -> [GuardDutyFinding] {
+        let q = search.trimmingCharacters(in: .whitespaces)
+        return findings.filter { f in
+            (severity == nil || f.level == severity) && (type == nil || f.type == type)
+                && (resourceType == nil || f.resourceType == resourceType)
+                && (q.isEmpty || [f.title, f.type, f.resourceId, f.id].contains { $0.localizedCaseInsensitiveContains(q) })
         }
     }
 }

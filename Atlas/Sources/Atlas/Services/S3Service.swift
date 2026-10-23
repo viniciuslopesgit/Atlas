@@ -124,12 +124,7 @@ struct S3Service {
         return UTType(filenameExtension: ext)?.preferredMIMEType ?? "application/octet-stream"
     }
 
-    private static func xmlEscape(_ s: String) -> String {
-        s.replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-    }
+    fileprivate static func xmlEscape(_ s: String) -> String { XNode.escape(s) }
 
     // MARK: Transfers with progress
 
@@ -246,11 +241,12 @@ struct S3Service {
         }
     }
 
-    private func putConfig(_ bucket: String, _ subresource: String, _ xml: String) async throws {
+    fileprivate func putConfig(_ bucket: String, _ subresource: String, _ xml: String,
+                               contentType: String = "application/xml") async throws {
         let body = Data(xml.utf8)
         _ = try await client.s3(method: "PUT", bucket: bucket, query: [(subresource, "")],
                                 headers: ["content-md5": AWSEncoding.md5Base64(body),
-                                          "content-type": "application/xml"],
+                                          "content-type": contentType],
                                 body: body)
     }
 
@@ -294,6 +290,172 @@ struct S3Service {
         } catch {
             return false
         }
+    }
+}
+
+// MARK: - Bucket settings
+
+extension S3Service {
+    private static let ns = #"xmlns="http://s3.amazonaws.com/doc/2006-03-01/""#
+
+    /// Reads every section at once. "Not configured" answers are the defaults; other errors stay per section.
+    func settings(_ bucket: String) async -> S3BucketSettings {
+        await client.resolveBucketRegion(bucket)
+        async let versioning = section(bucket, "versioning")
+        async let encryption = section(bucket, "encryption", missing: "ServerSideEncryptionConfigurationNotFoundError")
+        async let publicAccess = section(bucket, "publicAccessBlock", missing: "NoSuchPublicAccessBlockConfiguration")
+        async let tagging = section(bucket, "tagging", missing: "NoSuchTagSet")
+        async let lifecycle = section(bucket, "lifecycle", missing: "NoSuchLifecycleConfiguration")
+        async let policy = section(bucket, "policy", missing: "NoSuchBucketPolicy")
+
+        var s = S3BucketSettings()
+        func apply(_ name: String, _ result: Result<Data?, Error>, _ read: (Data) -> Void) {
+            switch result {
+            case .success(let data): if let data { read(data) }
+            case .failure(let error): s.errors[name] = error.localizedDescription
+            }
+        }
+        apply("versioning", await versioning) { data in
+            let xml = XNode.parse(data)
+            s.versioning = S3BucketSettings.Versioning(rawValue: xml?.str("Status") ?? "") ?? .off
+            s.mfaDelete = xml?.str("MfaDelete") == "Enabled"
+        }
+        apply("encryption", await encryption) { data in
+            guard let rule = XNode.parse(data)?.find("Rule") else { return }
+            s.encryption = S3BucketSettings.Encryption(rawValue: rule.str("ApplyServerSideEncryptionByDefault/SSEAlgorithm")) ?? .sseS3
+            s.kmsKeyId = rule.str("ApplyServerSideEncryptionByDefault/KMSMasterKeyID")
+            s.bucketKeyEnabled = rule.bool("BucketKeyEnabled")
+        }
+        apply("publicAccessBlock", await publicAccess) { data in
+            guard let xml = XNode.parse(data) else { return }
+            s.publicAccess = .init(blockPublicAcls: xml.bool("BlockPublicAcls"), ignorePublicAcls: xml.bool("IgnorePublicAcls"),
+                                   blockPublicPolicy: xml.bool("BlockPublicPolicy"),
+                                   restrictPublicBuckets: xml.bool("RestrictPublicBuckets"))
+        }
+        apply("tagging", await tagging) { data in
+            s.tags = (XNode.parse(data)?.list("TagSet", item: "Tag") ?? [])
+                .map { .init(key: $0.str("Key"), value: $0.str("Value")) }
+        }
+        apply("lifecycle", await lifecycle) { data in
+            s.lifecycle = (XNode.parse(data)?.all("Rule") ?? []).map(Self.rule)
+        }
+        apply("policy", await policy) { data in s.policy = Self.prettyJSON(data) }
+        return s
+    }
+
+    /// GET ?<subresource>: nil when S3 answers that the section isn't configured.
+    private func section(_ bucket: String, _ subresource: String, missing: String? = nil) async -> Result<Data?, Error> {
+        do {
+            return .success(try await client.s3(method: "GET", bucket: bucket, query: [(subresource, "")]).0)
+        } catch let e as AWSError where e.code == missing {
+            return .success(nil)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private static func prettyJSON(_ data: Data) -> String {
+        guard let object = try? JSONSerialization.jsonObject(with: data),
+              let pretty = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        else { return String(decoding: data, as: UTF8.self) }
+        return String(decoding: pretty, as: UTF8.self)
+    }
+
+    static func rule(_ x: XNode) -> S3BucketSettings.LifecycleRule {
+        var r = S3BucketSettings.LifecycleRule(ruleId: x.str("ID"), enabled: x.str("Status") == "Enabled")
+        let simple: [String: Set<String>] = [
+            "ID": [], "Status": [], "Prefix": [], "Filter": ["Prefix"], "Transition": ["Days", "StorageClass"],
+            "Expiration": ["Days"], "NoncurrentVersionExpiration": ["NoncurrentDays"],
+            "AbortIncompleteMultipartUpload": ["DaysAfterInitiation"],
+        ]
+        let isSimple = x.children.allSatisfy { c in
+            guard let allowed = simple[c.name] else { return false }
+            return c.children.allSatisfy { allowed.contains($0.name) }
+        }
+        guard isSimple else { r.raw = x.xml; return r }
+        r.prefix = x["Filter"] != nil ? x.str("Filter/Prefix") : x.str("Prefix")
+        r.transitions = x.all("Transition").map { .init(days: $0.int("Days") ?? 0, storageClass: $0.str("StorageClass")) }
+        r.expirationDays = x.int("Expiration/Days")
+        r.noncurrentExpirationDays = x.int("NoncurrentVersionExpiration/NoncurrentDays")
+        r.abortMultipartDays = x.int("AbortIncompleteMultipartUpload/DaysAfterInitiation")
+        return r
+    }
+
+    static func lifecycleXML(_ rules: [S3BucketSettings.LifecycleRule]) -> String {
+        let body = rules.map { r -> String in
+            if let raw = r.raw { return raw }
+            var x = "<Rule><ID>\(xmlEscape(r.ruleId))</ID><Filter><Prefix>\(xmlEscape(r.prefix))</Prefix></Filter>"
+            x += "<Status>\(r.enabled ? "Enabled" : "Disabled")</Status>"
+            for t in r.transitions {
+                x += "<Transition><Days>\(t.days)</Days><StorageClass>\(xmlEscape(t.storageClass))</StorageClass></Transition>"
+            }
+            if let d = r.expirationDays { x += "<Expiration><Days>\(d)</Days></Expiration>" }
+            if let d = r.noncurrentExpirationDays { x += "<NoncurrentVersionExpiration><NoncurrentDays>\(d)</NoncurrentDays></NoncurrentVersionExpiration>" }
+            if let d = r.abortMultipartDays { x += "<AbortIncompleteMultipartUpload><DaysAfterInitiation>\(d)</DaysAfterInitiation></AbortIncompleteMultipartUpload>" }
+            return x + "</Rule>"
+        }.joined()
+        return "<LifecycleConfiguration \(ns)>\(body)</LifecycleConfiguration>"
+    }
+
+    // MARK: Changes (each one is confirmed in the UI first)
+
+    func setVersioning(_ bucket: String, enabled: Bool) async throws {
+        try await putConfig(bucket, "versioning", """
+        <VersioningConfiguration \(Self.ns)><Status>\(enabled ? "Enabled" : "Suspended")</Status></VersioningConfiguration>
+        """)
+    }
+
+    func setEncryption(_ bucket: String, _ encryption: S3BucketSettings.Encryption, kmsKeyId: String, bucketKey: Bool) async throws {
+        var rule = "<ApplyServerSideEncryptionByDefault><SSEAlgorithm>\(encryption.rawValue)</SSEAlgorithm>"
+        let key = kmsKeyId.trimmingCharacters(in: .whitespaces)
+        if encryption != .sseS3 && !key.isEmpty { rule += "<KMSMasterKeyID>\(Self.xmlEscape(key))</KMSMasterKeyID>" }
+        rule += "</ApplyServerSideEncryptionByDefault>"
+        if encryption == .sseKms { rule += "<BucketKeyEnabled>\(bucketKey)</BucketKeyEnabled>" }
+        try await putConfig(bucket, "encryption", """
+        <ServerSideEncryptionConfiguration \(Self.ns)><Rule>\(rule)</Rule></ServerSideEncryptionConfiguration>
+        """)
+    }
+
+    func setPublicAccessBlock(_ bucket: String, _ p: S3BucketSettings.PublicAccessBlock) async throws {
+        try await putConfig(bucket, "publicAccessBlock", """
+        <PublicAccessBlockConfiguration \(Self.ns)>\
+        <BlockPublicAcls>\(p.blockPublicAcls)</BlockPublicAcls><IgnorePublicAcls>\(p.ignorePublicAcls)</IgnorePublicAcls>\
+        <BlockPublicPolicy>\(p.blockPublicPolicy)</BlockPublicPolicy><RestrictPublicBuckets>\(p.restrictPublicBuckets)</RestrictPublicBuckets>\
+        </PublicAccessBlockConfiguration>
+        """)
+    }
+
+    /// Replaces the whole tag set; no tags deletes it.
+    func setTags(_ bucket: String, _ tags: [S3BucketSettings.Tag]) async throws {
+        let tags = tags.filter { !$0.key.isEmpty }
+        guard !tags.isEmpty else {
+            _ = try await client.s3(method: "DELETE", bucket: bucket, query: [("tagging", "")])
+            return
+        }
+        let set = tags.map { "<Tag><Key>\(Self.xmlEscape($0.key))</Key><Value>\(Self.xmlEscape($0.value))</Value></Tag>" }.joined()
+        try await putConfig(bucket, "tagging", "<Tagging \(Self.ns)><TagSet>\(set)</TagSet></Tagging>")
+    }
+
+    /// Replaces every lifecycle rule; no rules deletes the configuration.
+    func setLifecycle(_ bucket: String, _ rules: [S3BucketSettings.LifecycleRule]) async throws {
+        guard !rules.isEmpty else {
+            _ = try await client.s3(method: "DELETE", bucket: bucket, query: [("lifecycle", "")])
+            return
+        }
+        try await putConfig(bucket, "lifecycle", Self.lifecycleXML(rules))
+    }
+
+    /// Sends the policy as written (S3 validates it); an empty policy deletes it.
+    func setPolicy(_ bucket: String, _ policy: String) async throws {
+        let text = policy.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            _ = try await client.s3(method: "DELETE", bucket: bucket, query: [("policy", "")])
+            return
+        }
+        guard (try? JSONSerialization.jsonObject(with: Data(text.utf8))) is [String: Any] else {
+            throw AWSError(code: "MalformedPolicy", message: "The policy is not a JSON object.", status: 0)
+        }
+        try await putConfig(bucket, "policy", text, contentType: "application/json")
     }
 }
 

@@ -21,6 +21,7 @@ struct S3View: View {
     @State private var showNewFolder = false
     @State private var newFolderName = ""
     @State private var editing: S3Object?
+    @State private var settingsBucket: String?
     @State private var isDropTargeted = false
 
     private var service: S3Service? { state.client.map { S3Service(client: $0) } }
@@ -67,6 +68,9 @@ struct S3View: View {
                 }
             }
         }
+        .sheet(isPresented: Binding(present: $settingsBucket)) {
+            if let service, let bucket = settingsBucket { S3BucketSettingsSheet(service: service, bucket: bucket) }
+        }
         .sheet(item: $editing) { object in
             if let service, let bucket = selectedBucket {
                 S3TextEditorSheet(service: service, bucket: bucket, object: object)
@@ -95,6 +99,7 @@ struct S3View: View {
                 .contextMenu {
                     Button("Copy Name") { copy(b.name) }
                     Button("Copy ARN") { copy("arn:aws:s3:::\(b.name)") }
+                    Button("Settings…") { settingsBucket = b.name }
                     Divider()
                     Button("Delete Bucket…", role: .destructive) { pendingBucketDelete = b.name }
                 }
@@ -123,6 +128,8 @@ struct S3View: View {
                 HStack {
                     TextField("Filter in this folder", text: $search).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
                     Spacer()
+                    Button { settingsBucket = bucket } label: { Label("Settings", systemImage: "slider.horizontal.3") }
+                        .help("Versioning, encryption, public access, tags, lifecycle and policy")
                     Button { showNewFolder = true } label: { Label("New Folder", systemImage: "folder.badge.plus") }
                     Button { pickAndUpload() } label: { Label("Upload", systemImage: "arrow.up.doc") }
                     Button { downloadSelected() } label: { Label("Download", systemImage: "arrow.down.doc") }

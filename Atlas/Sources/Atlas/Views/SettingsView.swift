@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var state: AppState
     @AppStorage("theme") private var theme: AppTheme = .system
+    @AppStorage(GuardDutyAlerts.enabledKey) private var guardDutyNotifications = true
 
     @State private var name = ""
     @State private var accessKeyId = ""
@@ -35,6 +36,15 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 280)
+                }
+                .padding(16)
+                .card()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionHeader("Notifications")
+                    Toggle("Notify me about new GuardDuty findings", isOn: $guardDutyNotifications)
+                    Text("Checks the active account and region every 2 minutes while Atlas is open.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(16)
                 .card()

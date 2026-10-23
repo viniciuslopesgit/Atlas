@@ -36,7 +36,9 @@ typeset -A MIN_COVERAGE=(
     AWS/AWSClient.swift 85
     Storage/AccountStore.swift 35
     Storage/PrivateFile.swift 85
-    Services/S3Service.swift 30
+    Services/S3Service.swift 55
+    Services/GuardDutyService.swift 90
+    Services/GuardDutyAlerts.swift 75
     Services/SsmService.swift 50
     Services/SsmProtocol.swift 90
     Services/IamService+Write.swift 60

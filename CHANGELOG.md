@@ -4,6 +4,30 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.6.0] - 2026-10-23
+
+Atlas 2.6.0 lets you change an S3 bucket's settings and keeps a closer watch on GuardDuty. S3 › Settings shows
+and edits a bucket's versioning, default encryption, Block Public Access, tags, lifecycle rules and policy; each
+change is described and confirmed before it reaches AWS. While Atlas is open it checks GuardDuty in the active
+account and region every 2 minutes and posts a desktop notification for each new finding, or a summary when
+there are several. The GuardDuty page uses AWS's four severity levels, filters by severity, type and resource,
+shows each finding's resource, action, actor, count and first and last seen, and archives and unarchives findings.
+
+### Added
+- S3 › Settings (also in a bucket's context menu): versioning, default encryption (SSE-S3, SSE-KMS, DSSE-KMS),
+  Block Public Access, tags, lifecycle rules and bucket policy, each saved only after you confirm the change
+- Lifecycle rules Atlas can't edit (tag or size filters, dates…) are kept exactly as they are when you save
+- GuardDuty desktop notifications for new findings in the active account and region, checked every 2 minutes;
+  what was already announced is remembered, so nothing repeats after a restart. Turn them off in Accounts › Notifications
+- GuardDuty: filter by severity, finding type and resource type; archive and unarchive findings; see archived findings
+
+### Changed
+- GuardDuty severities follow AWS: Low 1.0–3.9, Medium 4.0–6.9, High 7.0–8.9 and Critical 9.0–10.0
+- A GuardDuty finding shows its resource (instance, access key, bucket, cluster…), its action (API call,
+  connection, port probe, DNS request…), the actor (remote IP, location, organization, threat list), count and
+  first and last seen
+- The GuardDuty page says when GuardDuty is not enabled, or is suspended, in the region
+
 ## [2.5.1] - 2026-10-23
 
 Atlas 2.5.1 brings 1 fix.
@@ -237,6 +261,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.6.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.6.0
 [2.5.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.1
 [2.5.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.0
 [2.4.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.4.1

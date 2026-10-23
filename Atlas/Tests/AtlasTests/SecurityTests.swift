@@ -286,6 +286,33 @@ struct SecurityTests {
         #expect(!AWSClient.isAWSEndpoint(URL(string: "https://amazonaws.com.evil.example/")))
     }
 
+    @Test func aDetectorIdCannotRewriteGuardDutyRequestPaths() async throws {
+        let client = MockURLProtocol.client { req, _ in
+            req.url!.path == "/detector" ? .init(body: #"{"detectorIds":["../../x?y", "a/b", "ok1"]}"#) : .init(body: "{}")
+        }
+        #expect(try await GuardDutyService(client: client).detectorId() == "ok1")
+        _ = try await GuardDutyService(client: client).findings()
+        #expect(MockURLProtocol.requests.map { $0.request.url!.path }.allSatisfy { $0 == "/detector" || $0.hasPrefix("/detector/ok1/") })
+    }
+
+    @Test func bucketSettingsCannotInjectXML() async throws {
+        let client = MockURLProtocol.client { _, _ in .init() }
+        let evil = "</Value></Tag><Tag><Key>owner</Key><Value>attacker"
+        try await S3Service(client: client).setTags("b", [.init(key: "k", value: evil)])
+        try await S3Service(client: client).setLifecycle("b", [.init(ruleId: "</ID><Status>", prefix: "<Expiration>", expirationDays: 1)])
+        try await S3Service(client: client).setEncryption("b", .sseKms, kmsKeyId: "</KMSMasterKeyID>x", bucketKey: false)
+        for r in MockURLProtocol.requests {
+            let xml = try #require(XNode.parse(r.body))
+            #expect(xml.find("Value")?.text == evil || xml.find("Value") == nil)
+        }
+        let tags = try #require(XNode.parse(MockURLProtocol.requests[0].body))
+        #expect(tags.list("TagSet", item: "Tag").count == 1)
+        let rules = try #require(XNode.parse(MockURLProtocol.requests[1].body)).all("Rule")
+        #expect(rules.map { $0.str("ID") } == ["</ID><Status>"])
+        #expect(rules[0].str("Filter/Prefix") == "<Expiration>")
+        #expect(try #require(XNode.parse(MockURLProtocol.requests[2].body)).find("KMSMasterKeyID")?.text == "</KMSMasterKeyID>x")
+    }
+
     @Test func awsResponsesAreNeverCachedOnDiskOrGiveCookies() {
         let client = AWSClient(credentials: AWSCredentials(accessKeyId: "AKID", secretAccessKey: "s"), region: "us-east-1")
         #expect(client.session.configuration.urlCache == nil)

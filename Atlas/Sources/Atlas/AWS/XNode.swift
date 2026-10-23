@@ -40,6 +40,19 @@ final class XNode {
         return nil
     }
 
+    /// The node back as XML (without namespaces), text escaped: re-sends part of a document unchanged.
+    var xml: String {
+        let inner = children.isEmpty ? Self.escape(text) : children.map(\.xml).joined()
+        return "<\(name)>\(inner)</\(name)>"
+    }
+
+    static func escape(_ s: String) -> String {
+        s.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
     static func parse(_ data: Data) -> XNode? {
         let builder = Builder()
         let parser = XMLParser(data: data)

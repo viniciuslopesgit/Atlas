@@ -61,6 +61,7 @@ struct MainView: View {
         .sheet(isPresented: $showDockerSetup, onDismiss: { dockerPrompted = true }) { DockerSetupSheet() }
         .onAppear {
             state.stacks.startScheduler()
+            state.guardDutyAlerts.start()
             // First launch: with Docker there is nothing to say; without it, offer Docker Desktop once.
             if !dockerPrompted && !SmokeTest.isEnabled && state.stacks.runtime == nil { showDockerSetup = true }
         }

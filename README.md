@@ -7,8 +7,8 @@ It supports **AWS** today; more providers will follow.
 
 - **Costs at a glance** — month to date, end-of-month forecast and the services that cost the most, on the Dashboard and in Billing by month.
 - **EC2 without tabs** — start, stop, reboot or terminate several instances at once, see every detail with metrics, and launch new ones with a wizard.
-- **S3 like Finder** — browse folders, drag files to upload, follow upload and download progress, and edit text files in place.
-- **Security in one click** — IAM (users, roles, groups, policies and access keys), GuardDuty findings, CloudWatch alarms and a quick audit: root MFA, password policy, old keys, IMDSv1 and public S3 buckets.
+- **S3 like Finder** — browse folders, drag files to upload, follow upload and download progress, edit text files in place, and change a bucket's versioning, encryption, public access, tags, lifecycle and policy.
+- **Security in one click** — IAM (users, roles, groups, policies and access keys), GuardDuty findings by severity with desktop notifications for new ones, CloudWatch alarms and a quick audit: root MFA, password policy, old keys, IMDSv1 and public S3 buckets.
 - **Terraform without leaving the app** — import existing resources into a project, plan and apply what you reviewed, and keep stacks under watch for drift.
 - **Multiple accounts, instant switching** — change account or region from the toolbar, and find any resource with ⌘K.
 
