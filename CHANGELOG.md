@@ -33,6 +33,11 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 - A run's output is shown in its timeline (Runs, Plans, Applies) instead of a bar at the bottom of the stack
 
 ### Security
+- New stacks keep their Terraform state in S3 by default (atlas-tfstate-<account>, versioned, encrypted, private),
+  each in its own object, instead of a plain-text terraform.tfstate in the stack's folder; a folder that already has
+  a backend or a local state is left as it is
+- A stack whose state is a local terraform.tfstate shows a warning and a "Local state" badge; Move State to S3 copies
+  it to the state bucket, reads it back from there, and only then removes terraform.tfstate and its backup
 - Plan files (which hold the configuration and variable values in plain text) are saved in Atlas's private folder,
   readable only by you, instead of the stack's or project's folder; plan files left there by earlier versions are removed
 - The AWS secret key, session token and stack variable values are masked in all Terraform/OpenTofu output: on screen,

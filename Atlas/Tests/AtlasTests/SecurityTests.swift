@@ -573,3 +573,53 @@ private final class LockedLines: @unchecked Sendable {
     func add(_ line: String) { lock.withLock { lines.append(line) } }
     var all: [String] { lock.withLock { lines } }
 }
+
+/// Moving the state deletes files in the user's folder: only the engine's two local state files, and only once the
+/// state was read back from S3.
+struct StateMigrationTests {
+    @Test @MainActor func movingTheStateRemovesOnlyTheStateFilesAndOnlyAfterReadingItBack() async throws {
+        let dir = try StackStateTests.folder()
+        let bin = try StackStateTests.engine(in: dir)
+        let client = StackStateTests.client()
+        let model = StacksModel(store: StackStore(folder: dir.appendingPathComponent("support"), secrets: InMemorySecretStore()),
+                                clientFor: { _ in client }, makeCLI: { _ in TerraformCLI(binary: bin) })
+        let project = dir.appendingPathComponent("project", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        for name in StateBackend.localStateFiles + ["main.tf", "notes.tfstate.txt"] {
+            try Data("{\"secret\": \"hunter2\"}".utf8).write(to: project.appendingPathComponent(name))
+        }
+        let s = model.create(name: "legacy", folder: project, accountId: "a", region: "eu-west-1")
+
+        // The state can't be read back from S3: nothing is removed.
+        try Data().write(to: dir.appendingPathComponent("failList"))
+        model.moveStateToS3(s.id)
+        for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(model.stack(s.id)?.lastRun?.status == .failed)
+        #expect(StateBackend.hasLocalState(in: project), "kept when the copy could not be checked")
+
+        try FileManager.default.removeItem(at: dir.appendingPathComponent("failList"))
+        model.moveStateToS3(s.id)
+        for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        let run = try #require(model.stack(s.id)?.lastRun)
+        #expect(run.type == .migrateState && run.status == .success, "\(run.output)")
+        #expect(run.phases.map(\.name) == ["Preparing state", "Moving state", "Verifying"])
+        let calls = try String(contentsOf: dir.appendingPathComponent("calls.log"), encoding: .utf8)
+        #expect(calls.contains("init -no-color -migrate-state -force-copy") && calls.contains("state list"))
+        #expect(!StateBackend.hasLocalState(in: project))
+        for kept in ["main.tf", "notes.tfstate.txt", StateBackend.file] {
+            #expect(FileManager.default.fileExists(atPath: project.appendingPathComponent(kept).path), "\(kept) was removed")
+        }
+
+        // A configuration with its own backend is never rewritten.
+        let other = dir.appendingPathComponent("other", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        try Data("terraform {\n  backend \"gcs\" {}\n}\n".utf8).write(to: other.appendingPathComponent("backend.tf"))
+        try Data("{\"version\": 4}".utf8).write(to: other.appendingPathComponent("terraform.tfstate"))
+        let o = model.create(name: "other", folder: other, accountId: "a", region: "eu-west-1")
+        model.moveStateToS3(o.id)
+        for _ in 0..<300 where model.busy.contains(o.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(model.stack(o.id)?.lastRun?.status == .failed)
+        #expect(!FileManager.default.fileExists(atPath: other.appendingPathComponent(StateBackend.file).path))
+        #expect(StateBackend.hasLocalState(in: other))
+    }
+}

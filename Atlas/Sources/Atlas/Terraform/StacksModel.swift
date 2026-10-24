@@ -77,16 +77,92 @@ final class StacksModel: ObservableObject {
 
     // MARK: Editing
 
-    /// Adds the stack and, with a container runtime, creates its container right away.
+    /// Adds the stack and, with a container runtime, creates its container right away. With `remoteState` the
+    /// stack keeps its state in the account's S3 state bucket (versioned, encrypted) instead of a file in its folder.
     @discardableResult
-    func create(name: String, folder: URL, accountId: String, region: String, engine: TerraformEngine = .terraform) -> StackEntry {
+    func create(name: String, folder: URL, accountId: String, region: String, engine: TerraformEngine = .terraform,
+                remoteState: Bool = false) -> StackEntry {
         IaCModel.scaffoldIfEmpty(folder)
         var s = StackEntry(name: name, projectPath: folder.path, accountId: accountId, region: region)
         s.engine = engine
         stacks.append(s)
         save()
-        if runtime != nil { run(s.id, .setup, trigger: "stack created") { _ in true } }
+        guard runtime != nil || remoteState else { return s }
+        let client = remoteState ? clientFor(s) : nil
+        let key = StateBucket.key(for: s)
+        run(s.id, .setup, trigger: "stack created") { c in
+            remoteState ? await Self.configureRemoteState(c, client: client, key: key) : true
+        }
         return s
+    }
+
+    /// Writes the S3 backend for a stack that has none and no local state yet.
+    nonisolated private static func configureRemoteState(_ c: Context, client: AWSClient?, key: String) async -> Bool {
+        c.phase("Preparing state")
+        if StateBackend.hasBackend(in: c.dir) {
+            c.log("  ✔ The configuration already has a backend; Atlas leaves it as it is.")
+            return true
+        }
+        if StateBackend.hasLocalState(in: c.dir) {
+            c.log("  ⚠ The folder has a local terraform.tfstate. Use Move State to S3 to keep it encrypted in S3.")
+            return true
+        }
+        guard let client else {
+            c.log("✗ The stack's Atlas account is missing; the state bucket could not be prepared.")
+            return false
+        }
+        do {
+            let bucket = try await StateBucket.ensure(client: client, log: c.log)
+            try StateBackend.write(in: c.dir, bucket: bucket, key: key, region: client.region)
+            c.log("  ✔ State in s3://\(bucket)/\(key) (versioned, encrypted) → \(StateBackend.file)")
+            return true
+        } catch {
+            c.log("✗ Could not prepare the state bucket: \(error.localizedDescription)")
+            c.log("  The state stays on this Mac until you use Move State to S3.")
+            return false
+        }
+    }
+
+    /// Moves a local terraform.tfstate into the S3 state bucket, checks the engine reads it there, then removes the
+    /// plain-text state files from the stack's folder.
+    func moveStateToS3(_ id: UUID) {
+        guard let s = stack(id) else { return }
+        let client = clientFor(s)
+        let key = StateBucket.key(for: s)
+        run(id, .migrateState, trigger: "manual") { c in
+            c.phase("Preparing state")
+            if StateBackend.hasBackend(in: c.dir, except: [StateBackend.file]) {
+                c.log("✗ The configuration has its own backend; Atlas does not change it.")
+                return false
+            }
+            guard let client else {
+                c.log("✗ The stack's Atlas account is missing; the state bucket could not be prepared.")
+                return false
+            }
+            do {
+                let bucket = try await StateBucket.ensure(client: client, log: c.log)
+                try StateBackend.write(in: c.dir, bucket: bucket, key: key, region: client.region)
+                c.log("  ✔ Backend s3://\(bucket)/\(key) → \(StateBackend.file)")
+            } catch {
+                c.log("✗ Could not prepare the state bucket: \(error.localizedDescription)")
+                return false
+            }
+            c.phase("Moving state")
+            c.log("▶ \(c.tool) init -migrate-state -force-copy")
+            guard Self.report(await c.cli.initialize(c.dir, migrateState: true, credentials: c.credentials, onLine: c.log), c.log)
+            else { return false }
+            c.phase("Verifying")
+            c.log("▶ \(c.tool) state list")
+            guard Self.report(await c.cli.run(["state", "list"], in: c.dir, credentials: c.credentials, onLine: c.log), c.log)
+            else {
+                c.log("  The local state files are kept, since the state in S3 could not be read back.")
+                return false
+            }
+            // Only the engine's local state files, now copied to S3 and read back from there.
+            for name in StateBackend.localStateFiles { try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(name)) }
+            c.log("✔ The state is in S3; the plain-text state files were removed from the stack's folder.")
+            return true
+        }
     }
 
     /// Switches Terraform ⇄ OpenTofu; the old engine's container goes away, the next run creates the new one.
@@ -209,8 +285,6 @@ final class StacksModel: ObservableObject {
                 context.log("▶ \(s.engine.label) in container \(container.name) (\(container.runtime.kind.rawValue))")
                 let ready = await container.ensure(folder: s.url, data: data, plugins: plugins, log: context.log)
                 ok = Self.report(ready, context.log)
-            } else if type == .setup {
-                ok = false
             }
             if ok, !Task.isCancelled { ok = await body(context) }
             await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } }
@@ -396,7 +470,9 @@ final class StacksModel: ObservableObject {
             c.phase("Preparing state")
             c.log("━━━ State ━━━")
             var bucket: String?
-            if remoteState, let client {
+            let ownBackend = StateBackend.hasBackend(in: c.dir, except: ["providers.tf"])
+            if ownBackend { c.log("  ✔ The stack's backend keeps the state (\(StateBackend.file) or its own configuration).") }
+            if remoteState, !ownBackend, let client {
                 do {
                     bucket = try await StateBucket.ensure(client: client, log: c.log)
                     c.log("  ✔ state bucket: \(bucket!) (key \(stateKey))")
@@ -487,10 +563,60 @@ final class StacksModel: ObservableObject {
     }
 }
 
+/// Where a stack's Terraform state is: a backend in its configuration, or plain-text files in its folder.
+enum StateBackend {
+    /// The backend Atlas writes for a stack, apart from the user's own files.
+    static let file = "atlas_backend.tf"
+    /// What the engine leaves in the folder with the local backend; they hold every resource's values in plain text.
+    static let localStateFiles = ["terraform.tfstate", "terraform.tfstate.backup"]
+
+    /// Whether a `.tf` file (other than those in `except`) declares a backend or an HCP Terraform `cloud` block.
+    static func hasBackend(in dir: URL, except: Set<String> = []) -> Bool {
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        return files.filter { $0.hasSuffix(".tf") && !except.contains($0) }.contains { name in
+            guard let text = try? String(contentsOf: dir.appendingPathComponent(name), encoding: .utf8) else { return false }
+            return text.split(separator: "\n").contains { line in
+                let t = line.trimmingCharacters(in: .whitespaces)
+                return t.firstMatch(of: #/^(backend\s+"[^"]+"|cloud)\s*\{/#) != nil
+            }
+        }
+    }
+
+    /// Whether the folder has a non-empty local state file or local workspaces.
+    static func hasLocalState(in dir: URL) -> Bool {
+        let fm = FileManager.default
+        let files = localStateFiles.contains { name in
+            ((try? fm.attributesOfItem(atPath: dir.appendingPathComponent(name).path))?[.size] as? Int ?? 0) > 0
+        }
+        return files || fm.fileExists(atPath: dir.appendingPathComponent("terraform.tfstate.d").path)
+    }
+
+    static func write(in dir: URL, bucket: String, key: String, region: String) throws {
+        let content = """
+        # Generated by Atlas: the state is kept in S3, versioned and encrypted, never in this folder.
+        terraform {
+          backend "s3" {
+            bucket  = \(HclGenerator.quote(bucket))
+            key     = \(HclGenerator.quote(key))
+            region  = \(HclGenerator.quote(region))
+            encrypt = true
+          }
+        }
+
+        """
+        try content.write(to: dir.appendingPathComponent(file), atomically: true, encoding: .utf8)
+    }
+}
+
 /// The S3 bucket that keeps imported stacks' state: `atlas-tfstate-<account>` (as in 1.0.1),
 /// versioned, encrypted and private.
 enum StateBucket {
     static func name(account: String) -> String { "atlas-tfstate-\(account)" }
+
+    /// A stack's state object: its name and the start of its id, so two stacks with the same name do not share it.
+    static func key(for s: StackEntry) -> String {
+        "stacks/\(ImportDiscovery.tfName(s.name, fallback: "stack"))-\(s.id.uuidString.prefix(8).lowercased())/terraform.tfstate"
+    }
 
     static func ensure(client: AWSClient, log: @Sendable (String) -> Void) async throws -> String {
         let account = try await StsService(client: client).callerIdentity().account

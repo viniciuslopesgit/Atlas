@@ -68,9 +68,10 @@ struct StacksView: View {
         }
         .padding(24)
         .sheet(isPresented: $showNew) {
-            NewStackSheet(runtime: model.runtime) { name, folder, engine in
+            NewStackSheet(runtime: model.runtime) { name, folder, engine, remoteState in
                 guard let account = state.activeAccount else { return }
-                selection = model.create(name: name, folder: folder, accountId: account.id, region: state.region, engine: engine).id
+                selection = model.create(name: name, folder: folder, accountId: account.id, region: state.region, engine: engine,
+                                         remoteState: remoteState).id
             }
         }
         .onAppear {
@@ -93,6 +94,7 @@ private struct StackRow: View {
             }
             HStack(spacing: 6) {
                 StackBadges(stack: stack)
+                if StateBackend.hasLocalState(in: stack.url) { Badge(text: "Local state", color: Palette.warning) }
                 if let run = stack.lastRun { Text(Fmt.dt(run.startedAt)).font(.caption).foregroundStyle(.tertiary) }
             }
         }
@@ -142,7 +144,7 @@ private struct StackDetail: View {
     @State private var confirm: Confirm?
 
     enum Confirm: Identifiable {
-        case apply, fixDrift, delete
+        case apply, fixDrift, delete, moveState
         var id: Self { self }
     }
 
@@ -177,6 +179,9 @@ private struct StackDetail: View {
                     Button("Cancel", role: .cancel) { model.cancel(stack.id) }
                 }
             }
+            if StateBackend.hasLocalState(in: stack.url) {
+                LocalStateWarning(isBusy: busy) { confirm = .moveState }
+            }
             Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
                 .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 560)
             Group {
@@ -202,6 +207,7 @@ private struct StackDetail: View {
             case .apply: Button("Apply", role: .destructive) { start(.applies) { model.apply(stack.id) } }
             case .fixDrift: Button("Fix Drift", role: .destructive) { start(.applies) { model.fixDrift(stack.id) } }
             case .delete: Button("Remove Stack", role: .destructive) { model.delete(stack.id) }
+            case .moveState: Button("Move State to S3") { start(.runs) { model.moveStateToS3(stack.id) } }
             }
         } message: { c in
             switch c {
@@ -209,6 +215,8 @@ private struct StackDetail: View {
                 Text("Terraform will change real resources in \(accountName) (\(stack.region)) as the saved plan shows.")
             case .delete:
                 Text("Atlas forgets the stack, its runs and its Keychain variables, and removes its container. The folder and the resources in AWS are not touched.")
+            case .moveState:
+                Text("Atlas copies the state to the atlas-tfstate bucket of \(accountName) (versioned, encrypted), checks it can be read there, then removes terraform.tfstate and its backup from the stack's folder. Resources in AWS are not changed.")
             }
         }
     }
@@ -227,6 +235,7 @@ private struct StackDetail: View {
         case .apply: "Apply the saved plan to \(stack.name)?"
         case .fixDrift: "Fix the drift in \(stack.name)?"
         case .delete: "Remove \(stack.name) from Atlas?"
+        case .moveState: "Move the state of \(stack.name) to S3?"
         case nil: ""
         }
     }
@@ -406,12 +415,13 @@ private struct RuntimeSetupHint: View {
 
 private struct NewStackSheet: View {
     let runtime: ContainerRuntime?
-    let onCreate: (String, URL, TerraformEngine) -> Void
+    let onCreate: (String, URL, TerraformEngine, Bool) -> Void
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var folder: URL?
     @State private var engine: TerraformEngine = .terraform
+    @State private var remoteState = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -429,6 +439,8 @@ private struct NewStackSheet: View {
                 LabeledContent("Region", value: state.region)
                 Picker("Engine", selection: $engine) { ForEach(TerraformEngine.allCases) { Text($0.label).tag($0) } }
                 LabeledContent("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
+                Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
+                    .help("The state holds every resource's values in plain text; in S3 it is encrypted and never in the stack's folder.")
             }
             .formStyle(.grouped)
             Text("\(engine.label) runs with this account's credentials in this region, also for scheduled drift checks.")
@@ -438,7 +450,7 @@ private struct NewStackSheet: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Create") {
-                    if let folder { onCreate(name.trimmingCharacters(in: .whitespaces), folder, engine) }
+                    if let folder { onCreate(name.trimmingCharacters(in: .whitespaces), folder, engine, remoteState) }
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -460,5 +472,22 @@ private struct NewStackSheet: View {
             folder = url
             if name.isEmpty { name = url.lastPathComponent }
         }
+    }
+}
+
+/// The stack's state is a plain-text file in its folder: every resource's values, readable by anything that can read it.
+private struct LocalStateWarning: View {
+    let isBusy: Bool
+    let onMove: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.shield.fill").foregroundStyle(Palette.warning)
+            Text("This stack keeps its state in terraform.tfstate, in plain text in its folder. It holds every resource's values, secrets included.")
+                .font(.callout).frame(maxWidth: .infinity, alignment: .leading)
+            Button("Move State to S3…", action: onMove).disabled(isBusy)
+        }
+        .padding(10)
+        .card(radius: Radius.tile)
     }
 }

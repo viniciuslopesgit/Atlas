@@ -84,9 +84,11 @@ struct TerraformCLI: Sendable {
         return r.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func initialize(_ dir: URL, upgrade: Bool = false, credentials: TerraformCredentials? = nil,
+    /// `migrateState` copies the current state into a newly configured backend without asking.
+    func initialize(_ dir: URL, upgrade: Bool = false, migrateState: Bool = false, credentials: TerraformCredentials? = nil,
                     onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
-        await run(["init", "-no-color"] + (upgrade ? ["-upgrade"] : []), in: dir, credentials: credentials, onLine: onLine)
+        await run(["init", "-no-color"] + (upgrade ? ["-upgrade"] : []) + (migrateState ? ["-migrate-state", "-force-copy"] : []),
+                  in: dir, credentials: credentials, onLine: onLine)
     }
 
     func validate(_ dir: URL, onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {

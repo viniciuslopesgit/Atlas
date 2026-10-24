@@ -272,6 +272,7 @@ extension StackRunType {
         case .apply: "Apply"
         case .fixDrift: "Fix drift"
         case .setup: "Container"
+        case .migrateState: "Move state"
         }
     }
 }

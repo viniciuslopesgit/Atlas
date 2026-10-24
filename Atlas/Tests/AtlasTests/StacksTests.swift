@@ -280,3 +280,79 @@ struct StackRunOutputTests {
         #expect(run.output == "a\nb\nc")
     }
 }
+
+/// New stacks keep their state in S3 instead of a plain-text terraform.tfstate in their folder.
+struct StackStateTests {
+    static func folder() throws -> URL {
+        let dir = TestTemp.root.appendingPathComponent("state-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// A terraform that records its calls; `state list` fails when `failList` is there.
+    static func engine(in dir: URL) throws -> String {
+        let bin = dir.appendingPathComponent("fake-terraform")
+        try Data("""
+        #!/bin/bash
+        echo "$*" >> "\(dir.path)/calls.log"
+        [ "$1 $2" = "state list" ] && [ -f "\(dir.path)/failList" ] && { echo "Error: no state" >&2; exit 1; }
+        exit 0
+        """.utf8).write(to: bin)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bin.path)
+        return bin.path
+    }
+
+    /// STS says the account is 123456789012 and the state bucket already exists.
+    static func client() -> AWSClient {
+        MockURLProtocol.client(region: "eu-west-1") { request, _ in
+            if request.url?.host?.hasPrefix("sts.") == true {
+                return .init(body: "<GetCallerIdentityResponse><GetCallerIdentityResult><Account>123456789012</Account><Arn>arn:aws:iam::123456789012:user/a</Arn><UserId>A</UserId></GetCallerIdentityResult></GetCallerIdentityResponse>")
+            }
+            return .init(status: 200)
+        }
+    }
+
+    @Test func findsBackendsAndLocalState() throws {
+        let dir = try Self.folder()
+        #expect(!StateBackend.hasBackend(in: dir) && !StateBackend.hasLocalState(in: dir))
+        try Data("# backend \"s3\" {}\nterraform {\n  # cloud {\n}\n".utf8).write(to: dir.appendingPathComponent("main.tf"))
+        #expect(!StateBackend.hasBackend(in: dir), "comments are not a backend")
+        try Data("terraform {\n  backend \"s3\" {\n  }\n}\n".utf8).write(to: dir.appendingPathComponent("providers.tf"))
+        #expect(StateBackend.hasBackend(in: dir))
+        #expect(!StateBackend.hasBackend(in: dir, except: ["providers.tf"]))
+        try Data("terraform {\n  cloud {\n    organization = \"o\"\n  }\n}\n".utf8).write(to: dir.appendingPathComponent("hcp.tf"))
+        #expect(StateBackend.hasBackend(in: dir, except: ["providers.tf"]), "HCP Terraform keeps the state too")
+
+        try Data().write(to: dir.appendingPathComponent("terraform.tfstate"))
+        #expect(!StateBackend.hasLocalState(in: dir), "an empty file left after a migration is no state")
+        try Data("{\"version\": 4}".utf8).write(to: dir.appendingPathComponent("terraform.tfstate.backup"))
+        #expect(StateBackend.hasLocalState(in: dir))
+    }
+
+    @Test @MainActor func aNewStackGetsAnEncryptedS3Backend() async throws {
+        let dir = try Self.folder()
+        let bin = try Self.engine(in: dir)
+        let client = Self.client()
+        let model = StacksModel(store: StackStore(folder: dir.appendingPathComponent("support"), secrets: InMemorySecretStore()),
+                                clientFor: { _ in client }, makeCLI: { _ in TerraformCLI(binary: bin) })
+        let project = dir.appendingPathComponent("project", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        let s = model.create(name: "Prod Net", folder: project, accountId: "a", region: "eu-west-1", remoteState: true)
+        for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(model.stack(s.id)?.lastRun?.status == .success, "\(model.stack(s.id)?.lastRun?.output ?? "")")
+        let backend = try String(contentsOf: project.appendingPathComponent(StateBackend.file), encoding: .utf8)
+        #expect(backend.contains("bucket  = \"atlas-tfstate-123456789012\""))
+        #expect(backend.contains("key     = \"\(StateBucket.key(for: s))\"") && backend.contains("encrypt = true"))
+        #expect(StateBucket.key(for: s).contains(s.id.uuidString.prefix(8).lowercased()), "two stacks named alike get their own object")
+        #expect(!StateBackend.hasLocalState(in: project))
+
+        // A folder with its own backend, or state already on this Mac, is left alone.
+        let own = dir.appendingPathComponent("own", isDirectory: true)
+        try FileManager.default.createDirectory(at: own, withIntermediateDirectories: true)
+        try Data("{\"version\": 4}".utf8).write(to: own.appendingPathComponent("terraform.tfstate"))
+        let local = model.create(name: "own", folder: own, accountId: "a", region: "eu-west-1", remoteState: true)
+        for _ in 0..<300 where model.busy.contains(local.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(!FileManager.default.fileExists(atPath: own.appendingPathComponent(StateBackend.file).path))
+        #expect(model.stack(local.id)?.lastRun?.output.contains("Move State to S3") == true)
+    }
+}

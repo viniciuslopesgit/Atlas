@@ -5,7 +5,7 @@ import CryptoKit
 
 enum StackStatus: String, Codable, Sendable, CaseIterable { case ready, queued, running, finished, failed }
 enum StackRunType: String, Codable, Sendable {
-    case importResources = "import", initialize = "init", fix, plan, apply, fixDrift, setup
+    case importResources = "import", initialize = "init", fix, plan, apply, fixDrift, setup, migrateState
 
     /// The phase name of a run saved before phases were recorded.
     var phaseName: String {
@@ -16,6 +16,7 @@ enum StackRunType: String, Codable, Sendable {
         case .plan: "Planning"
         case .apply, .fixDrift: "Applying"
         case .setup: "Preparing"
+        case .migrateState: "Moving state"
         }
     }
 }
