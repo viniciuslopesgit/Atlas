@@ -264,7 +264,7 @@ class MainFilesTests(unittest.TestCase):
         root = os.path.join(os.path.dirname(__file__), "..", "..", "..")
         patterns = load_patterns(open(os.path.join(root, ".mainignore"), encoding="utf-8").read())
         for essential in ["Atlas/Package.swift", "Atlas/Sources/Atlas/App/AtlasApp.swift", "Atlas/Resources/Info.plist",
-                          "Atlas/Resources/AppIcon.png", "Atlas/scripts/build-app.sh", "Atlas/scripts/sdk.sh", "Atlas/scripts/updater.sh",
+                          "Atlas/Resources/AppIcon.iconset/icon_512x512@2x.png", "Atlas/scripts/build-app.sh", "Atlas/scripts/sdk.sh", "Atlas/scripts/updater.sh",
                           "Atlas/scripts/install-updater.sh", "Atlas/README.md", "Atlas/.gitignore",
                           "README.md", "CHANGELOG.md", "LICENSE", ".gitignore", "SECURITY.md", "CONTRIBUTING.md",
                           "cloud-atlas.io/index.html", ".github/workflows/deploy-site.yml",
@@ -275,6 +275,7 @@ class MainFilesTests(unittest.TestCase):
                          "Atlas/scripts/check.sh", "Atlas/scripts/stable.py", "Atlas/scripts/stable.sh",
                          "Atlas/scripts/tests/test_stable.py", "Atlas/scripts/test-isolated.sh",
                          "Atlas/scripts/bump_version.sh", "Atlas/scripts/release_notes.sh", "Atlas/scripts/version.sh",
+                         "Atlas/scripts/make-icon.swift",
                          "docs/RELEASE_CRITERIA.md", ".github/workflows/ci.yml"]:
             self.assertTrue(is_excluded(dev_only, patterns), dev_only)
 

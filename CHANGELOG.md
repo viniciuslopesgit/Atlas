@@ -12,7 +12,8 @@ every stack of the same engine, so Init in a new stack no longer downloads the A
 they loaded from AWS for each account and region: going back to EC2, S3, IAM, CloudWatch, GuardDuty, Billing or
 the Dashboard shows it at once and loads it again after 3 minutes, after a change made on the page, or with Refresh
 (⌘R). Infrastructure as Code is now its own menu in the sidebar, below Stacks, and Import from AWS lives there: it
-adds the resources to the open project or to a stack. A stack's runs open as a timeline of their phases.
+adds the resources to the open project or to a stack. A stack's runs open as a timeline of their phases. Atlas also
+has a new icon, which the Dock and Finder show in full.
 
 ### Added
 - Import from AWS, in Infrastructure as Code, can add the resources to a stack: the stack imports them in its
@@ -40,6 +41,9 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
   above the diagram
 
 ### Changed
+- A new app icon: the Atlas star on a Meridian squircle, over the meridians and parallels of an atlas page. It has
+  the macOS icon shape, so the Dock and Finder show it in full instead of inside a grey frame, and each size is
+  drawn on its own, sharp from 16 to 1024 pixels
 - Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against
   each stack's lock file); existing containers are recreated once to use the shared cache
 - Stacks: a run in a container that is already running starts right away, without asking Docker whether it is up

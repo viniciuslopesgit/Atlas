@@ -33,16 +33,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 lipo -create "${BINS[@]}" -output "$APP/Contents/MacOS/Atlas"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
-# App icon (.icns) from the PNG
-ICONSET="$(mktemp -d)/AppIcon.iconset"
-mkdir -p "$ICONSET"
-for size in 16 32 64 128 256 512; do
-  sips -z $size $size "$ROOT/Resources/AppIcon.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-  double=$((size * 2))
-  sips -z $double $double "$ROOT/Resources/AppIcon.png" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-rm -rf "$(dirname "$ICONSET")"
+# App icon (.icns) from the iconset, which has a drawing for each size (scripts/make-icon.swift draws it)
+iconutil -c icns Resources/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc signature (SIGN_IDENTITY="Developer ID Application: …" to distribute)
 codesign --force --deep --sign "${SIGN_IDENTITY:--}" "$APP"

@@ -19,6 +19,7 @@ Atlas/scripts/release_notes.sh
 Atlas/scripts/version.sh
 Atlas/scripts/install-hooks.sh
 Atlas/scripts/snapshots.sh
+Atlas/scripts/make-icon.swift
 Atlas/scripts/stable.sh
 Atlas/scripts/stable.py
 .github/workflows/ci.yml
