@@ -50,6 +50,11 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 - A downloaded run log is readable only by you, and errors in the system log no longer show AWS error details
 
 ### Fixed
+- Import into a stack whose configuration already sets up the AWS provider or a backend (for example state in an S3
+  bucket of its own, declared in 01-providers.tf) no longer writes a providers.tf that declared them twice; the
+  stack's files and its state bucket are left as they are
+- Backends written in .tf.json files are recognized; a stack with its own backend and an old terraform.tfstate left in
+  its folder is told the file is unused, without offering to move it
 - Stacks with many variables or runs no longer slow the app down: saving a stack only writes to the Keychain and
   disk what changed, and Keychain credentials are read once per account instead of on every screen update
 - Stacks with EKS clusters plan and apply in their container: 'aws eks get-token', used by the kubernetes and helm

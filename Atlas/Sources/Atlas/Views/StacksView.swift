@@ -94,7 +94,9 @@ private struct StackRow: View {
             }
             HStack(spacing: 6) {
                 StackBadges(stack: stack)
-                if StateBackend.hasLocalState(in: stack.url) { Badge(text: "Local state", color: Palette.warning) }
+                if StateBackend.hasLocalState(in: stack.url) && !StateBackend.hasBackend(in: stack.url) {
+                    Badge(text: "Local state", color: Palette.warning)
+                }
                 if let run = stack.lastRun { Text(Fmt.dt(run.startedAt)).font(.caption).foregroundStyle(.tertiary) }
             }
         }
@@ -180,7 +182,7 @@ private struct StackDetail: View {
                 }
             }
             if StateBackend.hasLocalState(in: stack.url) {
-                LocalStateWarning(isBusy: busy) { confirm = .moveState }
+                LocalStateWarning(isBusy: busy, hasBackend: StateBackend.hasBackend(in: stack.url)) { confirm = .moveState }
             }
             Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
                 .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 560)
@@ -476,16 +478,21 @@ private struct NewStackSheet: View {
 }
 
 /// The stack's state is a plain-text file in its folder: every resource's values, readable by anything that can read it.
+/// With a backend (an S3 bucket of its own, say), the file is a leftover the engine no longer reads: Atlas does not move
+/// or delete it, it only says so.
 private struct LocalStateWarning: View {
     let isBusy: Bool
+    let hasBackend: Bool
     let onMove: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.shield.fill").foregroundStyle(Palette.warning)
-            Text("This stack keeps its state in terraform.tfstate, in plain text in its folder. It holds every resource's values, secrets included.")
+            Text(hasBackend
+                 ? "The configuration's backend keeps the state, but an old terraform.tfstate is still in the folder, in plain text. It is not used; check it and delete it."
+                 : "This stack keeps its state in terraform.tfstate, in plain text in its folder. It holds every resource's values, secrets included.")
                 .font(.callout).frame(maxWidth: .infinity, alignment: .leading)
-            Button("Move State to S3…", action: onMove).disabled(isBusy)
+            if !hasBackend { Button("Move State to S3…", action: onMove).disabled(isBusy) }
         }
         .padding(10)
         .card(radius: Radius.tile)

@@ -356,3 +356,62 @@ struct StackStateTests {
         #expect(model.stack(local.id)?.lastRun?.output.contains("Move State to S3") == true)
     }
 }
+
+/// Stacks whose state is already in an S3 bucket of their own (backend "s3" in 01-providers.tf, say).
+struct ExistingBackendTests {
+    @Test func aStackWithItsOwnProvidersAndBackendKeepsItsFiles() throws {
+        let dir = try StackStateTests.folder()
+        #expect(StateBucket.canWriteProviders(in: dir), "an empty folder gets Atlas's providers.tf")
+        try StateBucket.writeProviders(in: dir, region: "eu-west-1", bucket: nil, key: "k")
+        #expect(StateBucket.canWriteProviders(in: dir), "Atlas's own providers.tf can be rewritten")
+
+        let user = """
+        terraform {
+          required_providers {
+            aws = { source = "hashicorp/aws" }
+          }
+          backend "s3" {
+            bucket = "company-tfstate"
+            key    = "omnium/terraform.tfstate"
+          }
+        }
+        provider "aws" { region = "eu-west-1" }
+        """
+        try FileManager.default.removeItem(at: dir.appendingPathComponent("providers.tf"))
+        try Data(user.utf8).write(to: dir.appendingPathComponent("01-providers.tf"))
+        #expect(!StateBucket.canWriteProviders(in: dir), "would declare the provider twice")
+        #expect(StateBackend.hasBackend(in: dir) && StateBackend.hasBackend(in: dir, except: ["providers.tf"]))
+
+        let json = try StackStateTests.folder()
+        try Data(#"{"terraform": {"backend": {"s3": {"bucket": "b"}}}}"#.utf8).write(to: json.appendingPathComponent("main.tf.json"))
+        #expect(StateBackend.hasBackend(in: json) && !StateBucket.canWriteProviders(in: json))
+
+        let hand = try StackStateTests.folder()
+        try Data("provider \"aws\" {}\n".utf8).write(to: hand.appendingPathComponent("providers.tf"))
+        #expect(!StateBucket.canWriteProviders(in: hand), "a providers.tf the user wrote is never replaced")
+    }
+
+    /// Import into a stack whose state is in its own S3 bucket: no providers.tf is written, no Atlas bucket is made.
+    @Test @MainActor func importIntoAStackWithItsOwnBackendLeavesItsConfiguration() async throws {
+        let dir = try StackStateTests.folder()
+        let bin = try StackStateTests.engine(in: dir)
+        let client = StackStateTests.client()
+        let project = dir.appendingPathComponent("omnium", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        let user = "terraform {\n  backend \"s3\" {\n    bucket = \"company-tfstate\"\n  }\n}\nprovider \"aws\" {}\n"
+        try Data(user.utf8).write(to: project.appendingPathComponent("01-providers.tf"))
+        let model = StacksModel(store: StackStore(folder: dir.appendingPathComponent("support"), secrets: InMemorySecretStore()),
+                                clientFor: { _ in client }, makeCLI: { _ in TerraformCLI(binary: bin) })
+        let s = model.create(name: "omnium", folder: project, accountId: "a", region: "eu-west-1", remoteState: true)
+        for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(!FileManager.default.fileExists(atPath: project.appendingPathComponent(StateBackend.file).path))
+
+        model.importResources(s.id, [], remoteState: true)
+        for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        let output = model.stack(s.id)?.lastRun?.output ?? ""
+        #expect(output.contains("own provider and backend configuration is kept"), "\(output)")
+        #expect(!FileManager.default.fileExists(atPath: project.appendingPathComponent("providers.tf").path))
+        #expect(try String(contentsOf: project.appendingPathComponent("01-providers.tf"), encoding: .utf8) == user)
+        #expect(!MockURLProtocol.requests.contains { $0.request.url?.host?.contains("s3") == true }, "no Atlas state bucket")
+    }
+}
