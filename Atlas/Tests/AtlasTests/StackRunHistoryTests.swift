@@ -170,14 +170,10 @@ struct StackRunHistoryStoreTests {
 }
 
 struct StackRunViewTests {
-    @Test func tabsListTheirKindOfRun() {
-        let plan = StackRun(type: .plan, trigger: "manual"), apply = StackRun(type: .apply, trigger: "manual")
-        let fix = StackRun(type: .fixDrift, trigger: "auto-fix"), initRun = StackRun(type: .initialize, trigger: "manual")
-        let all = [plan, apply, fix, initRun]
-        #expect(all.filter(StackRunScope.all.includes).count == 4)
-        #expect(all.filter(StackRunScope.plans.includes).map(\.id) == [plan.id])
-        #expect(all.filter(StackRunScope.applies.includes).map(\.id) == [apply.id, fix.id])
-        #expect(StackRunScope.allCases.allSatisfy { !$0.emptyMessage.isEmpty })
+    /// Runs, Plans and Applies were three lists of the same runs: one History lists them all.
+    @Test func oneHistoryTabSitsWithTheOtherViews() {
+        #expect(StackTab.allCases.map(\.rawValue) == ["History", "Drift", "Variables", "Settings"])
+        #expect(!StackRunList.emptyMessage.isEmpty)
     }
 
     @Test func theNewestAndFailedPhasesOpenFirst() {

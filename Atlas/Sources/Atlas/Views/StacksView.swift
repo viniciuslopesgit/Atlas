@@ -122,26 +122,21 @@ struct StackBadges: View {
 
 // MARK: - Detail
 
-private struct StackDetail: View {
-    enum Tab: String, CaseIterable, Identifiable {
-        case runs = "Runs", plans = "Plans", applies = "Applies", drift = "Drift", variables = "Variables", settings = "Settings"
-        var id: String { rawValue }
+/// The views of a stack, in the same bar as its commands. History lists every run (Init, Plan, Apply, drift
+/// checks, imports) with what it changed.
+enum StackTab: String, CaseIterable, Identifiable {
+    case history = "History", drift = "Drift", variables = "Variables", settings = "Settings"
+    var id: String { rawValue }
+}
 
-        var scope: StackRunScope? {
-            switch self {
-            case .runs: .all
-            case .plans: .plans
-            case .applies: .applies
-            default: nil
-            }
-        }
-    }
+private struct StackDetail: View {
+    typealias Tab = StackTab
 
     let stack: StackEntry
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var model: StacksModel
-    @State private var tab: Tab = .runs
-    /// The run whose timeline is open in the runs tabs.
+    @State private var tab: Tab = .history
+    /// The run whose timeline is open in History.
     @State private var openRun: UUID?
     @State private var confirm: Confirm?
 
@@ -166,39 +161,38 @@ private struct StackDetail: View {
                 Button { NSWorkspace.shared.activateFileViewerSelecting([stack.url]) } label: { Image(systemName: "folder") }
                     .help("Reveal in Finder")
             }
+            // One bar: what to see on the left, what to run on the right.
             HStack(spacing: 8) {
-                Group {
-                    Button("Init") { start(.runs) { model.initialize(stack.id) } }
-                    Button("Plan") { start(.plans) { model.plan(stack.id) } }
-                    Button("Apply…") { confirm = .apply }.disabled(!model.hasSavedPlan(stack))
-                        .help("Applies the plan saved by the last Plan.")
-                    Button("Check Drift") { start(.plans) { model.checkDrift(stack.id) } }
-                }
-                .disabled(busy)
-                Spacer()
+                Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                Spacer(minLength: 12)
                 if busy {
                     ProgressView().controlSize(.small)
                     Button("Cancel", role: .cancel) { model.cancel(stack.id) }
                 }
+                Group {
+                    Button("Init") { start { model.initialize(stack.id) } }
+                    Button("Plan") { start { model.plan(stack.id) } }
+                    Button("Apply…") { confirm = .apply }.disabled(!model.hasSavedPlan(stack))
+                        .help("Applies the plan saved by the last Plan.")
+                    Button("Check Drift") { start { model.checkDrift(stack.id) } }
+                }
+                .disabled(busy)
             }
             if StateBackend.hasLocalState(in: stack.url) {
                 LocalStateWarning(isBusy: busy, hasBackend: StateBackend.hasBackend(in: stack.url)) { confirm = .moveState }
             }
-            Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
-                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 560)
             Group {
-                if let scope = tab.scope {
+                switch tab {
+                case .history:
                     if let id = openRun, let run = stack.runs.first(where: { $0.id == id }) {
                         StackRunDetail(run: run, stackName: stack.name) { openRun = nil }
                     } else {
-                        StackRunList(runs: stack.runs, scope: scope) { openRun = $0 }
+                        StackRunList(runs: stack.runs) { openRun = $0 }
                     }
-                } else {
-                    switch tab {
-                    case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
-                    case .variables: VariablesTab(stack: stack)
-                    default: settings
-                    }
+                case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
+                case .variables: VariablesTab(stack: stack)
+                case .settings: settings
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
@@ -206,10 +200,10 @@ private struct StackDetail: View {
         .padding(.leading, 16)
         .confirmationDialog(title, isPresented: Binding(present: $confirm), presenting: confirm) { c in
             switch c {
-            case .apply: Button("Apply", role: .destructive) { start(.applies) { model.apply(stack.id) } }
-            case .fixDrift: Button("Fix Drift", role: .destructive) { start(.applies) { model.fixDrift(stack.id) } }
+            case .apply: Button("Apply", role: .destructive) { start { model.apply(stack.id) } }
+            case .fixDrift: Button("Fix Drift", role: .destructive) { start { model.fixDrift(stack.id) } }
             case .delete: Button("Remove Stack", role: .destructive) { model.delete(stack.id) }
-            case .moveState: Button("Move State to S3") { start(.runs) { model.moveStateToS3(stack.id) } }
+            case .moveState: Button("Move State to S3") { start { model.moveStateToS3(stack.id) } }
             }
         } message: { c in
             switch c {
@@ -223,12 +217,12 @@ private struct StackDetail: View {
         }
     }
 
-    /// Runs the action and, when it recorded a new run, opens that run's timeline in `tab`.
-    private func start(_ tab: Tab, _ action: () -> Void) {
+    /// Runs the action and, when it recorded a new run, opens that run's timeline in History.
+    private func start(_ action: () -> Void) {
         let before = model.stack(stack.id)?.lastRun?.id
         action()
         guard let run = model.stack(stack.id)?.lastRun, run.id != before else { return }
-        self.tab = tab
+        tab = .history
         openRun = run.id
     }
 

@@ -1,28 +1,6 @@
 import SwiftUI
 import AppKit
 
-/// Which runs a stack tab lists.
-enum StackRunScope: String, CaseIterable, Identifiable {
-    case all = "Runs", plans = "Plans", applies = "Applies"
-    var id: String { rawValue }
-
-    func includes(_ run: StackRun) -> Bool {
-        switch self {
-        case .all: true
-        case .plans: run.type == .plan
-        case .applies: run.type == .apply || run.type == .fixDrift
-        }
-    }
-
-    var emptyMessage: String {
-        switch self {
-        case .all: "Init, Plan, Apply, drift checks and imports are recorded here, with their output."
-        case .plans: "Plans and drift checks are recorded here, with their output."
-        case .applies: "Applies and drift fixes are recorded here, with their output."
-        }
-    }
-}
-
 extension StackRunStatus {
     var label: String {
         switch self {
@@ -42,18 +20,18 @@ extension StackRunStatus {
     }
 }
 
-/// A stack's runs of one scope, newest first; selecting one opens its timeline.
+/// Every run of a stack, newest first; selecting one opens its timeline.
 struct StackRunList: View {
+    static let emptyMessage = "Init, Plan, Apply, drift checks and imports are recorded here, with what they changed and their output."
+
     let runs: [StackRun]
-    let scope: StackRunScope
     let onOpen: (UUID) -> Void
 
     var body: some View {
-        let shown = runs.filter(scope.includes)
-        if shown.isEmpty {
-            EmptyStateView(icon: "clock", title: "No \(scope.rawValue.lowercased()) yet", message: scope.emptyMessage)
+        if runs.isEmpty {
+            EmptyStateView(icon: "clock", title: "No runs yet", message: Self.emptyMessage)
         } else {
-            List(shown) { run in
+            List(runs) { run in
                 Button { onOpen(run.id) } label: { StackRunRow(run: run) }
                     .buttonStyle(.plain)
             }

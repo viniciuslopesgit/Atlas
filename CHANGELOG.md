@@ -17,9 +17,10 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 ### Added
 - Import from AWS, in Infrastructure as Code, can add the resources to a stack: the stack imports them in its
   container (state in S3, generated configuration, variables in the Keychain) and Stacks opens on it
-- A stack's runs, plans and applies each have their tab; a run opens as a timeline of its phases (preparing, init,
-  plan, apply, verify) with date, time and duration, and output that can be collapsed, enlarged or downloaded;
-  every finished run keeps its whole log, encrypted
+- A stack has one bar with its views (History, Drift, Variables, Settings) and its commands (Init, Plan, Apply,
+  Check Drift); History lists every run, and a run opens as a timeline of its phases (preparing, init, plan, apply,
+  verify) with date, time and duration, and output that can be collapsed, enlarged or downloaded; every finished
+  run keeps its whole log, encrypted
 
 ### Changed
 - Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against
@@ -30,7 +31,7 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
   change, or with Refresh (⌘R)
 - Infrastructure as Code moved out of Resources to its own menu in the sidebar, below Stacks
 - Import from AWS moved from each stack to Infrastructure as Code
-- A run's output is shown in its timeline (Runs, Plans, Applies) instead of a bar at the bottom of the stack
+- A run's output is shown in its timeline in History instead of a bar at the bottom of the stack
 
 ### Security
 - New stacks keep their Terraform state in S3 by default (atlas-tfstate-<account>, versioned, encrypted, private),
