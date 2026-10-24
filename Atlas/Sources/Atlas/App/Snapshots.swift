@@ -8,13 +8,17 @@ enum Snapshots {
 
     static func render(to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let pages: [(String, AnyView)] = [
+        var pages: [(String, AnyView)] = [
             ("dashboard", AnyView(DashboardBody(summary: fixture).padding(24).frame(width: 1100))),
             ("components", AnyView(components.padding(24).frame(width: 720))),
             ("iac", AnyView(iac.padding(24).frame(width: 900))),
             ("stacks", AnyView(stacks.padding(24).frame(width: 900))),
             ("diagram", AnyView(diagram.padding(24))),
         ]
+        // ATLAS_SNAPSHOT_TF=<folder> also draws that Terraform folder's diagram, in the Architecture view.
+        if let tf = ProcessInfo.processInfo.environment["ATLAS_SNAPSHOT_TF"] {
+            pages.append(("diagram-folder", AnyView(diagram(folder: URL(fileURLWithPath: tf)).padding(24))))
+        }
         for (name, view) in pages {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                 NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
@@ -125,6 +129,13 @@ enum Snapshots {
         resource "aws_iam_role" "nodes" {}
         """, file: "eks.tf")))
         return DiagramContent(scene: scene, selection: "module.cluster", hovered: nil, matches: nil, modules: ["module.cluster": cluster])
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+            .card(radius: Radius.tile)
+    }
+
+    private static func diagram(folder: URL) -> some View {
+        DiagramContent(scene: DiagramScene(architecture: TerraformArchitecture(TerraformStack.load(root: folder))),
+                       selection: ProcessInfo.processInfo.environment["ATLAS_SNAPSHOT_SELECT"], hovered: nil, matches: nil, modules: [:])
             .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
             .card(radius: Radius.tile)
     }

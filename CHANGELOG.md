@@ -21,16 +21,18 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
   Check Drift); History lists every run, and a run opens as a timeline of its phases (preparing, init, plan, apply,
   verify) with date, time and duration, and output that can be collapsed, enlarged or downloaded; every finished
   run keeps its whole log, encrypted
-- A stack's Diagram shows its Terraform configuration as an interactive diagram: each resource, data source and
-  module is a card with its service's symbol in its family's color (network, compute, storage, security,
-  monitoring), its name and type, linked by arrows to what uses it from left to right; links that cross several
-  columns run between the cards. Move with two fingers or by dragging, zoom with a pinch, ⌘-scroll or ⌘+ / ⌘−, fit
-  with ⌘0 or a double-click on the background, and use the overview in the corner to jump around a large stack.
-  Click a card to light up its links and open a panel with its file and line, what it uses and what uses it, its
-  code and its page in the Terraform Registry documentation; the arrow keys follow the links, Esc closes the panel.
-  Modules show how many resources they hold; double-click one (or press Return) to open it, and the path at the top
-  goes back with that module selected. Find a block dims the others; variables, locals, data sources and outputs can
-  be shown or hidden without losing the links
+- A stack's Diagram shows its Terraform configuration in two views. Architecture draws the whole stack, its
+  modules included, the way AWS is organised: global services such as IAM beside the region, the region's own
+  services, the VPC (one created by the stack or an existing one given as `vpc_id`), its availability zones with
+  their public and private subnets, and each resource in the subnet it runs in; resources spread over several
+  subnets, like node groups, sit across them, and the EKS cluster holds its Kubernetes and Helm resources. To place
+  each resource, references are followed through module inputs, outputs and locals, down to a map's entry. Policy
+  attachments, route table associations and bucket settings are folded into the block they belong to. Dependencies
+  draws what each block of a folder uses, from left to right, starting with the network. In both views, click a
+  card or a box title to see its file and line, what it uses and what uses it (lit up on the diagram), its code and
+  its page in the Terraform Registry documentation. Move with two fingers or by dragging, zoom with a pinch,
+  ⌘-scroll or ⌘+ / ⌘−, fit with ⌘0 or a double-click, follow the cards with the arrow keys, find a block by name,
+  and jump around a large stack with the overview in the corner
 
 ### Changed
 - Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against
@@ -67,6 +69,8 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 - A downloaded run log is readable only by you, and errors in the system log no longer show AWS error details
 
 ### Fixed
+- The stack diagram read files saved with Windows line endings (CR LF) as one line and left out every block in
+  them
 - Import into a stack whose configuration already sets up the AWS provider or a backend (for example state in an S3
   bucket of its own, declared in 01-providers.tf) no longer writes a providers.tf that declared them twice; the
   stack's files and its state bucket are left as they are

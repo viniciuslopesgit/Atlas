@@ -40,6 +40,18 @@ struct TerraformGraph: Sendable, Equatable {
         var dependencies: [String] = []
         /// The block with comments blanked.
         var body = ""
+        /// A variable's default, when it is a plain string (`vpc-0f7d…`).
+        var defaultValue: String?
+
+        /// The network the rest runs in, and so the start of the diagram: a VPC created here (`aws_vpc`), read with a
+        /// data source, or an existing one given as an input (`var.vpc_id`). Never hidden.
+        var isNetworkRoot: Bool {
+            switch kind {
+            case .resource, .data: type == "aws_vpc" || type == "aws_default_vpc"
+            case .variable: name == "vpc_id" || name == "vpc" || name.hasSuffix("_vpc_id")
+            default: false
+            }
+        }
     }
 
     struct Edge: Hashable, Sendable {
@@ -60,12 +72,13 @@ struct TerraformGraph: Sendable, Equatable {
     func hiding(_ hidden: Set<Kind>) -> TerraformGraph {
         guard !hidden.isEmpty else { return self }
         let byId = Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, $0) })
+        func isHidden(_ n: Node) -> Bool { hidden.contains(n.kind) && !n.isNetworkRoot }
         func visible(from id: String, seen: inout Set<String>) -> Set<String> {
             guard seen.insert(id).inserted, let n = byId[id] else { return [] }
-            if !hidden.contains(n.kind) { return [id] }
+            if !isHidden(n) { return [id] }
             return n.dependencies.reduce(into: Set<String>()) { $0.formUnion(visible(from: $1, seen: &seen)) }
         }
-        return TerraformGraph(nodes: nodes.filter { !hidden.contains($0.kind) }.map { n in
+        return TerraformGraph(nodes: nodes.filter { !isHidden($0) }.map { n in
             var n = n
             var seen: Set<String> = [n.id]
             n.dependencies = n.dependencies.reduce(into: Set<String>()) { $0.formUnion(visible(from: $1, seen: &seen)) }
@@ -125,6 +138,7 @@ enum TerraformConfig {
 
     /// The top-level blocks of one file.
     static func blocks(in text: String, file: String) -> [TerraformGraph.Node] {
+        let text = unixLines(text)
         let scanned = scan(text)
         let lines = scanned.lines
         let rawLines = text.components(separatedBy: "\n")
@@ -151,6 +165,9 @@ enum TerraformConfig {
                 if kind == .module {
                     n.moduleSource = body.firstMatch(of: #/(?m)^\s*source\s*=\s*"([^"]*)"/#).map { String($0.1) }
                     n.repeated = topAttribute(body, ["count", "for_each"]).first
+                }
+                if kind == .variable {
+                    n.defaultValue = attributes(body)["default"]?.wholeMatch(of: #/"([^"$]*)"/#).map { String($0.1) }
                 }
                 nodes.append(n.withBody(body))
             } else if match(localsBlock, trimmed) != nil {
@@ -191,7 +208,14 @@ enum TerraformConfig {
 
     /// The text with comments blanked (line breaks kept), and the brace depth at each line's start.
     /// Braces inside strings do not count.
+    /// Files saved on Windows end their lines with CR LF, which Swift reads as one character, not as `\n`: without this,
+    /// such a file is one long line and none of its blocks are found.
+    static func unixLines(_ text: String) -> String {
+        text.utf8.contains(13) ? text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n") : text
+    }
+
     static func scan(_ text: String) -> (lines: [String], depths: [Int]) {
+        let text = unixLines(text)
         enum State { case code, string, lineComment, blockComment, heredoc(String) }
         var state = State.code
         var depth = 0
@@ -243,7 +267,7 @@ enum TerraformConfig {
     /// The text with the literal parts of strings and heredocs blanked: only code and `${…}` interpolations are left, so
     /// `"aws_vpc.main"` written as plain text links nothing while `"${aws_vpc.main.arn}"` does.
     static func expressions(_ text: String) -> String {
-        let chars = Array(text)
+        let chars = Array(unixLines(text))
         var out = ""
         var inString = false
         var heredoc: String?
@@ -330,6 +354,12 @@ enum TerraformGraphLayout {
             return r
         }
         graph.nodes.forEach { _ = rankOf($0.id) }
+        // A block that uses nothing sits just before the first block that uses it, not in the first column: the first
+        // column is the network's, which the rest is built on.
+        let users = Dictionary(grouping: graph.edges, by: \.from).mapValues { $0.map(\.to) }
+        for n in graph.nodes where n.dependencies.isEmpty && !n.isNetworkRoot {
+            if let first = users[n.id]?.compactMap({ rank[$0] }).min(), first > 0 { rank[n.id] = first - 1 }
+        }
         // Outputs end the graph; nothing depends on them.
         let last = rank.values.max() ?? 0
         for n in graph.nodes where n.kind == .output { rank[n.id] = max(rank[n.id] ?? 0, last) }
@@ -351,7 +381,9 @@ enum TerraformGraphLayout {
 
         let columnCount = (column.values.max() ?? -1) + 1
         var columns: [[String]] = Array(repeating: [], count: columnCount)
-        for n in graph.nodes.sorted(by: { ($0.kind, $0.id) < ($1.kind, $1.id) }) { columns[rank[n.id] ?? 0].append(n.id) }
+        for n in graph.nodes.sorted(by: { ($0.isNetworkRoot ? 0 : 1, $0.kind, $0.id) < ($1.isNetworkRoot ? 0 : 1, $1.kind, $1.id) }) {
+            columns[rank[n.id] ?? 0].append(n.id)
+        }
         for stop in column.keys.filter({ byId[$0] == nil }).sorted() { columns[column[stop]!].append(stop) }
 
         func position(in cols: [[String]]) -> [String: Int] {
@@ -369,6 +401,8 @@ enum TerraformGraphLayout {
                     return known.isEmpty ? Double(p[id] ?? 0) : Double(known.reduce(0, +)) / Double(known.count)
                 }
                 columns[c] = columns[c].enumerated().sorted { (center($0.element), $0.offset) < (center($1.element), $1.offset) }.map(\.element)
+                // The network stays at the top of its column.
+                columns[c] = columns[c].filter { byId[$0]?.isNetworkRoot == true } + columns[c].filter { byId[$0]?.isNetworkRoot != true }
             }
         }
         // Columns are centered on the tallest one.

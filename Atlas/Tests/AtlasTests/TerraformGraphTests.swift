@@ -72,6 +72,35 @@ struct TerraformGraphTests {
                 == ["var.region", "local.name", "aws_s3_bucket.logs", "var.on", "local.tags"])
     }
 
+    @Test func filesSavedOnWindowsAreRead() {
+        // CR LF is one Character in Swift: before the fix such a file was one line and had no blocks.
+        let windows = Self.hcl.replacingOccurrences(of: "\n", with: "\r\n")
+        let g = TerraformConfig.link(TerraformConfig.blocks(in: windows, file: "main.tf"))
+        #expect(g.nodes.map(\.id) == Self.graph.nodes.map(\.id))
+        #expect(g.node("aws_subnet.private")?.dependencies == Self.graph.node("aws_subnet.private")?.dependencies)
+        #expect(g.node("aws_vpc.main")?.line == 7)
+    }
+
+    @Test func theNetworkStaysVisibleAndFirst() {
+        let hcl = """
+        variable "vpc_id" { default = "vpc-1" }
+        resource "aws_iam_role" "r" {}
+        resource "aws_security_group" "sg" { vpc_id = var.vpc_id }
+        resource "aws_instance" "i" {
+          vpc_security_group_ids = [aws_security_group.sg.id]
+          iam_instance_profile   = aws_iam_role.r.name
+        }
+        """
+        let g = TerraformConfig.link(TerraformConfig.blocks(in: hcl, file: "main.tf")).hiding([.variable])
+        #expect(g.node("var.vpc_id")?.isNetworkRoot == true)
+        #expect(g.node("var.vpc_id")?.defaultValue == "vpc-1")
+        let slots = TerraformGraphLayout.slots(g)
+        #expect(slots["var.vpc_id"]?.column == 0)
+        #expect(slots.filter { $0.value.column == 0 }.min { $0.value.row < $1.value.row }?.key == "var.vpc_id")
+        // A block that uses nothing waits for the column before its first user.
+        #expect(slots["aws_iam_role.r"]?.column == slots["aws_instance.i"]!.column - 1)
+    }
+
     @Test func hidingKeepsLinksThroughHiddenBlocks() {
         let shown = Self.graph.hiding([.variable, .local, .output])
         #expect(shown.count(.local) == 0 && shown.count(.variable) == 0 && shown.count(.output) == 0)

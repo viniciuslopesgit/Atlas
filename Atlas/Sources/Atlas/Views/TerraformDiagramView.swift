@@ -80,9 +80,13 @@ struct TerraformNodeStyle: Equatable {
         ("time", "Time", "clock", .value),
     ].sorted { $0.prefix.count > $1.prefix.count }
 
-    static func of(_ node: TerraformGraph.Node) -> TerraformNodeStyle {
+    /// A module that mostly builds the network looks like the network.
+    static func of(_ node: TerraformGraph.Node, summary: TerraformModuleSummary? = nil) -> TerraformNodeStyle {
         switch node.kind {
-        case .module: return .init(label: "Module", symbol: "shippingbox", category: .module)
+        case .module:
+            return summary?.services.first == "VPC" ? .init(label: "Module · Network", symbol: "network", category: .network)
+                : .init(label: "Module", symbol: "shippingbox", category: .module)
+        case .variable where node.isNetworkRoot: return .init(label: "VPC", symbol: "network", category: .network)
         case .variable: return .init(label: "Input", symbol: "slider.horizontal.3", category: .value)
         case .local: return .init(label: "Local", symbol: "function", category: .value)
         case .output: return .init(label: "Output", symbol: "arrow.up.right.square", category: .value)
@@ -128,9 +132,29 @@ struct DiagramGeometry: Equatable {
     static let spacing = CGSize(width: 88, height: 26)
     static let margin: CGFloat = 48
 
-    let centers: [String: CGPoint]
-    let waypoints: [TerraformGraph.Edge: [CGPoint]]
-    let size: CGSize
+    /// A box of the architecture view: AWS, a region, a VPC, a zone, a subnet, a cluster.
+    struct Box: Equatable {
+        let id: String
+        let kind: TerraformArchitecture.Kind
+        let title: String
+        let subtitle: String
+        let node: String?
+        let rect: CGRect
+
+        var header: CGRect { CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: DiagramGeometry.header) }
+    }
+
+    static let padding: CGFloat = 16
+    static let header: CGFloat = 46
+    static let gap: CGFloat = 20
+
+    private(set) var centers: [String: CGPoint]
+    private(set) var waypoints: [TerraformGraph.Edge: [CGPoint]]
+    private(set) var size: CGSize
+    private(set) var boxes: [Box] = []
+    /// Blocks folded into a card (or a box) are drawn and selected as it.
+    private(set) var aliases: [String: String] = [:]
+    var isArchitecture: Bool { !boxes.isEmpty }
 
     init(_ layout: TerraformGraphLayout.Layout) {
         centers = layout.slots.mapValues(Self.point)
@@ -147,14 +171,98 @@ struct DiagramGeometry: Equatable {
                 y: margin + CGFloat(slot.row) * (nodeSize.height + spacing.height) + nodeSize.height / 2)
     }
 
-    func rect(_ id: String) -> CGRect? {
-        centers[id].map { CGRect(x: $0.x - Self.nodeSize.width / 2, y: $0.y - Self.nodeSize.height / 2,
-                                 width: Self.nodeSize.width, height: Self.nodeSize.height) }
+    /// Boxes inside boxes, cards in a grid in each: the AWS way of drawing a stack.
+    init(architecture: TerraformArchitecture) {
+        centers = [:]
+        waypoints = [:]
+        size = .zero
+        aliases = architecture.foldedInto
+        let measured = Self.measure(architecture.root)
+        place(architecture.root, in: CGRect(origin: CGPoint(x: Self.margin, y: Self.margin), size: measured))
+        size = CGSize(width: measured.width + Self.margin * 2, height: measured.height + Self.margin * 2)
     }
 
-    /// The block under a point of the diagram.
+    private static func columns(_ kind: TerraformArchitecture.Kind) -> Int {
+        switch kind {
+        case .zone, .publicSubnet, .privateSubnet, .subnet: 1
+        case .global: 2
+        case .outside: 4
+        default: 6
+        }
+    }
+
+    private static func insets(_ box: TerraformArchitecture.Box) -> (side: CGFloat, top: CGFloat) {
+        box.kind == .group ? (0, 0) : (padding, header)
+    }
+
+    private static func grid(_ box: TerraformArchitecture.Box) -> CGSize {
+        guard !box.cards.isEmpty else { return .zero }
+        let columns = CGFloat(min(box.cards.count, Self.columns(box.kind)))
+        let rows = (CGFloat(box.cards.count) / columns).rounded(.up)
+        return CGSize(width: columns * nodeSize.width + (columns - 1) * gap, height: rows * nodeSize.height + (rows - 1) * gap)
+    }
+
+    static func measure(_ box: TerraformArchitecture.Box) -> CGSize {
+        let grid = grid(box)
+        let kids = box.children.map(measure)
+        var width = grid.width, height = grid.height
+        if !kids.isEmpty {
+            let spacing = gap * CGFloat(kids.count - 1)
+            let w = box.isRow ? kids.map(\.width).reduce(0, +) + spacing : kids.map(\.width).max()!
+            let h = box.isRow ? kids.map(\.height).max()! : kids.map(\.height).reduce(0, +) + spacing
+            width = max(width, w)
+            height += (grid.height > 0 ? gap : 0) + h
+        }
+        let (side, top) = insets(box)
+        let minimum: CGFloat = box.kind == .group ? 0 : 260
+        return CGSize(width: max(width + side * 2, minimum), height: height + top + side)
+    }
+
+    private mutating func place(_ box: TerraformArchitecture.Box, in rect: CGRect) {
+        if box.kind != .group {
+            boxes.append(Box(id: box.id, kind: box.kind, title: box.title, subtitle: box.subtitle, node: box.node, rect: rect))
+        }
+        let (side, top) = Self.insets(box)
+        let inner = CGRect(x: rect.minX + side, y: rect.minY + top, width: rect.width - side * 2, height: rect.height - top - side)
+        let columns = min(box.cards.count, Self.columns(box.kind))
+        for (i, id) in box.cards.enumerated() {
+            let c = CGFloat(i % columns), r = CGFloat(i / columns)
+            centers[id] = CGPoint(x: inner.minX + c * (Self.nodeSize.width + Self.gap) + Self.nodeSize.width / 2,
+                                  y: inner.minY + r * (Self.nodeSize.height + Self.gap) + Self.nodeSize.height / 2)
+        }
+        let grid = Self.grid(box)
+        var y = inner.minY + grid.height + (grid.height > 0 && !box.children.isEmpty ? Self.gap : 0)
+        let kids = box.children.map(Self.measure)
+        if box.isRow {
+            // Side by side, as tall as each other; extra width shared out.
+            let extra = max(inner.width - kids.map(\.width).reduce(0, +) - Self.gap * CGFloat(max(kids.count - 1, 0)), 0) / CGFloat(max(kids.count, 1))
+            let height = max(inner.maxY - y, kids.map(\.height).max() ?? 0)
+            var x = inner.minX
+            for (child, size) in zip(box.children, kids) {
+                place(child, in: CGRect(x: x, y: y, width: size.width + extra, height: height))
+                x += size.width + extra + Self.gap
+            }
+        } else {
+            for (child, size) in zip(box.children, kids) {
+                place(child, in: CGRect(x: inner.minX, y: y, width: inner.width, height: size.height))
+                y += size.height + Self.gap
+            }
+        }
+    }
+
+    /// The card a block is drawn as, or the header of the box it stands for.
+    func rect(_ id: String) -> CGRect? {
+        let id = aliases[id] ?? id
+        if let c = centers[id] {
+            return CGRect(x: c.x - Self.nodeSize.width / 2, y: c.y - Self.nodeSize.height / 2, width: Self.nodeSize.width, height: Self.nodeSize.height)
+        }
+        return boxes.last { $0.node == id }?.header
+    }
+
+    /// The block under a point of the diagram: a card, or a box's title.
     func node(at point: CGPoint) -> String? {
-        centers.keys.sorted().first { rect($0)!.contains(point) }
+        if let card = centers.keys.sorted().first(where: { rect($0)!.contains(point) }) { return card }
+        return boxes.last { $0.node != nil && $0.header.contains(point) }?.node
     }
 }
 
@@ -227,21 +335,62 @@ enum DiagramNavigation {
     }
 }
 
+extension DiagramNavigation {
+    /// In the architecture view the arrows move to the nearest card on that side.
+    static func nearest(from id: String?, _ direction: Direction, centers: [String: CGPoint]) -> String? {
+        guard let id, let here = centers[id] else {
+            return centers.min { ($0.value.y, $0.value.x, $0.key) < ($1.value.y, $1.value.x, $1.key) }?.key
+        }
+        let candidates = centers.filter { other in
+            let dx = other.value.x - here.x, dy = other.value.y - here.y
+            switch direction {
+            case .left: return dx < -1 && abs(dy) <= abs(dx) * 1.5
+            case .right: return dx > 1 && abs(dy) <= abs(dx) * 1.5
+            case .up: return dy < -1 && abs(dx) <= abs(dy) * 1.5
+            case .down: return dy > 1 && abs(dx) <= abs(dy) * 1.5
+            }
+        }
+        return candidates.min { a, b in
+            func cost(_ p: CGPoint) -> CGFloat {
+                let dx = abs(p.x - here.x), dy = abs(p.y - here.y)
+                return direction == .left || direction == .right ? dx + dy * 2 : dy + dx * 2
+            }
+            return (cost(a.value), a.key) < (cost(b.value), b.key)
+        }?.key
+    }
+}
+
 /// The blocks that are drawn and where.
 struct DiagramScene: Equatable {
     let graph: TerraformGraph
-    let layout: TerraformGraphLayout.Layout
+    let layout: TerraformGraphLayout.Layout?
     let geometry: DiagramGeometry
+    let architecture: TerraformArchitecture?
+    /// The blocks drawn as cards.
+    let cards: [TerraformGraph.Node]
 
     init(_ graph: TerraformGraph) {
         self.graph = graph
-        layout = TerraformGraphLayout.layout(graph)
+        let layout = TerraformGraphLayout.layout(graph)
+        self.layout = layout
         geometry = DiagramGeometry(layout)
+        architecture = nil
+        cards = graph.nodes
     }
 
-    /// A block, what it uses and what uses it.
+    init(architecture: TerraformArchitecture) {
+        graph = architecture.graph
+        layout = nil
+        geometry = DiagramGeometry(architecture: architecture)
+        self.architecture = architecture
+        let byId = Dictionary(graph.nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        cards = architecture.cards.compactMap { byId[$0] }
+    }
+
+    /// A block, what it uses and what uses it, as drawn (folded blocks as the card they are in).
     func neighbourhood(of id: String) -> Set<String> {
-        Set((graph.node(id)?.dependencies ?? []) + graph.dependents(of: id) + [id])
+        let near = (graph.node(id)?.dependencies ?? []) + graph.dependents(of: id) + [id] + (architecture?.folded[id] ?? [])
+        return Set(near.map { geometry.aliases[$0] ?? $0 })
     }
 }
 
@@ -256,6 +405,12 @@ struct TerraformDiagramView: View {
 
     struct Step: Equatable { let title: String; let folder: URL; let module: String? }
 
+    /// Architecture: where each resource lives in AWS (global, region, VPC, zone, subnet, cluster), modules included.
+    /// Dependencies: what each block of one folder uses, from left to right.
+    enum Mode: String, CaseIterable { case architecture = "Architecture", dependencies = "Dependencies" }
+
+    @State private var mode: Mode = .architecture
+    @State private var stack: TerraformStack?
     /// The folders opened after the stack's own: its modules, each with the block that opened it.
     @State private var trail: [Step] = []
     @State private var graph: TerraformGraph?
@@ -304,7 +459,8 @@ struct TerraformDiagramView: View {
             .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
         }
         .card(radius: Radius.tile)
-        .task(id: folder) { await load() }
+        .task(id: "\(mode.rawValue)|\(folder.path)") { await load() }
+        .onChange(of: mode) { _, _ in go(to: [], selecting: nil) }
         .onChange(of: hidden) { _, _ in rebuild() }
         .onAppear(perform: watchScrolling)
         .onDisappear { if let monitor { NSEvent.removeMonitor(monitor) }; monitor = nil }
@@ -314,10 +470,15 @@ struct TerraformDiagramView: View {
 
     private var toolbar: some View {
         HStack(spacing: 10) {
+            Picker("View", selection: $mode) {
+                ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .help("Architecture: where each resource lives in AWS. Dependencies: what each block uses.")
             breadcrumb
             Spacer(minLength: 8)
             Menu {
-                ForEach([TerraformGraph.Kind.variable, .local, .data, .output], id: \.self) { kind in
+                ForEach(mode == .architecture ? [TerraformGraph.Kind.data] : [.variable, .local, .data, .output], id: \.self) { kind in
                     Toggle("\(kind.title) (\(graph?.count(kind) ?? 0))", isOn: Binding(
                         get: { !hidden.contains(kind) }, set: { on in if on { hidden.remove(kind) } else { hidden.insert(kind) } }))
                 }
@@ -344,7 +505,7 @@ struct TerraformDiagramView: View {
 
     private var breadcrumb: some View {
         HStack(spacing: 4) {
-            let steps = [Step(title: title, folder: root, module: nil)] + trail
+            let steps = mode == .architecture ? [Step(title: title, folder: root, module: nil)] : [Step(title: title, folder: root, module: nil)] + trail
             ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
                 if i > 0 { Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary) }
                 if i == steps.count - 1 {
@@ -353,10 +514,17 @@ struct TerraformDiagramView: View {
                     Button(step.title) { back(to: i) }.buttonStyle(.link).font(.callout)
                 }
             }
-            if let graph {
+            if mode == .architecture, let stack {
+                Text(Self.counts(stack)).font(.caption).foregroundStyle(.secondary).padding(.leading, 6).lineLimit(1)
+            } else if let graph {
                 Text(Self.counts(graph)).font(.caption).foregroundStyle(.secondary).padding(.leading, 6).lineLimit(1)
             }
         }
+    }
+
+    static func counts(_ stack: TerraformStack) -> String {
+        let resources = stack.graph.count(.resource), modules = Set(stack.modules.values).count
+        return "\(resources) resource\(resources == 1 ? "" : "s")" + (modules > 0 ? " in \(modules) module\(modules == 1 ? "" : "s")" : "")
     }
 
     static func counts(_ graph: TerraformGraph) -> String {
@@ -377,7 +545,7 @@ struct TerraformDiagramView: View {
                     .offset(camera.pan)
                     .allowsHitTesting(false)
             }
-            if let graph, let scene, scene.graph.nodes.isEmpty {
+            if let graph, let scene, scene.cards.isEmpty && scene.geometry.boxes.allSatisfy({ $0.node == nil }) {
                 EmptyStateView(icon: "point.3.connected.trianglepath.dotted", title: "Nothing to draw",
                                message: graph.nodes.isEmpty
                                    ? "There are no Terraform blocks in this folder's .tf files."
@@ -423,6 +591,7 @@ struct TerraformDiagramView: View {
         }
         if let inspector = rects.inspector, let id = selection, let node = graph?.node(id), let graph {
             DiagramInspector(node: node, graph: graph, summary: modules[id], folder: folder, root: root,
+                             module: scene?.architecture?.modules[id], attached: scene?.architecture?.folded[id] ?? [],
                              onSelect: { select($0, reveal: true) }, onOpenModule: open,
                              onCenter: { reveal(id, always: true) }, onClose: { selection = nil })
                 .frame(width: inspector.width, height: inspector.height)
@@ -508,7 +677,10 @@ struct TerraformDiagramView: View {
         default:
             guard let scene else { return .ignored }
             let direction: DiagramNavigation.Direction = key == .leftArrow ? .left : key == .rightArrow ? .right : key == .upArrow ? .up : .down
-            guard let next = DiagramNavigation.next(from: selection, direction, in: scene.graph, slots: scene.layout.slots) else { return .handled }
+            let from = selection.map { scene.geometry.aliases[$0] ?? $0 }
+            let next = scene.layout.map { DiagramNavigation.next(from: from, direction, in: scene.graph, slots: $0.slots) }
+                ?? DiagramNavigation.nearest(from: from, direction, centers: scene.geometry.centers)
+            guard let next else { return .handled }
             select(next, reveal: true)
         }
         return .handled
@@ -537,6 +709,18 @@ struct TerraformDiagramView: View {
 
     private func load() async {
         let folder = folder, root = root
+        if mode == .architecture {
+            let read = await Task.detached(priority: .userInitiated) { TerraformStack.load(root: root) }.value
+            guard mode == .architecture else { return }
+            let first = graph == nil
+            stack = read
+            graph = read.graph
+            modules = [:]
+            if let selection, read.graph.node(selection) == nil { self.selection = nil }
+            rebuild()
+            if first { needsFit = true; fitWhenReady() }
+            return
+        }
         let (read, summaries) = await Task.detached(priority: .userInitiated) { () -> (TerraformGraph, [String: TerraformModuleSummary]) in
             let graph = TerraformConfig.graph(folder: folder)
             var summaries: [String: TerraformModuleSummary] = [:]
@@ -547,7 +731,7 @@ struct TerraformDiagramView: View {
             }
             return (graph, summaries)
         }.value
-        guard folder == self.folder else { return }
+        guard folder == self.folder, mode == .dependencies else { return }
         let first = graph == nil
         graph = read
         modules = summaries
@@ -559,7 +743,11 @@ struct TerraformDiagramView: View {
     }
 
     private func rebuild() {
-        scene = graph.map { DiagramScene($0.hiding(hidden)) }
+        if mode == .architecture {
+            scene = stack.map { DiagramScene(architecture: TerraformArchitecture($0, showData: !hidden.contains(.data))) }
+        } else {
+            scene = graph.map { DiagramScene($0.hiding(hidden)) }
+        }
         if let selection, scene?.graph.node(selection) == nil, graph?.node(selection) == nil { self.selection = nil }
     }
 
@@ -601,6 +789,7 @@ struct TerraformDiagramView: View {
     private func go(to steps: [Step], selecting id: String?) {
         trail = steps
         graph = nil
+        stack = nil
         scene = nil
         modules = [:]
         selection = id
@@ -646,12 +835,19 @@ struct DiagramContent: View, Equatable {
 
     var body: some View {
         let focus = selection.map { scene.neighbourhood(of: $0) }
+        let selected = selection.map { scene.geometry.aliases[$0] ?? $0 }
         ZStack(alignment: .topLeading) {
-            DiagramEdges(edges: scene.graph.edges, geometry: scene.geometry, selection: selection, hovered: hovered)
-            ForEach(scene.graph.nodes) { node in
+            ForEach(scene.geometry.boxes, id: \.id) { box in
+                DiagramBoxView(box: box, isSelected: box.node != nil && box.node == selected)
+                    .frame(width: box.rect.width, height: box.rect.height)
+                    .position(x: box.rect.midX, y: box.rect.midY)
+            }
+            DiagramEdges(edges: scene.graph.edges, geometry: scene.geometry, selection: selected, hovered: hovered)
+            ForEach(scene.cards) { node in
                 if let center = scene.geometry.centers[node.id] {
-                    DiagramNode(node: node, style: .of(node), summary: modules[node.id],
-                                isSelected: selection == node.id, isHovered: hovered == node.id,
+                    DiagramNode(node: node, style: .of(node, summary: modules[node.id]), summary: modules[node.id],
+                                module: scene.architecture?.modules[node.id], attached: scene.architecture?.folded[node.id]?.count ?? 0,
+                                isSelected: selected == node.id, isHovered: hovered == node.id,
                                 isDimmed: !(focus?.contains(node.id) ?? true) || !(matches?.contains(node.id) ?? true))
                         .frame(width: DiagramGeometry.nodeSize.width, height: DiagramGeometry.nodeSize.height)
                         .position(center)
@@ -668,17 +864,24 @@ struct DiagramNode: View {
     let node: TerraformGraph.Node
     let style: TerraformNodeStyle
     var summary: TerraformModuleSummary?
+    /// In the architecture view: the module the block is in, and how many blocks are folded into it.
+    var module: String?
+    var attached = 0
     var isSelected = false
     var isHovered = false
     var isDimmed = false
 
     private var subtitle: String {
         switch node.kind {
-        case .resource, .data: node.type
+        case .resource, .data: [node.type, module ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
         case .module: [node.moduleSource ?? "", summary?.text ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+        case .variable where node.isNetworkRoot: "existing · \(node.id)"
         default: "\(node.file):\(node.line)"
         }
     }
+
+    /// An existing VPC is named by its id when the input has one.
+    private var title: String { node.kind == .variable && node.isNetworkRoot ? node.defaultValue ?? node.name : node.name }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.panel)
@@ -703,13 +906,20 @@ struct DiagramNode: View {
                                 .background(Palette.accent.opacity(0.15), in: RoundedRectangle(cornerRadius: Radius.tile))
                                 .foregroundStyle(Palette.accent)
                         }
+                        if attached > 0 {
+                            Text("+\(attached)").font(.system(size: 9.5, weight: .medium).monospacedDigit())
+                                .padding(.horizontal, 4).padding(.vertical, 1)
+                                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: Radius.tile))
+                                .foregroundStyle(.secondary)
+                                .help("\(attached) attached blocks (policies, associations, settings)")
+                        }
                         Spacer(minLength: 0)
                         if node.kind == .module, summary != nil {
                             Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .medium)).foregroundStyle(.tertiary)
                                 .help("Double-click to open the module")
                         }
                     }
-                    Text(node.name).font(.system(size: 13.5, weight: .medium)).lineLimit(1).truncationMode(.tail)
+                    Text(title).font(.system(size: 13.5, weight: .medium)).lineLimit(1).truncationMode(.tail)
                     Text(subtitle)
                         .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
                 }
@@ -750,13 +960,58 @@ struct DiagramEdges: View {
     var body: some View {
         Canvas { context, _ in
             let focus = selection ?? hovered
-            let lit = edges.filter { focus != nil && ($0.from == focus || $0.to == focus) }
+            let alias = geometry.aliases
+            let lit = edges.filter { focus != nil && (alias[$0.from] ?? $0.from) != (alias[$0.to] ?? $0.to)
+                && ((alias[$0.from] ?? $0.from) == focus || (alias[$0.to] ?? $0.to) == focus) }
+            if geometry.isArchitecture {
+                // Boxes already say where things are: only the links of the block in focus are drawn.
+                var drawn = Set<String>()
+                for e in lit {
+                    let from = alias[e.from] ?? e.from, to = alias[e.to] ?? e.to
+                    guard drawn.insert(from + ">" + to).inserted else { continue }
+                    connect(from, to, in: &context, color: selection == nil ? Palette.accent.opacity(0.6) : Palette.accent)
+                }
+                return
+            }
             for e in edges where !lit.contains(e) {
                 draw(e, in: &context, color: .primary.opacity(selection == nil ? 0.3 : 0.08), width: 1.2)
             }
             for e in lit { draw(e, in: &context, color: Palette.accent, width: 2) }
         }
         .frame(width: geometry.size.width, height: geometry.size.height)
+    }
+
+    /// From the side of one block that faces the other, to the facing side of the other.
+    private func connect(_ from: String, _ to: String, in context: inout GraphicsContext, color: Color) {
+        guard let a = geometry.rect(from), let b = geometry.rect(to) else { return }
+        // A block inside the box it uses (a subnet, the VPC, the cluster) needs no line: it is drawn there.
+        let outer = { (id: String) in geometry.boxes.last { $0.node == id }?.rect }
+        if outer(to)?.contains(a) == true || outer(from)?.contains(b) == true { return }
+        let start: CGPoint, end: CGPoint, out: CGVector
+        if b.minX > a.maxX + 8 {
+            start = CGPoint(x: a.maxX, y: a.midY); end = CGPoint(x: b.minX, y: b.midY); out = CGVector(dx: 1, dy: 0)
+        } else if b.maxX < a.minX - 8 {
+            start = CGPoint(x: a.minX, y: a.midY); end = CGPoint(x: b.maxX, y: b.midY); out = CGVector(dx: -1, dy: 0)
+        } else if b.minY > a.maxY {
+            start = CGPoint(x: a.midX, y: a.maxY); end = CGPoint(x: b.midX, y: b.minY); out = CGVector(dx: 0, dy: 1)
+        } else {
+            start = CGPoint(x: a.midX, y: a.minY); end = CGPoint(x: b.midX, y: b.maxY); out = CGVector(dx: 0, dy: -1)
+        }
+        let bend = max(hypot(end.x - start.x, end.y - start.y) / 3, 30)
+        var path = Path()
+        path.move(to: start)
+        path.addCurve(to: end, control1: CGPoint(x: start.x + out.dx * bend, y: start.y + out.dy * bend),
+                      control2: CGPoint(x: end.x - out.dx * bend, y: end.y - out.dy * bend))
+        context.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+        // The arrow points into the block that uses the other.
+        let angle = atan2(out.dy, out.dx)
+        var arrow = Path()
+        for side in [-1.0, 1.0] {
+            arrow.move(to: end)
+            arrow.addLine(to: CGPoint(x: end.x - 8 * cos(angle + side * 0.5), y: end.y - 8 * sin(angle + side * 0.5)))
+        }
+        context.stroke(arrow, with: .color(color), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+        context.fill(Path(ellipseIn: CGRect(x: start.x - 3, y: start.y - 3, width: 6, height: 6)), with: .color(color))
     }
 
     private func draw(_ e: TerraformGraph.Edge, in context: inout GraphicsContext, color: Color, width: CGFloat) {
@@ -783,6 +1038,64 @@ struct DiagramEdges: View {
         arrow.addLine(to: end)
         arrow.addLine(to: CGPoint(x: end.x - 7, y: end.y + 4.5))
         context.stroke(arrow, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+    }
+}
+
+/// A box of the architecture view, styled the way AWS diagrams draw it: the region dashed, the VPC solid, zones
+/// dashed, public subnets green, private subnets blue, the cluster orange.
+struct DiagramBoxView: View {
+    let box: DiagramGeometry.Box
+    var isSelected = false
+
+    struct Look {
+        let symbol: String
+        let color: Color
+        let dashed: Bool
+        let fill: Double
+        let stroke: Double
+    }
+
+    static func look(_ kind: TerraformArchitecture.Kind) -> Look {
+        switch kind {
+        case .cloud: Look(symbol: "cloud", color: Palette.neutral, dashed: false, fill: 0.02, stroke: 0.6)
+        case .global: Look(symbol: "globe", color: Palette.danger, dashed: false, fill: 0.04, stroke: 0.35)
+        case .region: Look(symbol: "mappin.and.ellipse", color: Palette.accent, dashed: true, fill: 0, stroke: 0.8)
+        case .services: Look(symbol: "square.grid.2x2", color: Palette.neutral, dashed: false, fill: 0.03, stroke: 0.25)
+        case .vpc: Look(symbol: "network", color: Palette.purple, dashed: false, fill: 0.04, stroke: 0.8)
+        case .zone: Look(symbol: "building.2", color: Palette.blue, dashed: true, fill: 0, stroke: 0.6)
+        case .publicSubnet: Look(symbol: "lock.open", color: Palette.success, dashed: false, fill: 0.08, stroke: 0.5)
+        case .privateSubnet: Look(symbol: "lock", color: Palette.blue, dashed: false, fill: 0.08, stroke: 0.5)
+        case .subnet: Look(symbol: "square.split.2x2", color: Palette.neutral, dashed: false, fill: 0.06, stroke: 0.4)
+        case .spread: Look(symbol: "square.split.3x1", color: Palette.blue, dashed: true, fill: 0.05, stroke: 0.5)
+        case .existing: Look(symbol: "square.dashed", color: Palette.neutral, dashed: true, fill: 0.03, stroke: 0.5)
+        case .cluster: Look(symbol: "circle.hexagongrid", color: Palette.warning, dashed: false, fill: 0.04, stroke: 0.7)
+        case .outside: Look(symbol: "puzzlepiece.extension", color: Palette.neutral, dashed: true, fill: 0.02, stroke: 0.4)
+        case .group: Look(symbol: "square", color: .clear, dashed: false, fill: 0, stroke: 0)
+        }
+    }
+
+    var body: some View {
+        let look = Self.look(box.kind)
+        let shape = RoundedRectangle(cornerRadius: Radius.panel)
+        ZStack(alignment: .topLeading) {
+            shape.fill(look.color.opacity(look.fill))
+            shape.strokeBorder(isSelected ? Palette.accent : look.color.opacity(look.stroke),
+                               style: StrokeStyle(lineWidth: isSelected ? 2.5 : 1.5, dash: look.dashed ? [6, 4] : []))
+            HStack(spacing: 8) {
+                Image(systemName: look.symbol).font(.system(size: 13, weight: .medium)).foregroundStyle(look.color)
+                    .frame(width: 26, height: 26)
+                    .background(look.color.opacity(0.14), in: RoundedRectangle(cornerRadius: Radius.tile))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(box.title).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+                    if !box.subtitle.isEmpty {
+                        Text(box.subtitle).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+            }
+            .padding(.horizontal, DiagramGeometry.padding).padding(.top, 10)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -855,13 +1168,16 @@ private struct DiagramInspector: View {
     let summary: TerraformModuleSummary?
     let folder: URL
     let root: URL
+    var module: String?
+    /// Blocks folded into this one in the architecture view.
+    var attached: [String] = []
     let onSelect: (String) -> Void
     let onOpenModule: (TerraformGraph.Node) -> Void
     let onCenter: () -> Void
     let onClose: () -> Void
 
     var body: some View {
-        let style = TerraformNodeStyle.of(node)
+        let style = TerraformNodeStyle.of(node, summary: summary)
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: style.symbol).font(.system(size: 16, weight: .medium)).foregroundStyle(style.category.color)
@@ -880,7 +1196,9 @@ private struct DiagramInspector: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
-                        row("Kind", node.kind == .data ? "\(style.label) data source (read only)" : node.kind == .resource ? "\(style.label) resource" : style.label)
+                        row("Kind", kind(style))
+                        if node.isNetworkRoot, node.kind == .variable, let value = node.defaultValue { row("Id", value) }
+                        if let module { row("Module", module) }
                         row("File", "\(node.file), line \(node.line)")
                         if let repeated = node.repeated { row("Instances", "Several, with \(repeated)") }
                         if let source = node.moduleSource { row("Source", source) }
@@ -891,8 +1209,9 @@ private struct DiagramInspector: View {
                         }
                     }
                     actions
-                    links("Uses", node.dependencies)
+                    links("Uses", node.dependencies.filter { graph.node($0) != nil })
                     links("Used by", graph.dependents(of: node.id))
+                    if !attached.isEmpty { links("Attached", attached.sorted()) }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Code").font(.callout.weight(.medium))
                         ScrollView(.horizontal) {
@@ -928,6 +1247,15 @@ private struct DiagramInspector: View {
             }
             .buttonStyle(.borderless)
             .help("Reveal \(node.file) in Finder")
+        }
+    }
+
+    private func kind(_ style: TerraformNodeStyle) -> String {
+        switch node.kind {
+        case .data: "\(style.label) data source (read only)"
+        case .resource: "\(style.label) resource"
+        case .variable where node.isNetworkRoot: "An existing VPC, given as an input: this stack does not create it"
+        default: style.label
         }
     }
 
