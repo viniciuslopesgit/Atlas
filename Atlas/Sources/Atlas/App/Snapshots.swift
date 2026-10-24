@@ -13,6 +13,7 @@ enum Snapshots {
             ("components", AnyView(components.padding(24).frame(width: 720))),
             ("iac", AnyView(iac.padding(24).frame(width: 900))),
             ("stacks", AnyView(stacks.padding(24).frame(width: 900))),
+            ("diagram", AnyView(diagram.padding(24))),
         ]
         for (name, view) in pages {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
@@ -92,6 +93,46 @@ enum Snapshots {
                 .background(Color(nsColor: .textBackgroundColor))
                 .card(radius: Radius.tile)
         }
+    }
+
+    /// The diagram's blocks and links, laid out as the Diagram tab draws them (without pan and zoom).
+    private static var diagram: some View {
+        let hcl = """
+        data "aws_availability_zones" "all" {}
+        resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }
+        resource "aws_subnet" "private" {
+          count = 3
+          vpc_id = aws_vpc.main.id
+          availability_zone = data.aws_availability_zones.all.names[count.index]
+        }
+        resource "aws_security_group" "nodes" { vpc_id = aws_vpc.main.id }
+        resource "aws_iam_role" "cluster" { name = "cluster" }
+        module "cluster" {
+          source = "./cluster"
+          subnets = aws_subnet.private[*].id
+          role = aws_iam_role.cluster.arn
+          security_group = aws_security_group.nodes.id
+        }
+        resource "aws_s3_bucket" "logs" { bucket = "logs" }
+        resource "helm_release" "ingress" { depends_on = [module.cluster] }
+        resource "aws_cloudwatch_log_group" "app" { name = module.cluster.name }
+        """
+        let graph = TerraformConfig.link(TerraformConfig.blocks(in: hcl, file: "main.tf"))
+        let slots = TerraformGraphLayout.slots(graph)
+        let size = TerraformDiagramView.contentSize(slots)
+        let w = TerraformDiagramView.nodeSize.width, h = TerraformDiagramView.nodeSize.height
+        let sp = TerraformDiagramView.spacing, m = TerraformDiagramView.margin
+        let centers = slots.mapValues { CGPoint(x: m + CGFloat($0.column) * (w + sp.width) + w / 2, y: m + CGFloat($0.row) * (h + sp.height) + h / 2) }
+        return ZStack(alignment: .topLeading) {
+            DiagramEdges(edges: graph.edges, centers: centers, focus: "module.cluster").frame(width: size.width, height: size.height)
+            ForEach(graph.nodes) { node in
+                DiagramNode(node: node, style: .of(node), isSelected: node.id == "module.cluster")
+                    .frame(width: w, height: h).position(centers[node.id]!)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+        .card(radius: Radius.tile)
     }
 
     private static var stacks: some View {

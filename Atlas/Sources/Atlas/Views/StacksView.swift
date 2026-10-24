@@ -153,7 +153,7 @@ struct StackBadges: View {
 /// The views of a stack, in the same bar as its commands. History lists every run (Init, Plan, Apply, drift
 /// checks, imports) with what it changed.
 enum StackTab: String, CaseIterable, Identifiable {
-    case history = "History", drift = "Drift", variables = "Variables", settings = "Settings"
+    case history = "History", diagram = "Diagram", drift = "Drift", variables = "Variables", settings = "Settings"
     var id: String { rawValue }
 }
 
@@ -226,6 +226,7 @@ private struct StackDetail: View {
                     } else {
                         StackRunList(runs: stack.runs) { openRun = $0 }
                     }
+                case .diagram: TerraformDiagramView(root: stack.url, title: stack.name)
                 case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
                 case .variables: VariablesTab(stack: stack)
                 case .settings: settings

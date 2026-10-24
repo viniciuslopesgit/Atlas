@@ -172,7 +172,7 @@ struct StackRunHistoryStoreTests {
 struct StackRunViewTests {
     /// Runs, Plans and Applies were three lists of the same runs: one History lists them all.
     @Test func oneHistoryTabSitsWithTheOtherViews() {
-        #expect(StackTab.allCases.map(\.rawValue) == ["History", "Drift", "Variables", "Settings"])
+        #expect(StackTab.allCases.map(\.rawValue) == ["History", "Diagram", "Drift", "Variables", "Settings"])
         #expect(!StackRunList.emptyMessage.isEmpty)
     }
 

@@ -21,6 +21,11 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
   Check Drift); History lists every run, and a run opens as a timeline of its phases (preparing, init, plan, apply,
   verify) with date, time and duration, and output that can be collapsed, enlarged or downloaded; every finished
   run keeps its whole log, encrypted
+- A stack's Diagram shows its Terraform configuration as an interactive diagram: each resource, data source and
+  module is a card with its service, name and type, linked to what it uses from left to right. Drag to move, pinch or
+  ⌘+ / ⌘− to zoom, ⌘0 to fit, find a block by name, click a block to light up its links and see its code, file and
+  line, what it uses and what uses it, and open its page in the Terraform Registry documentation; double-click a
+  module of the stack to open it. Variables, locals and outputs can be shown or hidden without losing the links
 
 ### Changed
 - Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against

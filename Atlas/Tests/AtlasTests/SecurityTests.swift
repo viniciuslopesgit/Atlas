@@ -623,3 +623,54 @@ struct StateMigrationTests {
         #expect(StateBackend.hasLocalState(in: other))
     }
 }
+
+/// The diagram opens documentation links and module folders built from the stack's files: a crafted .tf file must
+/// not make Atlas open another site or a folder outside the stack.
+struct DiagramLinkTests {
+    @Test func docsLinksOnlyGoToTheTerraformRegistry() {
+        #expect(TerraformDocs.url(type: "aws_s3_bucket", kind: .resource)?.absoluteString
+                == "https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket")
+        #expect(TerraformDocs.url(type: "aws_iam_policy_document", kind: .data)?.absoluteString
+                == "https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document")
+        for type in ["aws_x/../../../evil", "aws_x?u=https://evil.example", "aws_x#frag", "evil_bucket", "aws", "AWS_S3_BUCKET",
+                     "aws_x@evil.example", "aws_x\nhttps://evil"] {
+            #expect(TerraformDocs.url(type: type, kind: .resource) == nil, "\(type)")
+        }
+        #expect(TerraformDocs.url(type: "aws_s3_bucket", kind: .module) == nil)
+        for source in ["https://evil.example/a/b/c", "git::https://evil.example/x.git", "../a/b/c", "a/b/c?x=y", "//evil.example/a/b",
+                       "a/b/c/../../d", "a@evil.example/b/c"] {
+            #expect(TerraformDocs.url(moduleSource: source) == nil, "\(source)")
+        }
+        #expect(TerraformDocs.url(moduleSource: "terraform-aws-modules/vpc/aws")?.host == "registry.terraform.io")
+        #expect(TerraformDocs.url(moduleSource: "registry.terraform.io/terraform-aws-modules/vpc/aws")?.host == "registry.terraform.io")
+    }
+
+    @Test func modulesOnlyOpenInsideTheStack() throws {
+        let base = TestTemp.root.appendingPathComponent("diagram-\(UUID().uuidString)")
+        let root = base.appendingPathComponent("stack")
+        let fm = FileManager.default
+        try fm.createDirectory(at: root.appendingPathComponent("modules/vpc"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: base.appendingPathComponent("outside"), withIntermediateDirectories: true)
+        try fm.createSymbolicLink(at: root.appendingPathComponent("link"), withDestinationURL: base.appendingPathComponent("outside"))
+        try "x".write(to: root.appendingPathComponent("file.tf"), atomically: true, encoding: .utf8)
+        defer { try? fm.removeItem(at: base) }
+
+        let inside = TerraformDocs.localModule("./modules/vpc", from: root, root: root)
+        #expect(inside?.lastPathComponent == "vpc")
+        // From a module, going back up into the stack is fine.
+        #expect(TerraformDocs.localModule("../vpc", from: root.appendingPathComponent("modules/vpc"), root: root) != nil)
+        for source in ["../outside", "./../outside", "./link", "./modules/../../outside", "/etc", "./missing", "./file.tf",
+                       "git::https://evil.example/x.git", "terraform-aws-modules/vpc/aws", "~/Library"] {
+            #expect(TerraformDocs.localModule(source, from: root, root: root) == nil, "\(source)")
+        }
+    }
+
+    @Test func oversizedFilesAreNotRead() throws {
+        let folder = TestTemp.root.appendingPathComponent("diagram-big-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let big = "resource \"aws_vpc\" \"a\" {}\n" + String(repeating: "#", count: TerraformConfig.maxFileBytes)
+        try big.write(to: folder.appendingPathComponent("big.tf"), atomically: true, encoding: .utf8)
+        #expect(TerraformConfig.graph(folder: folder).nodes.isEmpty)
+    }
+}
