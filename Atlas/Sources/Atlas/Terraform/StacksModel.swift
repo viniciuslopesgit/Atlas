@@ -49,6 +49,11 @@ final class StacksModel: ObservableObject {
 
     func stack(_ id: UUID) -> StackEntry? { stacks.first { $0.id == id } }
 
+    /// Stacks with drift not yet acknowledged or a failure: the count on the sidebar's Stacks.
+    var needingAttention: Int {
+        stacks.filter { ($0.driftStatus == .drifted && !$0.driftAcknowledged) || $0.status == .failed || $0.driftStatus == .error }.count
+    }
+
     /// The container runtime found on this Mac, if any: each stack then runs in its own container.
     /// Found once; while there is none, looked for again (Docker Desktop may be installed meanwhile).
     var runtime: ContainerRuntime? {

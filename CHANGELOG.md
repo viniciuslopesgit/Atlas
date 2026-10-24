@@ -30,6 +30,12 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 - Pages show what they loaded from AWS at once when you come back to them, and refresh it after 3 minutes, after a
   change, or with Refresh (⌘R)
 - Infrastructure as Code moved out of Resources to its own menu in the sidebar, below Stacks
+- The sidebar shows an icon for each menu, and Stacks shows how many stacks need attention (drift or a failure)
+- In Stacks, the Ready, Running, Drifted and Failed figures are the filter: click one to show only those stacks,
+  click it again to show all; each figure counts exactly the stacks it shows
+- A stack's next step stands out: Plan until a plan is saved, then Apply…; Init ⇧⌘I, Check Drift ⇧⌘D, Plan ⇧⌘P
+  and Apply ⇧⌘A from the keyboard
+- The toolbar's Refresh shows when a page is updating from AWS, also while it shows the data it already had
 - Import from AWS moved from each stack to Infrastructure as Code
 - A run's output is shown in its timeline in History instead of a bar at the bottom of the stack
 

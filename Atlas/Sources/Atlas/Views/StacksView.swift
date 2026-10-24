@@ -2,26 +2,41 @@ import SwiftUI
 import AppKit
 
 struct StacksView: View {
+    /// The figures at the top are also the filter: a figure counts exactly the stacks it shows.
     enum Filter: String, CaseIterable, Identifiable {
-        case all = "All", drifted = "Drifted", failed = "Failed", running = "Running"
+        case ready = "Ready", running = "Running", drifted = "Drifted", failed = "Failed"
         var id: String { rawValue }
+
+        var tint: Color {
+            switch self {
+            case .ready: Palette.success
+            case .running: Palette.accent
+            case .drifted: Palette.warning
+            case .failed: Palette.danger
+            }
+        }
+
+        func includes(_ s: StackEntry, busy: Set<UUID>) -> Bool {
+            switch self {
+            case .running: busy.contains(s.id)
+            case .drifted: s.driftStatus == .drifted && !s.driftAcknowledged
+            case .failed: s.status == .failed || s.driftStatus == .error
+            case .ready: !busy.contains(s.id) && [.ready, .finished].contains(s.status)
+                && !(s.driftStatus == .drifted && !s.driftAcknowledged) && s.driftStatus != .error
+            }
+        }
     }
 
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var model: StacksModel
     @State private var selection: UUID?
-    @State private var filter: Filter = .all
+    /// nil shows every stack.
+    @State private var filter: Filter?
     @State private var showNew = false
 
     private var visible: [StackEntry] {
-        model.stacks.filter { s in
-            switch filter {
-            case .all: true
-            case .drifted: s.driftStatus == .drifted
-            case .failed: s.status == .failed || s.driftStatus == .error
-            case .running: model.busy.contains(s.id)
-            }
-        }
+        guard let filter else { return model.stacks }
+        return model.stacks.filter { filter.includes($0, busy: model.busy) }
     }
 
     var body: some View {
@@ -30,21 +45,13 @@ struct StacksView: View {
                 Button { showNew = true } label: { Label("New Stack…", systemImage: "plus") }
                     .disabled(state.activeAccount == nil)
             }
-            HStack(spacing: 14) {
-                StatCard(title: "Ready", value: "\(model.stacks.filter { [.ready, .finished].contains($0.status) }.count)",
-                         icon: "checkmark.circle.fill", tint: Palette.success)
-                StatCard(title: "Running", value: "\(model.busy.count)", icon: "play.circle.fill", tint: Palette.accent)
-                StatCard(title: "Drifted", value: "\(model.stacks.filter { $0.driftStatus == .drifted && !$0.driftAcknowledged }.count)",
-                         icon: "arrow.triangle.branch", tint: Palette.warning)
-                StatCard(title: "Failed", value: "\(model.stacks.filter { $0.status == .failed }.count)",
-                         icon: "xmark.octagon.fill", tint: Palette.danger)
+            HStack(spacing: 8) {
+                ForEach(Filter.allCases) { f in
+                    FilterFigure(filter: f, count: model.stacks.filter { f.includes($0, busy: model.busy) }.count,
+                                 isOn: filter == f) { filter = filter == f ? nil : f }
+                }
             }
-            .frame(height: 74)
-            Picker("Show", selection: $filter) {
-                ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 360)
+            .frame(height: 78)
 
             if model.stacks.isEmpty {
                 EmptyStateView(icon: "square.stack.3d.up", title: "No stacks yet",
@@ -78,6 +85,27 @@ struct StacksView: View {
             if let focus = model.focus { selection = focus; model.focus = nil }
             if selection == nil { selection = model.stacks.first?.id }
         }
+    }
+}
+
+/// A figure that filters the list when clicked; clicking it again shows every stack.
+private struct FilterFigure: View {
+    let filter: StacksView.Filter
+    let count: Int
+    let isOn: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            StatCard(title: filter.rawValue, value: "\(count)", icon: "", tint: count == 0 ? Palette.neutral : filter.tint)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(isOn ? filter.tint.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: Radius.tile))
+                .overlay(RoundedRectangle(cornerRadius: Radius.tile).strokeBorder(isOn ? filter.tint.opacity(0.5) : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(isOn ? "Show every stack" : "Show only \(filter.rawValue.lowercased()) stacks")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 
@@ -170,12 +198,20 @@ private struct StackDetail: View {
                     ProgressView().controlSize(.small)
                     Button("Cancel", role: .cancel) { model.cancel(stack.id) }
                 }
+                // The next step stands out: Apply once a plan is saved, Plan until then.
+                let planned = model.hasSavedPlan(stack)
                 Group {
                     Button("Init") { start { model.initialize(stack.id) } }
-                    Button("Plan") { start { model.plan(stack.id) } }
-                    Button("Apply…") { confirm = .apply }.disabled(!model.hasSavedPlan(stack))
-                        .help("Applies the plan saved by the last Plan.")
+                        .keyboardShortcut("i", modifiers: [.command, .shift])
                     Button("Check Drift") { start { model.checkDrift(stack.id) } }
+                        .keyboardShortcut("d", modifiers: [.command, .shift])
+                    Button("Plan") { start { model.plan(stack.id) } }
+                        .keyboardShortcut("p", modifiers: [.command, .shift])
+                        .buttonStyle(.prominent(!planned))
+                    Button("Apply…") { confirm = .apply }.disabled(!planned)
+                        .keyboardShortcut("a", modifiers: [.command, .shift])
+                        .buttonStyle(.prominent(planned))
+                        .help("Applies the plan saved by the last Plan.")
                 }
                 .disabled(busy)
             }
@@ -491,4 +527,16 @@ private struct LocalStateWarning: View {
         .padding(10)
         .card(radius: Radius.tile)
     }
+}
+
+/// `.borderedProminent` for the step to take next, `.bordered` otherwise.
+struct ProminentWhen: PrimitiveButtonStyle {
+    let isOn: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        if isOn { Button(configuration).buttonStyle(.borderedProminent) } else { Button(configuration).buttonStyle(.bordered) }
+    }
+}
+
+extension PrimitiveButtonStyle where Self == ProminentWhen {
+    static func prominent(_ isOn: Bool) -> ProminentWhen { ProminentWhen(isOn: isOn) }
 }

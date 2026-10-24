@@ -69,3 +69,36 @@ struct SidebarTests {
         #expect(state.page == .billing, "opening the current menu keeps its page")
     }
 }
+
+/// The Stacks figures are the filter: each counts exactly the stacks it shows, and the sidebar counts what needs attention.
+struct StackFilterTests {
+    @Test @MainActor func eachFigureCountsTheStacksItShows() throws {
+        func stack(_ status: StackStatus, _ drift: DriftStatus = .unknown, acknowledged: Bool = false) -> StackEntry {
+            var s = StackEntry(name: "s", projectPath: "/tmp/s", accountId: "a", region: "eu-west-1")
+            s.status = status; s.driftStatus = drift; s.driftAcknowledged = acknowledged
+            return s
+        }
+        let ready = stack(.finished), drifted = stack(.finished, .drifted), known = stack(.finished, .drifted, acknowledged: true)
+        let failed = stack(.failed), checkFailed = stack(.finished, .error), running = stack(.running)
+        let all = [ready, drifted, known, failed, checkFailed, running]
+        let busy: Set<UUID> = [running.id]
+        func shown(_ f: StacksView.Filter) -> [UUID] { all.filter { f.includes($0, busy: busy) }.map(\.id) }
+        #expect(shown(.ready) == [ready.id, known.id], "acknowledged drift is ready")
+        #expect(shown(.drifted) == [drifted.id])
+        #expect(shown(.failed) == [failed.id, checkFailed.id])
+        #expect(shown(.running) == [running.id])
+        #expect(SidebarMenu.allCases.allSatisfy { !$0.icon.isEmpty })
+
+        let folder = TestTemp.root.appendingPathComponent("attention-\(UUID().uuidString)")
+        let model = StacksModel(store: StackStore(folder: folder, secrets: InMemorySecretStore()), clientFor: { _ in nil })
+        #expect(model.needingAttention == 0)
+    }
+
+    @Test @MainActor func refreshShowsAPageLoadingEvenWithCachedData() async throws {
+        let folder = TestTemp.root.appendingPathComponent("loading-\(UUID().uuidString)", isDirectory: true)
+        let state = AppState(store: AccountStore(folder: folder), secrets: InMemorySecretStore())
+        var during = -1
+        try await state.cached("x", show: { (_: Int) in }) { during = state.loading; return 1 }
+        #expect(during == 1 && state.loading == 0)
+    }
+}

@@ -67,6 +67,14 @@ enum SidebarMenu: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String { self == .iac ? Page.iac.title : rawValue.capitalized }
     var hasSubmenu: Bool { pages.count > 1 }
+    var icon: String {
+        switch self {
+        case .dashboard: Page.dashboard.icon
+        case .resources: "cube"
+        case .stacks: Page.stacks.icon
+        case .iac: Page.iac.icon
+        }
+    }
 
     var pages: [Page] {
         switch self {
@@ -115,6 +123,8 @@ final class AppState: ObservableObject {
     @Published var notice: String?
     /// Bumped to ask the visible page to reload.
     @Published var refreshToken = 0
+    /// Page loads going on; the toolbar's Refresh shows them, also while a page shows its cached data.
+    @Published private(set) var loading = 0
 
     private let store: AccountStore
     private let secrets: SecretStore
@@ -161,6 +171,8 @@ final class AppState: ObservableObject {
             show(value)
             if !force && cache.isFresh(full, token: token) { return }
         }
+        loading += 1
+        defer { loading -= 1 }
         let value = try await fetch()
         guard !Task.isCancelled else { return }
         cache.store(value, for: full, token: token)

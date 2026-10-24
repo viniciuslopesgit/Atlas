@@ -8,14 +8,7 @@ struct MainView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: Binding(get: { state.page?.menu }, set: { if let menu = $0 { state.open(menu) } })) {
-                ForEach(SidebarMenu.allCases) { menu in
-                    HStack {
-                        Text(menu.title)
-                        Spacer()
-                        if menu.hasSubmenu { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
-                    }
-                    .tag(menu)
-                }
+                ForEach(SidebarMenu.allCases) { menu in SidebarRow(menu: menu).tag(menu) }
             }
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
             .safeAreaInset(edge: .bottom) { AccountFooter() }
@@ -83,6 +76,21 @@ struct MainView: View {
         case .settings: SettingsView()
         case .feedback: FeedbackView()
         }
+    }
+}
+
+/// A sidebar menu; Stacks counts the stacks that need attention (drift or a failure).
+private struct SidebarRow: View {
+    @EnvironmentObject private var stacks: StacksModel
+    let menu: SidebarMenu
+
+    var body: some View {
+        HStack {
+            Label(menu.title, systemImage: menu.icon)
+            Spacer()
+            if menu.hasSubmenu { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
+        }
+        .badge(menu == .stacks ? stacks.needingAttention : 0)
     }
 }
 
@@ -177,8 +185,10 @@ private struct MainToolbar: ToolbarContent {
 
             Button { state.showSearch = true } label: { Label("Search", systemImage: "magnifyingglass") }
                 .help("Search resources (⌘K)")
-            Button { state.refresh() } label: { Label("Refresh", systemImage: "arrow.clockwise") }
-                .help("Refresh (⌘R)")
+            Button { state.refresh() } label: {
+                if state.loading > 0 { ProgressView().controlSize(.small) } else { Label("Refresh", systemImage: "arrow.clockwise") }
+            }
+            .help(state.loading > 0 ? "Updating from AWS…" : "Refresh (⌘R)")
         }
     }
 }
