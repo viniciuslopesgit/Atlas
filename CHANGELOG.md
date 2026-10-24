@@ -32,6 +32,18 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 - Import from AWS moved from each stack to Infrastructure as Code
 - A run's output is shown in its timeline (Runs, Plans, Applies) instead of a bar at the bottom of the stack
 
+### Security
+- Plan files (which hold the configuration and variable values in plain text) are saved in Atlas's private folder,
+  readable only by you, instead of the stack's or project's folder; plan files left there by earlier versions are removed
+- The AWS secret key, session token and stack variable values are masked in all Terraform/OpenTofu output: on screen,
+  in saved run logs, in drift reports and in error messages
+- stacks.json and terraform-projects.json are readable only by you, and a stack's drift summary and diff are encrypted
+  like its run logs
+- Terraform's debug logs (TF_LOG, TF_LOG_PATH) are never turned on from the environment Atlas was started with
+- A copied secret access key is marked concealed, so clipboard managers and Universal Clipboard leave it out, and is
+  cleared after 60 seconds unless you copied something else
+- A downloaded run log is readable only by you, and errors in the system log no longer show AWS error details
+
 ### Fixed
 - Stacks with many variables or runs no longer slow the app down: saving a stack only writes to the Keychain and
   disk what changed, and Keychain credentials are read once per account instead of on every screen update
