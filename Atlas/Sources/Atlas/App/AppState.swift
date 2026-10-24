@@ -59,18 +59,20 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// The sidebar's three menus. Accounts and Feedback live in the sidebar footer instead.
+/// The sidebar's three fixed menus. Resources opens a submenu to its right with its pages;
+/// Accounts and Feedback live in the sidebar footer.
 enum SidebarMenu: String, CaseIterable, Identifiable {
     case dashboard, resources, stacks
 
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
+    var hasSubmenu: Bool { pages.count > 1 }
 
     var pages: [Page] {
         switch self {
-        case .dashboard: [.dashboard, .billing]
-        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit]
-        case .stacks: [.stacks, .iac]
+        case .dashboard: [.dashboard]
+        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing, .iac]
+        case .stacks: [.stacks]
         }
     }
 }
@@ -97,7 +99,16 @@ enum AppTheme: String, CaseIterable, Identifiable {
 final class AppState: ObservableObject {
     @Published private(set) var accounts: [AwsAccount] = []
     @Published var region: String = "us-east-1"
-    @Published var page: Page? = .dashboard
+    @Published var page: Page? = .dashboard {
+        didSet { if let page, let menu = page.menu { lastPage[menu] = page } }
+    }
+    /// The page last opened in each sidebar menu, so Resources reopens where it was left.
+    private(set) var lastPage: [SidebarMenu: Page] = [:]
+
+    /// Opens a sidebar menu: its last page, or its first one.
+    func open(_ menu: SidebarMenu) {
+        if page?.menu != menu { page = lastPage[menu] ?? menu.pages[0] }
+    }
     @Published var showSearch = false
     /// A short confirmation shown at the bottom of the window (e.g. "Added to project: ec2.tf").
     @Published var notice: String?
@@ -144,7 +155,8 @@ final class AppState: ObservableObject {
     /// Stacks and their drift scheduler live as long as the app.
     private(set) lazy var stacks = StacksModel(
         store: StackStore(folder: store.folder, secrets: secrets),
-        clientFor: { [unowned self] stack in self.client(accountId: stack.accountId, region: stack.region) })
+        clientFor: { [unowned self] stack in self.client(accountId: stack.accountId, region: stack.region) },
+        runtime: { ContainerRuntime.locate() })
 
     func refresh() { refreshToken += 1 }
 

@@ -139,6 +139,8 @@ struct S3Service {
                                    headers: ["content-type": Self.contentType(for: key)],
                                    unsignedPayload: true)
         req.timeoutInterval = 3600
+        req = try AWSClient.checked(req)
+        let throttle = ProgressThrottle()
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             var observation: NSKeyValueObservation?
             let task = client.session.uploadTask(with: req, fromFile: file) { data, response, error in
@@ -150,7 +152,9 @@ struct S3Service {
                 }
                 cont.resume()
             }
-            observation = task.progress.observe(\.fractionCompleted) { p, _ in progress(p.fractionCompleted) }
+            observation = task.progress.observe(\.fractionCompleted) { p, _ in
+                if throttle.shouldReport(p.fractionCompleted) { progress(p.fractionCompleted) }
+            }
             task.resume()
         }
     }
@@ -160,6 +164,8 @@ struct S3Service {
         await client.resolveBucketRegion(bucket)
         var req = client.s3Request(method: "GET", bucket: bucket, key: key)
         req.timeoutInterval = 3600
+        req = try AWSClient.checked(req)
+        let throttle = ProgressThrottle()
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             var observation: NSKeyValueObservation?
             let task = client.session.downloadTask(with: req) { tmp, response, error in
@@ -184,7 +190,9 @@ struct S3Service {
                     cont.resume(throwing: error)
                 }
             }
-            observation = task.progress.observe(\.fractionCompleted) { p, _ in progress(p.fractionCompleted) }
+            observation = task.progress.observe(\.fractionCompleted) { p, _ in
+                if throttle.shouldReport(p.fractionCompleted) { progress(p.fractionCompleted) }
+            }
             task.resume()
         }
     }
@@ -291,6 +299,24 @@ struct S3Service {
 
 /// Where an object goes when it is downloaded into a folder: a key is chosen by whoever wrote the
 /// bucket, so its name never escapes the folder and never replaces what is already there.
+/// Passes progress on only when it moved by `step` (and once at the end): KVO fires for every chunk, and each
+/// report schedules a UI update, so a large transfer would otherwise flood the main thread.
+final class ProgressThrottle: @unchecked Sendable {
+    private let step: Double
+    private var last = -1.0
+    private let lock = NSLock()
+
+    init(step: Double = 0.01) { self.step = step }
+
+    func shouldReport(_ fraction: Double) -> Bool {
+        lock.withLock {
+            let report = fraction >= 1 ? last < 1 : fraction - last >= step
+            if report { last = fraction }
+            return report
+        }
+    }
+}
+
 enum S3Download {
     /// The key's last component, usable as a file name ("." and ".." are not).
     static func fileName(forKey key: String) -> String {

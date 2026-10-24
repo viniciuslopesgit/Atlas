@@ -110,7 +110,7 @@ struct GuardDutyView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         Badge(text: f.severityLabel, color: color(f))
-                        Text(f.title).font(.title3.weight(.semibold))
+                        Text(f.title).font(Typo.panelTitle)
                         Text(f.description).textSelection(.enabled)
                         DetailRow("Type", f.type, copyable: true)
                         DetailRow("Resource", f.resourceType)
@@ -183,7 +183,7 @@ struct SecurityAuditView: View {
                             Image(systemName: icon(f.severity)).foregroundStyle(color(f.severity)).font(.title3)
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack {
-                                    Text(f.title).font(.body.weight(.semibold))
+                                    Text(f.title).font(.body.weight(.medium))
                                     if let n = f.affectedCount, f.severity != .ok { Badge(text: "\(n)", color: color(f.severity)) }
                                 }
                                 Text(f.description).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
@@ -275,8 +275,8 @@ struct BillingView: View {
             Grid(alignment: .trailing, horizontalSpacing: 18, verticalSpacing: 6) {
                 GridRow {
                     Text("").gridColumnAlignment(.leading)
-                    ForEach(r.monthLabels, id: \.self) { Text($0).font(.caption.weight(.semibold)) }
-                    Text("Total").font(.caption.weight(.semibold))
+                    ForEach(r.monthLabels, id: \.self) { Text($0).font(.caption.weight(.medium)) }
+                    Text("Total").font(.caption.weight(.medium))
                 }
                 Divider()
                 ForEach(r.topServices, id: \.self) { svc in
@@ -286,7 +286,7 @@ struct BillingView: View {
                         ForEach(r.monthLabels, id: \.self) { m in
                             Text(Fmt.money(rows.first { $0.monthLabel == m }?.amount ?? 0, r.currency)).monospacedDigit()
                         }
-                        Text(Fmt.money(rows.reduce(0) { $0 + $1.amount }, r.currency)).monospacedDigit().fontWeight(.semibold)
+                        Text(Fmt.money(rows.reduce(0) { $0 + $1.amount }, r.currency)).monospacedDigit().fontWeight(.medium)
                     }
                     .font(.callout)
                 }
@@ -357,7 +357,7 @@ struct SearchSheet: View {
                     dismiss()
                 } label: {
                     HStack {
-                        Text(r.kind.rawValue).font(.caption.weight(.semibold)).frame(width: 70, alignment: .leading)
+                        Text(r.kind.rawValue).font(.caption.weight(.medium)).frame(width: 70, alignment: .leading)
                             .foregroundStyle(Palette.accent)
                         VStack(alignment: .leading) {
                             Text(r.title)

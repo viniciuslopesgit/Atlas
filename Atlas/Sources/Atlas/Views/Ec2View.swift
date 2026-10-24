@@ -119,9 +119,7 @@ struct Ec2View: View {
 
     private var actionBar: some View {
         HStack(spacing: 10) {
-            Text("\(selection.count) selected").font(.callout.weight(.medium))
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Palette.accent.opacity(0.15), in: Capsule())
+            Text("\(selection.count) selected").font(.callout).foregroundStyle(.secondary)
             Spacer()
             if selection.count == 1, let id = selection.first,
                instances.first(where: { $0.instanceId == id })?.state == "running" {
@@ -197,7 +195,7 @@ private struct InstanceDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text(instance.name).font(.title3.weight(.semibold))
+                    Text(instance.name).font(Typo.panelTitle)
                     Spacer()
                     Badge(text: instance.state, color: Palette.ec2State(instance.state))
                 }
@@ -240,7 +238,7 @@ private struct InstanceDetail: View {
                 DetailRow("Hibernation", instance.hibernationEnabled ? "enabled" : "disabled")
 
                 SectionHeader("Host and placement")
-                DetailRow("Availability zone", instance.availabilityZone)
+                DetailRow("Availability Zone", instance.availabilityZone)
                 DetailRow("Tenancy", instance.tenancy)
                 DetailRow("Host ID", instance.hostId)
                 DetailRow("Affinity", instance.affinity)

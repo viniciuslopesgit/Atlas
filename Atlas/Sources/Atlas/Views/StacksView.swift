@@ -68,9 +68,9 @@ struct StacksView: View {
         }
         .padding(24)
         .sheet(isPresented: $showNew) {
-            NewStackSheet { name, folder in
+            NewStackSheet(runtime: model.runtime) { name, folder, engine in
                 guard let account = state.activeAccount else { return }
-                selection = model.create(name: name, folder: folder, accountId: account.id, region: state.region).id
+                selection = model.create(name: name, folder: folder, accountId: account.id, region: state.region, engine: engine).id
             }
         }
         .onAppear { if selection == nil { selection = model.stacks.first?.id } }
@@ -141,7 +141,7 @@ private struct StackDetail: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(stack.name).font(.title2.weight(.semibold))
+                    Text(stack.name).font(Typo.pageTitle)
                     Text("\(stack.projectPath.replacingOccurrences(of: NSHomeDirectory(), with: "~")) · \(accountName) · \(stack.region)")
                         .font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
@@ -188,7 +188,7 @@ private struct StackDetail: View {
             case .apply, .fixDrift:
                 Text("Terraform will change real resources in \(accountName) (\(stack.region)) as the saved plan shows.")
             case .delete:
-                Text("Atlas forgets the stack, its runs and its Keychain variables. The folder and the resources in AWS are not touched.")
+                Text("Atlas forgets the stack, its runs and its Keychain variables, and removes its container. The folder and the resources in AWS are not touched.")
             }
         }
         .sheet(isPresented: $showImport) {
@@ -220,6 +220,18 @@ private struct StackDetail: View {
             DetailRow("Account", accountName)
             DetailRow("Region", stack.region)
             DetailRow("Created", Fmt.dt(stack.createdAt))
+            Picker("Engine", selection: Binding(get: { stack.engine }, set: { model.setEngine($0, for: stack.id) })) {
+                ForEach(TerraformEngine.allCases) { Text($0.label).tag($0) }
+            }
+            .disabled(busy)
+            if let container = model.container(for: stack) {
+                DetailRow("Container", container.name, copyable: true)
+                DetailRow("Runtime", container.runtime.kind.rawValue)
+                DetailRow("Image", stack.engine.image)
+            } else {
+                DetailRow("Runs on", "This Mac (no container runtime)")
+                RuntimeSetupHint()
+            }
             Button("Remove Stack…", role: .destructive) { confirm = .delete }.disabled(busy)
         }
         .formStyle(.grouped)
@@ -239,7 +251,7 @@ private struct DriftTab: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(stack.driftSummary ?? headline).font(.headline)
+                        Text(stack.driftSummary ?? headline).font(Typo.panelTitle)
                         Text(stack.lastDriftCheckAt.map { "Last checked \(Fmt.dt($0))" } ?? "Never checked")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -357,6 +369,7 @@ private struct RunsTab: View {
         case .plan: "Plan"
         case .apply: "Apply"
         case .fixDrift: "Fix drift"
+        case .setup: "Container"
         }
     }
 
@@ -408,16 +421,32 @@ private struct VariablesTab: View {
     }
 }
 
+/// How to get a container runtime, shown while stacks run on this Mac.
+private struct RuntimeSetupHint: View {
+    @State private var showSetup = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("To run each stack in its own isolated container, install Docker Desktop (OrbStack, Colima and Apple's container work too). Atlas finds it on its own and downloads the Terraform or OpenTofu image.")
+                .font(.caption).foregroundStyle(.secondary)
+            Button("Install Docker Desktop…") { showSetup = true }
+        }
+        .sheet(isPresented: $showSetup) { DockerSetupSheet() }
+    }
+}
+
 private struct NewStackSheet: View {
-    let onCreate: (String, URL) -> Void
+    let runtime: ContainerRuntime?
+    let onCreate: (String, URL, TerraformEngine) -> Void
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var folder: URL?
+    @State private var engine: TerraformEngine = .terraform
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("New Stack").font(.title2.weight(.semibold))
+            Text("New Stack").font(Typo.pageTitle)
             Form {
                 TextField("Name", text: $name, prompt: Text("production-network"))
                 LabeledContent("Folder") {
@@ -429,15 +458,18 @@ private struct NewStackSheet: View {
                 }
                 LabeledContent("Account", value: state.activeAccount?.name ?? "—")
                 LabeledContent("Region", value: state.region)
+                Picker("Engine", selection: $engine) { ForEach(TerraformEngine.allCases) { Text($0.label).tag($0) } }
+                LabeledContent("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
             }
             .formStyle(.grouped)
-            Text("Terraform runs with this account's credentials in this region, also for scheduled drift checks.")
+            Text("\(engine.label) runs with this account's credentials in this region, also for scheduled drift checks.")
                 .font(.caption).foregroundStyle(.secondary)
+            if runtime == nil { RuntimeSetupHint() }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Create") {
-                    if let folder { onCreate(name.trimmingCharacters(in: .whitespaces), folder) }
+                    if let folder { onCreate(name.trimmingCharacters(in: .whitespaces), folder, engine) }
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)

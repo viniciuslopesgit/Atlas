@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest. Atlas holds AWS credentials and can change real infrastructure, so the priority is that it never leaks a key or changes anything the user did not ask for. Before speed or new features.
+Thank you for your interest. Atlas holds AWS credentials and can change real infrastructure, so the priority is that it never leaks a key or changes anything the user did not ask for. That comes before speed or new features.
 
 ## Branches
 

@@ -54,11 +54,12 @@ enum SmokeTest {
         let s3 = ["..", ".", "a/..", "../../x", ""].allSatisfy {
             S3Download.destination(forKey: $0, in: folder).deletingLastPathComponent().standardizedFileURL.path == folder.path
         }
-        let ssm = (try? SsmService.commandScript(plugin: "/p", session: .init(sessionId: "s", streamUrl: "u", tokenValue: "'$(x)'"),
+        let ssm = (try? SsmService.commandScript(executable: "/p", sessionFile: "/t/'$(x)'",
                                                  region: "us-east-1", instanceId: "i-0123456789abcdef0"))
             .map { $0.contains(#"'\''$(x)'\''"#) && !$0.contains("\"$(") } ?? false
-            && (try? SsmService.commandScript(plugin: "/p", session: .init(sessionId: "s", streamUrl: "u", tokenValue: "t"),
+            && (try? SsmService.commandScript(executable: "/p", sessionFile: "/t/s",
                                               region: "us-east-1", instanceId: "i-1;rm -rf ~")) == nil
+            && (try? SsmShell.streamURL("wss://evil.example.com/x")) == nil
         return [
             "SigV4 reference signature: \(sigv4)",
             "HCL strings cannot interpolate: \(hcl)",
@@ -69,7 +70,18 @@ enum SmokeTest {
     }
 }
 
+/// `Atlas --ssm-session <file>` is the terminal side of an SSM session (SsmShell); otherwise the app.
 @main
+enum Launcher {
+    static func main() {
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: SsmShell.flag), i + 1 < args.count {
+            exit(SsmShell.run(sessionFile: args[i + 1]))
+        }
+        AtlasApp.main()
+    }
+}
+
 struct AtlasApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var state = SmokeTest.isEnabled ? SmokeTest.makeState() : AppState()

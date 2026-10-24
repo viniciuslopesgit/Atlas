@@ -63,7 +63,18 @@ final class AWSClient: @unchecked Sendable {
     /// Cache of bucket → region discovered through ListBuckets or redirects.
     private let bucketRegions = BucketRegionCache()
 
-    init(credentials: AWSCredentials, region: String, session: URLSession = .shared) {
+    /// AWS traffic never goes through the shared session: no response cache on disk (S3 listings, policies)
+    /// and no cookies.
+    static let defaultSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.urlCache = nil
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.httpCookieStorage = nil
+        config.httpShouldSetCookies = false
+        return URLSession(configuration: config)
+    }()
+
+    init(credentials: AWSCredentials, region: String, session: URLSession = AWSClient.defaultSession) {
         self.credentials = credentials
         self.region = region
         self.signer = SigV4Signer(credentials: credentials)
@@ -72,13 +83,31 @@ final class AWSClient: @unchecked Sendable {
 
     // MARK: Transport
 
+    /// Only HTTPS to an AWS endpoint: a region or bucket name such as `evil.example#` must never take a
+    /// signed request (and what it carries) to another host.
+    static func isAWSEndpoint(_ url: URL?) -> Bool {
+        guard let url, url.scheme == "https", url.user == nil, url.password == nil,
+              let host = url.host?.lowercased(), host.range(of: #"^[a-z0-9.-]+$"#, options: .regularExpression) != nil
+        else { return false }
+        return host.hasSuffix(".amazonaws.com") || host.hasSuffix(".amazonaws.com.cn")
+    }
+
+    static func checked(_ request: URLRequest) throws -> URLRequest {
+        guard isAWSEndpoint(request.url) else {
+            throw AWSError(code: "UntrustedEndpoint", message: "Refusing to send a request to \(request.url?.host ?? "an invalid URL"): not an AWS endpoint. Check the region and names.", status: 0)
+        }
+        return request
+    }
+
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: Self.checked(request))
         guard let http = response as? HTTPURLResponse else {
             throw AWSError(code: "InvalidResponse", message: "Non-HTTP response", status: 0)
         }
         return (data, http)
     }
+
+    static let maxErrorBody = 300
 
     static func error(from data: Data, status: Int) -> AWSError {
         if let xml = XNode.parse(data) {
@@ -92,7 +121,9 @@ final class AWSClient: @unchecked Sendable {
             let message = (json["message"] as? String) ?? (json["Message"] as? String) ?? ""
             return AWSError(code: code, message: message, status: status)
         }
-        return AWSError(code: "HTTP\(status)", message: String(data: data, encoding: .utf8) ?? "", status: status)
+        // Not AWS's format (a proxy's or captive portal's page): show its start, never megabytes of HTML.
+        let text = String(decoding: data.prefix(maxErrorBody), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return AWSError(code: "HTTP\(status)", message: data.count > maxErrorBody ? text + "…" : text, status: status)
     }
 
     // MARK: Query protocol

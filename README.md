@@ -1,23 +1,24 @@
 # Atlas
 
-**Your AWS accounts in one native Mac app.**
+**Infrastructure management in one native Mac app.**
 
-The console spreads EC2, S3, IAM and costs across dozens of pages. Atlas brings them into one window — native on macOS, with your credentials stored in the Keychain on your Mac.
+Atlas is where you see, change and keep track of your cloud infrastructure: resources, costs, security and Infrastructure as Code in one window — native on macOS, with your credentials stored in the Keychain on your Mac.
+It supports **AWS** today; more providers will follow.
 
-- **Costs at a glance** — month to date, end-of-month forecast and the services that weigh most, on the Dashboard and in Billing by month.
+- **Costs at a glance** — month to date, end-of-month forecast and the services that cost the most, on the Dashboard and in Billing by month.
 - **EC2 without tabs** — start, stop, reboot or terminate several instances at once, see every detail with metrics, and launch new ones with a wizard.
 - **S3 like Finder** — browse folders, drag files to upload, follow upload and download progress, and edit text files in place.
 - **Security in one click** — IAM (users, roles, groups, policies and access keys), GuardDuty findings, CloudWatch alarms and a quick audit: root MFA, password policy, old keys, IMDSv1 and public S3 buckets.
 - **Terraform without leaving the app** — import existing resources into a project, plan and apply what you reviewed, and keep stacks under watch for drift.
 - **Multiple accounts, instant switching** — change account or region from the toolbar, and find any resource with ⌘K.
 
-> Requires macOS 14 Sonoma or later. Terraform features need `terraform` 1.5+; EC2 › Connect needs the Session Manager plugin.
+> Requires macOS 14 Sonoma or later. Terraform features need `terraform` 1.5+.
 
 ---
 
 ## Installation
 
-Download `Atlas-X.Y.Z.zip` from the [latest release](https://github.com/viniciuslopesgit/Atlas/releases/latest), unzip it and drag `Atlas.app` to Applications. Check the download with `shasum -a 256 -c SHA256SUMS`.
+Download `Atlas-X.Y.Z.dmg` from the [latest release](https://github.com/viniciuslopesgit/Atlas/releases/latest), open it and drag `Atlas.app` to Applications. Check the download with `shasum -a 256 -c Atlas-X.Y.Z.dmg.sha256`.
 Betas (new versions not yet stable) appear as *pre-releases*.
 
 > The app is not notarized: the first time, allow it in *System Settings ▸ Privacy & Security ▸ Open Anyway*.

@@ -45,6 +45,8 @@ enum Radius {
 enum Typo {
     static let pageTitle = Font.system(size: 20, weight: .medium)
     static let sectionTitle = Font.system(size: 12, weight: .regular)
+    /// Titles of sheets, inspectors and side panels: a step below the page title, never bold or expanded.
+    static let panelTitle = Font.system(size: 15, weight: .medium)
     static func figure(_ size: CGFloat, weight: Font.Weight = .light) -> Font {
         .system(size: size, weight: weight).monospacedDigit()
     }

@@ -97,7 +97,7 @@
         "name": "Are my AWS credentials safe in Atlas?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. Credentials are stored locally in a SQLite database encrypted with Windows DPAPI (user-scoped). They are never sent to any external server. Atlas has no backend — it communicates directly with the AWS SDK on your computer."
+          "text": "Yes. Credentials are stored locally in a SQLite database encrypted with Windows DPAPI (user-scoped). They are never sent to any external server. Atlas has no backend — it talks to AWS directly from your computer through the AWS SDK."
         }
       },
       {
@@ -145,7 +145,7 @@
         "name": "Does Atlas work on Mac or Linux?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Atlas is currently Windows-exclusive (Windows 10 and 11), built with WPF and .NET 9. Support for other operating systems may be considered in future versions as demand grows."
+          "text": "Atlas is currently Windows-only (Windows 10 and 11), built with WPF and .NET 9. Support for other operating systems may be considered in future versions as demand grows."
         }
       },
       {
@@ -153,7 +153,7 @@
         "name": "What IAM permissions are required to use Atlas?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Permissions depend on which features you use. At minimum, the IAM user needs read access for the desired services (ec2:Describe*, s3:List*, cloudwatch:DescribeAlarms, etc.). For EC2 bulk actions, write permissions such as ec2:StartInstances and ec2:StopInstances are required."
+          "text": "Permissions depend on which features you use. At minimum, the IAM user needs read access to the services you want to use (ec2:Describe*, s3:List*, cloudwatch:DescribeAlarms, etc.). For EC2 bulk actions, write permissions such as ec2:StartInstances and ec2:StopInstances are required."
         }
       },
       {
@@ -161,7 +161,7 @@
         "name": "Can Atlas manage multiple AWS accounts at once?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. You can register an unlimited number of AWS accounts (each with their own access keys and default region) and switch between them instantly from the top bar. All credentials are encrypted locally."
+          "text": "Yes. You can register an unlimited number of AWS accounts (each with its own access keys and default region) and switch between them instantly from the top bar. All credentials are encrypted locally."
         }
       },
       {
@@ -169,7 +169,7 @@
         "name": "Can I use Atlas with multiple AWS regions?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. Atlas supports all major AWS regions and you can switch between them in settings. The AWS SDK is initialized per region and clients are cached for maximum performance."
+          "text": "Yes. Atlas supports all major AWS regions and you can switch between them in Settings. The AWS SDK is initialized per region and clients are cached for maximum performance."
         }
       },
       {
@@ -848,7 +848,7 @@
           <div class="w-10 h-10 rounded-xl bg-blue-600/70 flex items-center justify-center font-bold text-lg shrink-0">2</div>
           <div>
             <h3 class="font-semibold text-lg mb-1">Add your AWS account & explore</h3>
-            <p class="text-zinc-400 text-sm">Paste your Access Key and Secret Key — stored locally and DPAPI-encrypted, never leaving your machine. Your resources load instantly into a visual explorer.</p>
+            <p class="text-zinc-400 text-sm">Paste your access key and secret key — stored locally and DPAPI-encrypted, never leaving your machine. Your resources load instantly into a visual explorer.</p>
           </div>
         </div>
         <div class="flex gap-6 items-start p-6 feature-card rounded-2xl">
@@ -946,7 +946,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Yes. Credentials are stored locally in a SQLite database on your machine and are never sent to any external server. Atlas has no backend — it communicates directly with the AWS SDK on your computer.
+              Yes. Credentials are stored locally in a SQLite database on your machine and are never sent to any external server. Atlas has no backend — it talks to AWS directly from your computer through the AWS SDK.
             </p>
           </div>
         </div>
@@ -958,7 +958,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Atlas is currently Windows-exclusive, built with WPF (.NET 9). Support for other operating systems may be considered in future versions as demand grows.
+              Atlas is currently Windows-only, built with WPF (.NET 9). Support for other operating systems may be considered in future versions as demand grows.
             </p>
           </div>
         </div>
@@ -970,7 +970,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Permissions vary depending on which features you use. At minimum, the IAM user needs read access for the desired services (ec2:Describe*, s3:List*, etc.). For EC2 bulk actions, write permissions such as ec2:StartInstances and ec2:StopInstances are required.
+              Permissions vary depending on which features you use. At minimum, the IAM user needs read access to the services you want to use (ec2:Describe*, s3:List*, etc.). For EC2 bulk actions, write permissions such as ec2:StartInstances and ec2:StopInstances are required.
             </p>
           </div>
         </div>
@@ -982,7 +982,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              Yes. Atlas supports multiple regions and you can switch between them in settings. The AWS SDK is initialized per region and clients are cached for maximum performance.
+              Yes. Atlas supports multiple regions and you can switch between them in Settings. The AWS SDK is initialized per region and clients are cached for maximum performance.
             </p>
           </div>
         </div>
@@ -1090,7 +1090,7 @@
           </div>
           <div class="faq-answer">
             <p class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">
-              No. Atlas is built with WPF (.NET 9) — a truly native Windows UI framework. There is no Chromium instance, no Node.js runtime and no JavaScript bundler. This means significantly lower memory usage and instant startup times compared to Electron-based desktop apps.
+              No. Atlas is built with WPF (.NET 9) — a native Windows UI framework. There is no Chromium instance, no Node.js runtime and no JavaScript bundler. This means significantly lower memory usage and instant startup times compared to Electron-based desktop apps.
             </p>
           </div>
         </div>

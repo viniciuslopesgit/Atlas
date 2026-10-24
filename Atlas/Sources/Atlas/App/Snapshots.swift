@@ -48,6 +48,12 @@ enum Snapshots {
                 StatCard(title: "Critical findings", value: "3", icon: "exclamationmark.shield.fill", tint: Palette.danger)
                 StatCard(title: "Checks passed", value: "14", icon: "checkmark.shield.fill", tint: Palette.success)
             }
+            SectionHeader("Inspector")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("web-01").font(Typo.panelTitle)
+                DetailRow("Instance ID", "i-0a1b2c3d4e5f60718", copyable: true)
+                DetailRow("Availability Zone", "eu-west-1a")
+            }
             EmptyStateView(icon: "tray", title: "No buckets", message: "Create a bucket in the AWS console, then refresh.")
                 .frame(height: 200)
         }

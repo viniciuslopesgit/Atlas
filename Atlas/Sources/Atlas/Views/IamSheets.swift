@@ -23,7 +23,7 @@ struct CreateUserSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(created == nil ? "Create user" : "User created").font(.title3.weight(.semibold).width(.expanded)).padding(20)
+            Text(created == nil ? "Create user" : "User created").font(Typo.panelTitle).padding(20)
             Divider()
             if let created { result(created) } else { form }
             Divider()
@@ -145,7 +145,7 @@ struct AttachPolicySheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Attach policies").font(.title3.weight(.semibold).width(.expanded))
+            Text("Attach policies").font(Typo.panelTitle)
             TextField("Filter by name", text: $search).textFieldStyle(.roundedBorder)
             if let policies {
                 let shown = policies.filter { !attached.contains($0.arn)
@@ -187,7 +187,7 @@ struct TagEditorSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Tags").font(.title3.weight(.semibold).width(.expanded))
+            Text("Tags").font(Typo.panelTitle)
             ScrollView { TagRowsEditor(rows: $rows) }
             HStack {
                 Spacer()

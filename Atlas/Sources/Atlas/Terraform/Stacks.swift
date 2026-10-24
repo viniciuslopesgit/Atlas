@@ -4,7 +4,7 @@ import CryptoKit
 // MARK: - Model (ported from Models/StackEntry.cs of Atlas 1.0.1)
 
 enum StackStatus: String, Codable, Sendable, CaseIterable { case ready, queued, running, finished, failed }
-enum StackRunType: String, Codable, Sendable { case importResources = "import", initialize = "init", fix, plan, apply, fixDrift }
+enum StackRunType: String, Codable, Sendable { case importResources = "import", initialize = "init", fix, plan, apply, fixDrift, setup }
 enum StackRunStatus: String, Codable, Sendable { case running, success, failed, cancelled }
 enum DriftStatus: String, Codable, Sendable { case unknown, checking, clean, drifted, error }
 
@@ -34,6 +34,20 @@ struct StackRun: Codable, Identifiable, Sendable {
 
     enum CodingKeys: String, CodingKey { case id, type, status, trigger, startedAt, completedAt }
 
+    /// Output kept per run; a long apply or import would otherwise grow it (and memory) without limit.
+    static let maxOutputBytes = 1_000_000
+    static let trimmedNotice = "… earlier output removed (only the last part of a long run is kept) …"
+
+    /// Appends lines; past `maxOutputBytes` keeps the last three quarters, cut at a line break.
+    mutating func append(_ lines: [String]) {
+        guard !lines.isEmpty else { return }
+        output += (output.isEmpty ? "" : "\n") + lines.joined(separator: "\n")
+        guard output.utf8.count > Self.maxOutputBytes else { return }
+        var tail = String(decoding: output.utf8.suffix(Self.maxOutputBytes * 3 / 4), as: UTF8.self)
+        if let nl = tail.firstIndex(of: "\n") { tail = String(tail[tail.index(after: nl)...]) }
+        output = Self.trimmedNotice + "\n" + tail
+    }
+
     var duration: TimeInterval? { completedAt.map { $0.timeIntervalSince(startedAt) } }
     var durationText: String {
         guard let d = duration else { return "running…" }
@@ -62,7 +76,13 @@ struct StackEntry: Codable, Identifiable, Sendable {
     var lastDriftCheckAt: Date?
     var driftAcknowledged = false
     var autoFixOnDrift = false
+    /// Optional so stacks saved before 2.5 still decode; nil is Terraform.
+    var engineChoice: TerraformEngine?
 
+    var engine: TerraformEngine {
+        get { engineChoice ?? .terraform }
+        set { engineChoice = newValue }
+    }
     var url: URL { URL(fileURLWithPath: projectPath, isDirectory: true) }
     var lastRun: StackRun? { runs.first }
     var driftEnabled: Bool { driftInterval != .off || !driftCron.isEmpty }

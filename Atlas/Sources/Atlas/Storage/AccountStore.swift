@@ -67,7 +67,7 @@ struct AccountStore {
     var folder: URL = Self.defaultFolder
 
     private var file: URL {
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? PrivateFile.createFolder(folder)
         return folder.appendingPathComponent("accounts.json")
     }
 
@@ -83,7 +83,8 @@ struct AccountStore {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted]
         if let data = try? encoder.encode(accounts) {
-            try? data.write(to: file, options: [.atomic])
+            // Account names and access key IDs: readable only by the user.
+            try? PrivateFile.write(data, to: file)
         }
     }
 }

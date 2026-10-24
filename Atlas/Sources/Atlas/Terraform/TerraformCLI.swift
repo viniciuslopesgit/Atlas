@@ -56,15 +56,23 @@ struct TerraformCLI: Sendable {
 
     var binary: String?
     var timeout: TimeInterval = 300
+    /// When set, every command runs inside this stack container and `binary` is the container runtime.
+    var container: StackContainer?
 
     init(binary: String? = TerraformCLI.locate(), timeout: TimeInterval = 300) {
         self.binary = binary
         self.timeout = timeout
     }
 
-    static func locate(environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+    init(container: StackContainer, timeout: TimeInterval = 300) {
+        self.init(binary: container.runtime.binary, timeout: timeout)
+        self.container = container
+    }
+
+    static func locate(command: String = "terraform",
+                       environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
         let path = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
-        return (path + searchPaths).map { "\($0)/terraform" }.first { FileManager.default.isExecutableFile(atPath: $0) }
+        return (path + searchPaths).map { "\($0)/\(command)" }.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
     // MARK: Commands
@@ -155,14 +163,24 @@ struct TerraformCLI: Sendable {
         let started = Date()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binary)
-        process.arguments = args
         process.currentDirectoryURL = dir
-        process.environment = Self.environment(base: ProcessInfo.processInfo.environment,
-                                               credentials: credentials, tfVars: tfVars)
-        let out = Pipe(), err = Pipe()
+        let base = ProcessInfo.processInfo.environment
+        // In a container the runtime CLI gets the app's environment only; the values for terraform
+        // travel through its stdin, so they are in no file, image or command line.
+        var input: Data?
+        if let container {
+            process.arguments = container.execArguments(args)
+            process.environment = Self.environment(base: base, credentials: nil, tfVars: [:])
+            let forwarded = Self.environment(base: [:], credentials: credentials, tfVars: tfVars)
+            input = StackContainer.stdinBlock(forwarded.filter { $0.key != "PATH" })
+        } else {
+            process.arguments = args
+            process.environment = Self.environment(base: base, credentials: credentials, tfVars: tfVars)
+        }
+        let out = Pipe(), err = Pipe(), inPipe = Pipe()
         process.standardOutput = out
         process.standardError = err
-        process.standardInput = FileHandle.nullDevice
+        process.standardInput = input == nil ? FileHandle.nullDevice : inPipe
 
         let stdout = LineCollector(onLine: onLine), stderr = LineCollector(onLine: onLine)
         out.fileHandleForReading.readabilityHandler = { stdout.feed($0.availableData) }
@@ -178,16 +196,22 @@ struct TerraformCLI: Sendable {
                     done.resume(returning: -1)
                     return
                 }
+                if let input {
+                    DispatchQueue.global().async {
+                        try? inPipe.fileHandleForWriting.write(contentsOf: input)
+                        try? inPipe.fileHandleForWriting.close()
+                    }
+                }
                 let limit = timeout ?? self.timeout
                 DispatchQueue.global().asyncAfter(deadline: .now() + limit) {
                     guard process.isRunning else { return }
                     outcome.set(.timedOut)
-                    Self.stop(process)
+                    self.stop(process)
                 }
             }
         } onCancel: {
             outcome.set(.cancelled)
-            Self.stop(process)
+            self.stop(process)
         }
 
         // Drain whatever is left in the pipes after the process ended.
@@ -216,8 +240,15 @@ struct TerraformCLI: Sendable {
     }
 
     /// SIGTERM first so terraform can release state locks, SIGKILL if it is still running after 5s.
-    private static func stop(_ process: Process) {
+    /// The runtime CLI does not forward signals to `exec`, so in a container terraform is signalled there too.
+    private func stop(_ process: Process) {
         guard process.isRunning else { return }
+        if let container, let binary {
+            Task.detached {
+                _ = await TerraformCLI(binary: binary, timeout: 15)
+                    .run(container.runtime.killArguments(container.name), in: FileManager.default.temporaryDirectory)
+            }
+        }
         process.terminate()
         let pid = process.processIdentifier
         DispatchQueue.global().asyncAfter(deadline: .now() + 5) { if process.isRunning { kill(pid, SIGKILL) } }
