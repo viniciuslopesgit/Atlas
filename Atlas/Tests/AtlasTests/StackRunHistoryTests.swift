@@ -154,7 +154,9 @@ struct StackRunHistoryStoreTests {
         #expect(FileManager.default.fileExists(atPath: store.runLogFile(s.id, other.id).path))
         #expect(FileManager.default.fileExists(atPath: store.runLogFile(s.id, initRun.id).path), "filed when it finished")
 
-        try Data("plan".utf8).write(to: dir.appendingPathComponent(StacksModel.planFile))
+        let plans = model.planFiles(for: s).folder
+        try PrivateFile.createFolder(plans)
+        try Data("plan".utf8).write(to: plans.appendingPathComponent(StacksModel.planFile))
         model.apply(s.id)
         for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
         let applyRun = try #require(model.stack(s.id)?.lastRun)

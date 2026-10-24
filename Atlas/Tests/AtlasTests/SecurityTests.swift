@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import AppKit
 @testable import Atlas
 
 /// Attack tests: what an AWS account, a bucket or a stack definition could put in front of Atlas to make it
@@ -213,7 +214,8 @@ struct SecurityTests {
             ["plan"], in: fake.workspace, credentials: creds,
             tfVars: ["db_password": "$(touch \(pwned.path))`touch \(pwned.path)`", "x;touch \(pwned.path)": "1"])
         #expect(r.isSuccess)
-        #expect(r.stdout.contains("secret=box-secret-value"), "terraform in the container got the secret")
+        #expect(r.stdout.contains("secret=\(Redactor.mask)"), "terraform in the container got the secret, masked in its output")
+        #expect(!r.stdout.contains("box-secret-value"))
         #expect(!fake.log.contains("box-secret-value") && !fake.log.contains("AKIDBOX"), "a secret reached the command line")
         #expect(!FileManager.default.fileExists(atPath: pwned.path), "a value or name was evaluated by the shell")
         // A path that would add mount options is refused.
@@ -448,4 +450,126 @@ import CryptoKit
 
 private enum SymmetricKeyFixture {
     static let key = SymmetricKey(size: .bits256)
+}
+
+// MARK: - Secrets at rest and in output
+
+/// Plan files, run output, the stacks file and the pasteboard were places a secret could be read back from.
+struct SecretLeakTests {
+    private func folder(_ name: String) throws -> URL {
+        let dir = TestTemp.root.appendingPathComponent("\(name)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    private func permissions(_ url: URL) throws -> Int {
+        try #require(FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int)
+    }
+
+    /// An engine that prints what it was given (a provider error, a debug line, a `local-exec`…) must not put
+    /// the secret key, session token or variable values into the run's output, its saved log or the drift report.
+    @Test func secretsTheEngineGetsAreMaskedInEverythingItPrints() async throws {
+        let dir = try folder("redact")
+        let bin = dir.appendingPathComponent("terraform")
+        try Data("""
+        #!/bin/bash
+        echo "secret=$AWS_SECRET_ACCESS_KEY token=$AWS_SESSION_TOKEN db=$TF_VAR_db_password"
+        echo "log=${TF_LOG:-none} path=${TF_LOG_PATH:-none}" >&2
+        exit 1
+        """.utf8).write(to: bin)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bin.path)
+        setenv("TF_LOG", "TRACE", 1)
+        defer { unsetenv("TF_LOG") }
+        let lines = LockedLines()
+        let creds = TerraformCredentials(accessKeyId: "AKIAVISIBLE", secretAccessKey: "wJalrSECRETkey/EXAMPLE",
+                                         region: "eu-west-1", sessionToken: "IQoSESSIONtoken==")
+        let r = await TerraformCLI(binary: bin.path).run(["plan"], in: dir, credentials: creds,
+                                                         tfVars: ["db_password": "hunter2-db-pass", "flag": "1"],
+                                                         onLine: { lines.add($0) })
+        let everything = r.fullOutput + r.diagnostic + r.errors.joined() + lines.all.joined(separator: "\n")
+        for secret in ["wJalrSECRETkey/EXAMPLE", "IQoSESSIONtoken==", "hunter2-db-pass"] {
+            #expect(!everything.contains(secret), "\(secret) reached the output")
+        }
+        #expect(r.stdout.contains("secret=\(Redactor.mask) token=\(Redactor.mask) db=\(Redactor.mask)"))
+        #expect(r.stderr.contains("log=none path=none"), "Terraform's debug logs stay off")
+        #expect(Redactor(secrets: ["1", "abcdef", "abcdefgh"]).redact("1 abcdefgh abcdef") == "1 \(Redactor.mask) \(Redactor.mask)")
+    }
+
+    /// A plan file holds the configuration and the variables in plain text: it is saved in Atlas's folder (0700),
+    /// never in the stack's or project's folder, which may be shared, synced or committed.
+    @Test @MainActor func planFilesAreKeptOutOfTheStackFolder() async throws {
+        let dir = try folder("plans")
+        let bin = dir.appendingPathComponent("terraform")
+        try Data("""
+        #!/bin/bash
+        for a in "$@"; do case "$a" in -out=*) echo "plan with hunter2" > "${a#-out=}" ;; esac; done
+        exit 2
+        """.utf8).write(to: bin)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bin.path)
+        let project = try folder("stack")
+        try Data("old plan".utf8).write(to: project.appendingPathComponent(StacksModel.planFile))
+        let support = dir.appendingPathComponent("support")
+        let model = StacksModel(store: StackStore(folder: support, secrets: InMemorySecretStore()), clientFor: { _ in nil },
+                                makeCLI: { _ in TerraformCLI(binary: bin.path) })
+        let s = model.create(name: "s", folder: project, accountId: "a", region: "eu-west-1")
+        model.plan(s.id)
+        for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        let plans = model.planFiles(for: s)
+        #expect(model.hasSavedPlan(s))
+        #expect(plans.folder.path.hasPrefix(support.path))
+        #expect(try permissions(plans.folder) == 0o700)
+        let inProject = try FileManager.default.contentsOfDirectory(atPath: project.path)
+        #expect(!inProject.contains { $0.hasSuffix(".tfplan") }, "a plan was left in the stack's folder: \(inProject)")
+
+        let projects = try folder("iac")
+        let store = TerraformProjectStore(folder: projects)
+        let id = UUID()
+        #expect(store.planFolder(id).path.hasPrefix(projects.path) && store.planFolder(id).path.contains(id.uuidString))
+        store.save(.init(projects: [TerraformProject(id: id, name: "p", path: project.path)], activeId: id))
+        #expect(try permissions(projects.appendingPathComponent("terraform-projects.json")) == 0o600)
+    }
+
+    /// stacks.json was written with the default permissions, and a drift report (which can show resource values) was
+    /// in it in plain text.
+    @Test func theStacksFileIsPrivateAndTheDriftReportEncrypted() throws {
+        let support = try folder("stacks-json")
+        let store = StackStore(folder: support, secrets: InMemorySecretStore())
+        var s = StackEntry(name: "s", projectPath: "/tmp/s", accountId: "a", region: "eu-west-1")
+        s.driftStatus = .drifted
+        s.driftSummary = "1 to change"
+        s.driftDiff = "~ password = \"hunter2-drift\""
+        store.save([s])
+        let file = support.appendingPathComponent("stacks.json")
+        #expect(try permissions(file) == 0o600)
+        let raw = try String(contentsOf: file, encoding: .utf8)
+        #expect(!raw.contains("hunter2-drift") && !raw.contains("1 to change"))
+        let loaded = try #require(StackStore(folder: support, secrets: store.secrets).load().first)
+        #expect(loaded.driftDiff == s.driftDiff && loaded.driftSummary == "1 to change" && loaded.driftStatus == .drifted)
+    }
+
+    /// A copied secret access key is marked concealed and transient, and cleared unless something else was copied.
+    @Test @MainActor func copiedSecretsAreConcealedAndCleared() throws {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        Clipboard.copy("AKIAPLAIN", to: board)
+        #expect(board.types?.contains(Clipboard.concealedType) != true)
+        Clipboard.copy("wJalrSECRET", secret: true, to: board)
+        #expect(board.string(forType: .string) == "wJalrSECRET")
+        #expect(board.types?.contains(Clipboard.concealedType) == true && board.types?.contains(Clipboard.transientType) == true)
+        let count = board.changeCount
+        #expect(Clipboard.clear(board, ifStill: count))
+        #expect(board.string(forType: .string) == nil)
+        Clipboard.copy("wJalrSECRET", secret: true, to: board)
+        let stale = board.changeCount
+        Clipboard.copy("something else", to: board)
+        #expect(!Clipboard.clear(board, ifStill: stale), "what the user copied later is left alone")
+        #expect(board.string(forType: .string) == "something else")
+    }
+}
+
+private final class LockedLines: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lines: [String] = []
+    func add(_ line: String) { lock.withLock { lines.append(line) } }
+    var all: [String] { lock.withLock { lines } }
 }

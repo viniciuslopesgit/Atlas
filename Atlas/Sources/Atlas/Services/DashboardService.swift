@@ -59,7 +59,7 @@ struct DashboardService {
         do {
             return .success(try await op())
         } catch {
-            log.error("Dashboard: failed to load \(context, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            log.error("Dashboard: failed to load \(context, privacy: .public): \(error.localizedDescription, privacy: .private)")
             return .failure(LabeledError(context: context, underlying: error))
         }
     }

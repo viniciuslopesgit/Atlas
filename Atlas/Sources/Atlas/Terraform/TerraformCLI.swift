@@ -143,7 +143,8 @@ struct TerraformCLI: Sendable {
     /// `docker-credential-desktop`, which sits next to it inside Docker.app and is in no PATH of an app opened from Finder.
     static func environment(base: [String: String], credentials: TerraformCredentials?,
                             tfVars: [String: String], binary: String? = nil) -> [String: String] {
-        var env = base
+        // Debug logs would write requests and values to a file or the output.
+        var env = base.filter { !logVariables.contains($0.key) }
         let own = binary.map { b in
             [URL(fileURLWithPath: b), URL(fileURLWithPath: b).resolvingSymlinksInPath()].map { $0.deletingLastPathComponent().path }
         } ?? []
@@ -164,9 +165,15 @@ struct TerraformCLI: Sendable {
         return env
     }
 
+    /// Variables that turn on Terraform's debug logs; never passed to the engine.
+    static let logVariables: Set<String> = ["TF_LOG", "TF_LOG_PATH", "TF_LOG_CORE", "TF_LOG_PROVIDER"]
+
     func run(_ args: [String], in dir: URL, credentials: TerraformCredentials? = nil, tfVars: [String: String] = [:],
              timeout: TimeInterval? = nil, onLine: @escaping @Sendable (String) -> Void = { _ in }) async -> TerraformResult {
         guard let binary, FileManager.default.isExecutableFile(atPath: binary) else { return .notFound }
+        // The secrets the engine gets never reach a log, the screen or a saved run, even if it prints them.
+        let redactor = Redactor(secrets: [credentials?.secretAccessKey, credentials?.sessionToken].compactMap { $0 } + Array(tfVars.values))
+        let onLine: @Sendable (String) -> Void = { line in onLine(redactor.redact(line)) }
         let started = Date()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binary)
@@ -235,7 +242,7 @@ struct TerraformCLI: Sendable {
         case .failed(let message): return TerraformResult(status: .failed, diagnostic: message, duration: elapsed)
         case nil: break
         }
-        return Self.result(exitCode: exited, stdout: stdout.text, stderr: stderr.text, duration: elapsed)
+        return Self.result(exitCode: exited, stdout: redactor.redact(stdout.text), stderr: redactor.redact(stderr.text), duration: elapsed)
     }
 
     static func result(exitCode: Int32, stdout: String, stderr: String, duration: TimeInterval) -> TerraformResult {
@@ -259,6 +266,23 @@ struct TerraformCLI: Sendable {
         process.terminate()
         let pid = process.processIdentifier
         DispatchQueue.global().asyncAfter(deadline: .now() + 5) { if process.isRunning { kill(pid, SIGKILL) } }
+    }
+}
+
+/// Replaces known secret values in text with a mask.
+struct Redactor: Sendable {
+    static let mask = "••••••"
+    /// Shorter values (a "1", "true") would mask ordinary output and are not secrets worth hiding.
+    static let minimumLength = 6
+    let secrets: [String]
+
+    init(secrets: [String]) {
+        // Longest first, so a secret that contains another is masked whole.
+        self.secrets = Array(Set(secrets.filter { $0.count >= Self.minimumLength })).sorted { $0.count > $1.count }
+    }
+
+    func redact(_ text: String) -> String {
+        secrets.reduce(text) { $0.replacingOccurrences(of: $1, with: Self.mask) }
     }
 }
 

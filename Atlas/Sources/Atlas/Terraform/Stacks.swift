@@ -349,7 +349,7 @@ struct StackStore {
     }
 
     private var file: URL {
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? PrivateFile.createFolder(folder)
         return folder.appendingPathComponent("stacks.json")
     }
 
@@ -361,6 +361,13 @@ struct StackStore {
     private struct Stored: Codable {
         var stack: StackEntry
         var runs: [StoredRun]
+        /// The drift summary and plan diff (they can show resource values), encrypted.
+        var encryptedDrift: String?
+    }
+
+    private struct Drift: Codable {
+        var summary: String?
+        var diff: String?
     }
 
     func load() -> [StackEntry] {
@@ -371,6 +378,11 @@ struct StackStore {
         let key = outputKey()
         return stored.map { s in
             var stack = s.stack
+            if let sealed = s.encryptedDrift, let key, let json = Self.decrypt(sealed, key: key),
+               let drift = try? JSONDecoder().decode(Drift.self, from: Data(json.utf8)) {
+                stack.driftSummary = drift.summary
+                stack.driftDiff = drift.diff
+            }
             stack.runs = s.runs.map { r in
                 var run = r.run
                 let sealed = r.encryptedOutput.isEmpty
@@ -402,12 +414,20 @@ struct StackStore {
             }
             var meta = stack
             meta.runs = []
-            return Stored(stack: meta, runs: runs)
+            meta.driftSummary = nil
+            meta.driftDiff = nil
+            var drift: String?
+            if stack.driftSummary != nil || stack.driftDiff != nil, let key,
+               let json = try? JSONEncoder().encode(Drift(summary: stack.driftSummary, diff: stack.driftDiff)) {
+                drift = Self.encrypt(String(decoding: json, as: UTF8.self), key: key)
+            }
+            return Stored(stack: meta, runs: runs, encryptedDrift: drift)
         }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let data = try? encoder.encode(stored) { try? data.write(to: file, options: [.atomic]) }
+        // Readable only by the user, like accounts.json.
+        if let data = try? encoder.encode(stored) { try? PrivateFile.write(data, to: file) }
     }
 
     /// Writes a Keychain value only when it differs from the one this store last wrote or read.
@@ -450,6 +470,11 @@ struct StackStore {
     /// Where a stack's container keeps the engine's data (providers, modules, backend cache), one per engine.
     func dataFolder(_ stack: UUID, _ engine: TerraformEngine) -> URL {
         stacksFolder(stack).appendingPathComponent(engine.rawValue, isDirectory: true)
+    }
+
+    /// A stack's saved plans, inside its data folder (mounted in the container at `StackContainer.dataDirectory`).
+    func planFolder(_ stack: UUID, _ engine: TerraformEngine) -> URL {
+        dataFolder(stack, engine).appendingPathComponent("plans", isDirectory: true)
     }
 
     /// Providers downloaded by the containers of an engine, shared by all stacks (TF_PLUGIN_CACHE_DIR).

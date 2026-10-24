@@ -36,16 +36,19 @@ struct FakeDocker {
             # Like Docker Desktop: pulling needs the credential helper that sits next to the CLI.
             command -v docker-credential-desktop >/dev/null || {
               echo 'error getting credentials - err: exec: "docker-credential-desktop": executable file not found in $PATH' >&2; exit 1; }
-            shift; name=""; src=""
+            shift; name=""; src=""; data=""
             while [ $# -gt 0 ]; do
               case "$1" in
                 --name) name="$2"; shift ;;
-                --mount) [ -z "$src" ] && { src="${2#type=bind,source=}"; src="${src%%,target=*}"; }; shift ;;
+                --mount)
+                  m="${2#type=bind,source=}"; m="${m%%,target=*}"
+                  case "$2" in *target=/atlas-data) data="$m" ;; *) [ -z "$src" ] && src="$m" ;; esac
+                  shift ;;
               esac
               shift
             done
             echo "Pulling image… done"
-            echo "$src" > "$D/c-$name"; echo "$all" > "$D/c-$name.args" ;;
+            echo "$src" > "$D/c-$name"; echo "$all" > "$D/c-$name.args"; echo "$data" > "$D/c-$name.data" ;;
           start) [ -f "$D/c-$2" ] && touch "$D/c-$2.running" ;;
           stop) rm -f "$D/c-$2.running" ;;
           rm) rm -f "$D/c-$3" "$D/c-$3.args" "$D/c-$3.running" ;;
@@ -55,6 +58,9 @@ struct FakeDocker {
             [ -f "$D/c-$name" ] || { echo "No such container: $name" >&2; exit 1; }
             case "$3" in *kill*) exit 0 ;; esac
             cd "$(cat "$D/c-$name")" || exit 125
+            # The data folder is mounted at /atlas-data: the same paths as in a real container.
+            data="$(cat "$D/c-$name.data" 2>/dev/null)"
+            [ -n "$data" ] && set -- "${@//\\/atlas-data/$data}"
             PATH="$D/engine:$PATH" exec "$@" ;;
         esac
         """)
@@ -138,7 +144,8 @@ struct ContainerRuntimeTests {
         let creds = TerraformCredentials(accessKeyId: "AKIABOX", secretAccessKey: "s3cr3t", region: "eu-west-1")
         let r = await cli.run(["init", "-no-color"], in: fake.workspace, credentials: creds, tfVars: ["db_password": "p w"])
         #expect(r.status == .success)
-        #expect(r.stdout.contains("key=AKIABOX secret=s3cr3t region=eu-west-1 auto=1 var=p w"))
+        // The engine got the secret (its exact value is what was masked in the output); short values are left as they are.
+        #expect(r.stdout.contains("key=AKIABOX secret=\(Redactor.mask) region=eu-west-1 auto=1 var=p w"))
         #expect(fake.engineCalls.contains("terraform init -no-color"))
         #expect(fake.log.contains("exec --interactive --workdir /workspace \(c.name) /bin/sh -c"))
 
@@ -275,7 +282,9 @@ struct StacksContainerModelTests {
         let after = try #require(model.stack(s.id))
         #expect(after.driftStatus == .drifted)
         #expect(after.runs[0].output.contains("▶ tofu plan"))
-        #expect(fake.engineCalls.contains("tofu plan -no-color -detailed-exitcode -out=\(StacksModel.driftPlanFile)"))
+        #expect(fake.engineCalls.contains("tofu plan -no-color -detailed-exitcode -out="))
+        #expect(model.hasSavedPlan(after) == false && FileManager.default.fileExists(
+            atPath: model.planFiles(for: after).url(StacksModel.driftPlanFile).path), "the drift plan is in Atlas's folder")
 
         // Switching engine drops the old container; the next run creates the Terraform one.
         model.setEngine(.terraform, for: s.id)

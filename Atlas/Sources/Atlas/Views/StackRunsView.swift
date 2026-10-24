@@ -257,7 +257,8 @@ enum LogExport {
         panel.nameFieldStringValue = fileName(run, stackName: stackName)
         panel.allowedContentTypes = [.log, .plainText]
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? run.output.write(to: url, atomically: true, encoding: .utf8)
+        // Only the user can read the saved log.
+        try? PrivateFile.write(Data(run.output.utf8), to: url)
     }
 }
 

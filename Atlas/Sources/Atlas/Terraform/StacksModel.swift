@@ -130,8 +130,29 @@ final class StacksModel: ObservableObject {
 
     // MARK: Runs
 
+    /// Where a stack's saved plans live: Atlas's own folder for the stack (0700), never the stack's folder, because a
+    /// plan file holds the configuration and variable values in plain text.
+    struct PlanFiles: Sendable {
+        /// The folder on this Mac.
+        let folder: URL
+        /// The same folder as the engine sees it (inside the container, or on this Mac).
+        let enginePath: String
+
+        func url(_ name: String) -> URL { folder.appendingPathComponent(name) }
+        func arg(_ name: String) -> String { "\(enginePath)/\(name)" }
+    }
+
+    func planFiles(for s: StackEntry) -> PlanFiles {
+        let folder = store.planFolder(s.id, s.engine)
+        return PlanFiles(folder: folder, enginePath: runtime == nil ? folder.path : "\(StackContainer.dataDirectory)/plans")
+    }
+
+    /// Plan files earlier versions saved in the stack's folder.
+    nonisolated static let legacyPlanFiles = [planFile, driftPlanFile]
+
     private struct Context: Sendable {
         let dir: URL
+        let plans: PlanFiles
         let cli: TerraformCLI
         /// `terraform` or `tofu`, for the log.
         let tool: String
@@ -158,8 +179,9 @@ final class StacksModel: ObservableObject {
             return
         }
         let client = clientFor(s)
+        let plans = planFiles(for: s)
         let context = Context(
-            dir: s.url, cli: cli, tool: s.engine.command, credentials: client.map(TerraformCredentials.init),
+            dir: s.url, plans: plans, cli: cli, tool: s.engine.command, credentials: client.map(TerraformCredentials.init),
             tfVars: Dictionary(s.envVars.map { ($0.tfVarName, $0.value) }, uniquingKeysWith: { a, _ in a }),
             log: { [weak self] line in DispatchQueue.main.async { MainActor.assumeIsolated { self?.append(.line(line), to: id) } } },
             phase: { [weak self] name in
@@ -174,6 +196,14 @@ final class StacksModel: ObservableObject {
 
         tasks[id] = Task {
             var ok = true
+            do {
+                try PrivateFile.createFolder(plans.folder)
+            } catch {
+                context.log("✗ Could not prepare the stack's plan folder: \(error.localizedDescription)")
+                ok = false
+            }
+            // Only Atlas's own plan files, which held values in plain text in the stack's folder.
+            for name in Self.legacyPlanFiles { try? FileManager.default.removeItem(at: s.url.appendingPathComponent(name)) }
             if let container {
                 context.phase("Preparing")
                 context.log("▶ \(s.engine.label) in container \(container.name) (\(container.runtime.kind.rawValue))")
@@ -259,22 +289,22 @@ final class StacksModel: ObservableObject {
         run(id, .plan, trigger: "manual") { c in
             c.phase("Planning")
             c.log("▶ \(c.tool) plan -out=\(Self.planFile)")
-            let r = await c.cli.plan(c.dir, outFile: Self.planFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
-            if r.status == .noChanges { try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.planFile)) }
+            let r = await c.cli.plan(c.dir, outFile: c.plans.arg(Self.planFile), credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
+            if r.status == .noChanges { try? FileManager.default.removeItem(at: c.plans.url(Self.planFile)) }
             return Self.report(r, c.log)
         }
     }
 
-    nonisolated func hasSavedPlan(_ s: StackEntry) -> Bool {
-        FileManager.default.fileExists(atPath: s.url.appendingPathComponent(Self.planFile).path)
+    func hasSavedPlan(_ s: StackEntry) -> Bool {
+        FileManager.default.fileExists(atPath: planFiles(for: s).url(Self.planFile).path)
     }
 
     func apply(_ id: UUID) {
         run(id, .apply, trigger: "manual") { c in
             c.phase("Applying")
             c.log("▶ \(c.tool) apply \(Self.planFile)")
-            let r = await c.cli.apply(c.dir, planFile: Self.planFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
-            try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.planFile))
+            let r = await c.cli.apply(c.dir, planFile: c.plans.arg(Self.planFile), credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
+            try? FileManager.default.removeItem(at: c.plans.url(Self.planFile))
             return Self.report(r, c.log)
         }
     }
@@ -286,7 +316,7 @@ final class StacksModel: ObservableObject {
         run(id, .plan, trigger: "drift check (\(trigger))") { [weak self] c in
             c.phase("Checking drift")
             c.log("▶ \(c.tool) plan -detailed-exitcode -out=\(Self.driftPlanFile)")
-            let r = await c.cli.plan(c.dir, outFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
+            let r = await c.cli.plan(c.dir, outFile: c.plans.arg(Self.driftPlanFile), credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             let ok = r.isSuccess
             await self?.recordDrift(id, r)
             return ok
@@ -326,7 +356,7 @@ final class StacksModel: ObservableObject {
 
     /// Applies the plan saved by the last drift check, then verifies with a fresh plan.
     func fixDrift(_ id: UUID, trigger: String = "manual") {
-        guard let s = stack(id), FileManager.default.fileExists(atPath: s.url.appendingPathComponent(Self.driftPlanFile).path) else {
+        guard let s = stack(id), FileManager.default.fileExists(atPath: planFiles(for: s).url(Self.driftPlanFile).path) else {
             checkDrift(id, trigger: trigger)
             return
         }
@@ -335,8 +365,8 @@ final class StacksModel: ObservableObject {
             c.phase("Applying")
             c.log("━━━ Fix drift ━━━")
             c.log("▶ \(c.tool) apply \(Self.driftPlanFile)")
-            let applied = await c.cli.apply(c.dir, planFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
-            try? FileManager.default.removeItem(at: c.dir.appendingPathComponent(Self.driftPlanFile))
+            let applied = await c.cli.apply(c.dir, planFile: c.plans.arg(Self.driftPlanFile), credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
+            try? FileManager.default.removeItem(at: c.plans.url(Self.driftPlanFile))
             guard Self.report(applied, c.log) else {
                 await self?.recordDrift(id, applied)
                 return false
@@ -344,7 +374,7 @@ final class StacksModel: ObservableObject {
             c.phase("Verifying")
             c.log("\n━━━ Verify ━━━")
             c.log("▶ \(c.tool) plan -detailed-exitcode")
-            let verify = await c.cli.plan(c.dir, outFile: Self.driftPlanFile, credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
+            let verify = await c.cli.plan(c.dir, outFile: c.plans.arg(Self.driftPlanFile), credentials: c.credentials, tfVars: c.tfVars, onLine: c.log)
             c.log(verify.status == .noChanges ? "✔ No drift: the infrastructure matches the configuration."
                   : verify.status == .planHasChanges ? "⚠ Drift is still present." : "✗ Verification failed.")
             await self?.recordDrift(id, verify)

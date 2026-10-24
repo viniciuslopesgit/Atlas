@@ -305,7 +305,7 @@ private struct UserDetail: View {
         }
         .alert("Access key created", isPresented: Binding(present: Binding(
             get: { newKey.map { $0.id } }, set: { if $0 == nil { newKey = nil } }))) {
-            Button("Copy Secret") { copy(newKey?.secret ?? "") }
+            Button("Copy Secret") { Clipboard.copy(newKey?.secret ?? "", secret: true) }
             Button("Done", role: .cancel) {}
         } message: {
             Text("Access key ID: \(newKey?.id ?? "")\nSecret: \(newKey?.secret ?? "")\n\nThe secret is shown only once.")
@@ -360,10 +360,7 @@ private struct UserDetail: View {
         }
     }
 
-    private func copy(_ s: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
-    }
+    private func copy(_ s: String) { Clipboard.copy(s) }
 
     private func createKey() async {
         do { newKey = try await service.createAccessKey(user.userName) } catch { self.error = error.localizedDescription }

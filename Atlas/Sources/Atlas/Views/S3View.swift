@@ -252,8 +252,7 @@ struct S3View: View {
     // MARK: Actions
 
     private func copy(_ s: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
+        Clipboard.copy(s)
     }
 
     private func createFolder() async {

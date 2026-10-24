@@ -192,7 +192,10 @@ struct StacksModelTests {
         #expect(after.runs.count == 1)
         #expect(after.runs[0].status == .success)
         #expect(after.runs[0].output.contains("aws_instance.web will be updated"))
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent(StacksModel.driftPlanFile).path))
+        let plans = model.planFiles(for: s)
+        #expect(FileManager.default.fileExists(atPath: plans.url(StacksModel.driftPlanFile).path), "saved in Atlas's folder")
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(StacksModel.driftPlanFile).path),
+                "never in the stack's folder")
 
         model.acknowledgeDrift(s.id)
         #expect(model.stack(s.id)?.driftAcknowledged == true)
@@ -201,7 +204,7 @@ struct StacksModelTests {
         await waitIdle(model, s.id)
         after = try #require(model.stack(s.id))
         let calls = try String(contentsOf: dir.appendingPathComponent("calls.log"), encoding: .utf8)
-        #expect(calls.contains("apply -no-color \(StacksModel.driftPlanFile)"), "applies the saved drift plan, never -auto-approve")
+        #expect(calls.contains("apply -no-color \(plans.arg(StacksModel.driftPlanFile))"), "applies the saved drift plan, never -auto-approve")
         #expect(!calls.contains("-auto-approve"))
         #expect(after.runs.first?.type == .fixDrift)
         #expect(after.runs.first?.status == .failed, "the fake still reports drift on verify")

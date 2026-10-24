@@ -72,8 +72,9 @@ final class IaCModel: ObservableObject {
         status = .idle
     }
 
-    /// Forgets the project; its folder is left as it is.
+    /// Forgets the project and its saved plan; its folder is left as it is.
     func remove(_ id: UUID) {
+        try? FileManager.default.removeItem(at: store.planFolder(id))
         contents.projects.removeAll { $0.id == id }
         if contents.activeId == id { contents.activeId = contents.projects.first?.id }
         store.save(contents)
@@ -106,6 +107,14 @@ final class IaCModel: ObservableObject {
     func run(_ command: Command, client: AWSClient?) {
         guard let project = active, !isRunning else { return }
         let dir = project.url
+        let plans = store.planFolder(project.id)
+        let planPath = plans.appendingPathComponent(Self.planFile).path
+        do { try PrivateFile.createFolder(plans) } catch {
+            status = .failed(command, "Could not prepare the plan folder: \(error.localizedDescription)")
+            return
+        }
+        // Only Atlas's own plan file, which earlier versions saved in plain text in the project's folder.
+        try? FileManager.default.removeItem(at: dir.appendingPathComponent(Self.planFile))
         let credentials = client.map(TerraformCredentials.init)
         let cli = cli
         lines = []
@@ -121,10 +130,10 @@ final class IaCModel: ObservableObject {
             switch command {
             case .initialize: result = await cli.initialize(dir, credentials: credentials, onLine: onLine)
             case .validate: result = await cli.validate(dir, onLine: onLine)
-            case .plan: result = await cli.plan(dir, outFile: Self.planFile, credentials: credentials, onLine: onLine)
+            case .plan: result = await cli.plan(dir, outFile: planPath, credentials: credentials, onLine: onLine)
             case .apply:
-                result = await cli.apply(dir, planFile: Self.planFile, credentials: credentials, onLine: onLine)
-                try? FileManager.default.removeItem(at: dir.appendingPathComponent(Self.planFile))
+                result = await cli.apply(dir, planFile: planPath, credentials: credentials, onLine: onLine)
+                try? FileManager.default.removeItem(atPath: planPath)
             case .output: result = await cli.output(dir, onLine: onLine)
             case .generate: result = await generateConfig(cli, dir, credentials, onLine)
             }

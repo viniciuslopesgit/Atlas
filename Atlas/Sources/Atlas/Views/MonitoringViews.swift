@@ -249,8 +249,7 @@ struct GuardDutyView: View {
     }
 
     private func copy(_ s: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
+        Clipboard.copy(s)
     }
 
     private func load(force: Bool = false) async {
