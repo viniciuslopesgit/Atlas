@@ -1,5 +1,7 @@
 import Foundation
 import Testing
+import SwiftUI
+import AppKit
 @testable import Atlas
 
 struct TerraformGraphTests {
@@ -289,5 +291,47 @@ struct TerraformDiagramTests {
         let inner = CGSize(width: size.width - DiagramMinimap.padding * 2, height: size.height - DiagramMinimap.padding * 2)
         #expect(inner.width <= 180.001 && inner.height <= 110.001)
         #expect(abs(inner.width / inner.height - 4) < 0.01)
+    }
+
+    /// Regression: a diagram larger than the view (any real stack in the Architecture view) made the view as large and
+    /// centred it, so the diagram, the zoom controls and the inspector were drawn out of sight and the tab looked blank
+    /// and frozen. The stage keeps the size it is given and starts the diagram at its top-left corner.
+    @Test @MainActor func aDiagramLargerThanTheViewKeepsTheViewsSize() throws {
+        let diagram = Color(red: 1, green: 0, blue: 0).frame(width: 40, height: 40).frame(width: 3000, height: 2000, alignment: .topLeading)
+        let stage = ImageRenderer(content: DiagramStage { diagram }.background(Color.white))
+        stage.proposedSize = ProposedViewSize(width: 300, height: 200)
+        let image = try #require(stage.cgImage)
+        #expect(image.width == 300 && image.height == 200)
+        // The diagram's top-left corner is the view's.
+        let corner = try Self.pixel(image, x: 5, y: 5), outside = try Self.pixel(image, x: 100, y: 100)
+        #expect(corner[0] > 200 && corner[1] < 60 && corner[2] < 60, "\(corner)")
+        #expect(outside[0] > 200 && outside[1] > 200 && outside[2] > 200, "\(outside)")
+        // The way it was laid out before: the view grows to the diagram's size.
+        let before = ImageRenderer(content: ZStack(alignment: .topLeading) { diagram }.frame(maxWidth: .infinity, maxHeight: .infinity))
+        before.proposedSize = ProposedViewSize(width: 300, height: 200)
+        #expect(try #require(before.cgImage).width == 3000)
+    }
+
+    static func pixel(_ image: CGImage, x: Int, y: Int) throws -> [UInt8] {
+        var data = [UInt8](repeating: 0, count: 4)
+        let context = try #require(CGContext(data: &data, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.draw(image, in: CGRect(x: -x, y: y - image.height + 1, width: image.width, height: image.height))
+        return Array(data.prefix(3))
+    }
+
+    /// Double-clicks and scrolling are read from AppKit's events, at the point of the diagram under them.
+    @Test @MainActor func eventsAreReadWhereTheyLandOnTheDiagram() {
+        let window = NSView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+        let anchor = DiagramAnchor.Flipped(frame: CGRect(x: 10, y: 20, width: 200, height: 100))
+        window.addSubview(anchor)
+        let pointer = DiagramPointer()
+        #expect(pointer.location(CGPoint(x: 15, y: 115)) == nil)
+        pointer.view = anchor
+        // Window points have their origin at the bottom; the diagram's at its top-left corner.
+        #expect(pointer.location(CGPoint(x: 15, y: 115)) == CGPoint(x: 5, y: 5))
+        #expect(pointer.location(CGPoint(x: 209, y: 21)) == CGPoint(x: 199, y: 99))
+        #expect(pointer.location(CGPoint(x: 5, y: 5)) == nil && pointer.location(CGPoint(x: 300, y: 50)) == nil)
+        #expect(anchor.hitTest(CGPoint(x: 15, y: 25)) == nil)
     }
 }

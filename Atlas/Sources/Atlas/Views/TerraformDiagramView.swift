@@ -442,10 +442,40 @@ struct DiagramScene: Equatable {
     }
 }
 
-/// Where the pointer is, kept out of the view's state: it changes at every move and nothing is drawn from it.
-private final class DiagramPointer {
-    var point: CGPoint?
-    weak var window: NSWindow?
+/// Where AppKit events land on the diagram, read from a view under it: double-clicks and scrolling are taken from
+/// AppKit's events (SwiftUI's tap never sees a double-click's second click, and hovering may not have happened yet).
+final class DiagramPointer {
+    weak var view: NSView?
+
+    /// A point of the window, in the diagram's own coordinates (top-left origin), when it falls on the diagram.
+    func location(_ pointInWindow: CGPoint) -> CGPoint? {
+        guard let view else { return nil }
+        let p = view.convert(pointInWindow, from: nil)
+        return view.bounds.contains(p) ? p : nil
+    }
+
+    func location(of event: NSEvent) -> CGPoint? {
+        guard let window = event.window, window === view?.window else { return nil }
+        return location(event.locationInWindow)
+    }
+}
+
+/// The AppKit view under the diagram; it takes no clicks.
+struct DiagramAnchor: NSViewRepresentable {
+    let pointer: DiagramPointer
+
+    final class Flipped: NSView {
+        override var isFlipped: Bool { true }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = Flipped()
+        pointer.view = view
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) { pointer.view = view }
 }
 
 // MARK: - Diagram
@@ -523,6 +553,7 @@ struct TerraformDiagramView: View {
                     overlays(geo.size)
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
+                .background(DiagramAnchor(pointer: pointer))
                 .clipped()
                 .onContinuousHover(coordinateSpace: .local) { phase in
                     if case .active(let p) = phase { point(at: p) } else { point(at: nil) }
@@ -537,7 +568,7 @@ struct TerraformDiagramView: View {
         .onChange(of: mode) { _, _ in go(to: [], selecting: nil) }
         .onChange(of: hidden) { _, _ in rebuild() }
         .onAppear(perform: watchScrolling)
-        .onDisappear { if let monitor { NSEvent.removeMonitor(monitor) }; monitor = nil; pointer.point = nil }
+        .onDisappear { if let monitor { NSEvent.removeMonitor(monitor) }; monitor = nil }
     }
 
     // MARK: Toolbar
@@ -619,12 +650,14 @@ struct TerraformDiagramView: View {
         ZStack(alignment: .topLeading) {
             DotGrid(camera: camera).allowsHitTesting(false)
             if let scene {
-                DiagramLayer(scene: scene, near: scene.near(selection), matches: matches, modules: modules,
-                             onSelect: { select($0, reveal: true) })
-                    .equatable()
-                    .scaleEffect(camera.zoom, anchor: .topLeading)
-                    .offset(camera.pan)
-                    .allowsHitTesting(false)
+                DiagramStage {
+                    DiagramLayer(scene: scene, near: scene.near(selection), matches: matches, modules: modules,
+                                 onSelect: { select($0, reveal: true) })
+                        .equatable()
+                        .scaleEffect(camera.zoom, anchor: .topLeading)
+                        .offset(camera.pan)
+                }
+                .allowsHitTesting(false)
                 DiagramHighlights(scene: scene, selection: selection, hovered: hovered, anchor: anchor, camera: camera)
                     .allowsHitTesting(false)
             }
@@ -736,8 +769,6 @@ struct TerraformDiagramView: View {
 
     /// Only the block under the pointer is state, and only when it changes.
     private func point(at p: CGPoint?) {
-        pointer.point = p
-        if p != nil, let window = NSApp.currentEvent?.window { pointer.window = window }
         let id = p.flatMap { overOverlay($0) ? nil : scene?.geometry.node(at: camera.content($0)) }
         if id != hovered { hovered = id }
     }
@@ -746,11 +777,13 @@ struct TerraformDiagramView: View {
         focused = true
         guard !overOverlay(p) else { return }
         let id = scene?.geometry.node(at: camera.content(p))
-        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-            if let id { open(id) } else { fit(animated: true) }
-            return
-        }
         if let id { select(id, reveal: true) } else { selection = nil }
+    }
+
+    /// A double-click opens the block under the pointer, or fits the diagram when there is none.
+    private func doubleClick(at p: CGPoint) {
+        guard !overOverlay(p) else { return }
+        if let id = scene?.geometry.node(at: camera.content(p)) { open(id) } else { fit(animated: true) }
     }
 
     private func key(_ key: KeyEquivalent) -> KeyPress.Result {
@@ -773,22 +806,27 @@ struct TerraformDiagramView: View {
         return .handled
     }
 
-    /// Two-finger scrolling moves the diagram; with ⌘ (or a pinch) it zooms around the pointer. Only for events in the
-    /// diagram's own window while the pointer is over it, and not over the inspector, which scrolls on its own.
+    /// Two-finger scrolling moves the diagram; with ⌘ (or a pinch) it zooms around the pointer. Only over the diagram,
+    /// not over the inspector, which scrolls on its own. A double-click opens the block under it.
     private func watchScrolling() {
         guard monitor == nil else { return }
         let pointer = pointer
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify]) { event in
-            guard let p = pointer.point, let window = event.window, window === pointer.window, window.isKeyWindow || window.isMainWindow,
-                  scene != nil, !overOverlay(p) else { return event }
-            if event.type == .magnify {
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify, .leftMouseDown]) { event in
+            guard let p = pointer.location(of: event), scene != nil, !overOverlay(p) else { return event }
+            switch event.type {
+            case .leftMouseDown:
+                if event.clickCount == 2 { doubleClick(at: p) }
+                return event
+            case .magnify:
                 camera.zoom(to: camera.zoom * (1 + event.magnification), around: p)
-            } else if event.modifierFlags.contains(.command) {
-                let step = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 200 : event.scrollingDeltaY / 20
-                camera.zoom(to: camera.zoom * (1 + step), around: p)
-            } else {
-                let k: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
-                camera.move(by: CGSize(width: event.scrollingDeltaX * k, height: event.scrollingDeltaY * k))
+            default:
+                if event.modifierFlags.contains(.command) {
+                    let step = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 200 : event.scrollingDeltaY / 20
+                    camera.zoom(to: camera.zoom * (1 + step), around: p)
+                } else {
+                    let k: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
+                    camera.move(by: CGSize(width: event.scrollingDeltaX * k, height: event.scrollingDeltaY * k))
+                }
             }
             return nil
         }
@@ -1016,6 +1054,19 @@ struct DiagramLayer: View, Equatable {
             }
         }
         .frame(width: scene.geometry.size.width, height: scene.geometry.size.height, alignment: .topLeading)
+    }
+}
+
+/// Holds the diagram at its own size from the view's top-left corner without letting it size the view. Laid out like
+/// any other view, a diagram larger than the view made the view as large and centred it, which pushed the diagram,
+/// the zoom controls and the inspector out of sight.
+struct DiagramStage: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for view in subviews { view.place(at: bounds.origin, anchor: .topLeading, proposal: .unspecified) }
     }
 }
 

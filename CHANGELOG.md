@@ -74,8 +74,12 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 - A downloaded run log is readable only by you, and errors in the system log no longer show AWS error details
 
 ### Fixed
-- Opening a large stack's Diagram tab no longer freezes Atlas: moving the pointer over the diagram no longer redraws
-  every block, the diagram is built away from the main thread, and the blocks are drawn flat
+- A stack's Diagram tab stayed empty, with no zoom controls and no response to clicks, when the stack was larger than
+  the window: the diagram pushed the whole view out of sight. It now shows the stack fitted to the window
+- Double-clicking a block in the stack diagram did nothing: the second click never reached it. Double-clicks and
+  scrolling now take the point under the pointer from the click itself, so they work as soon as the tab opens
+- Moving the pointer over a large stack's diagram no longer redraws every block, the diagram is built away from the
+  main thread, and the blocks are drawn flat
 - The stack diagram read files saved with Windows line endings (CR LF) as one line and left out every block in
   them
 - Import into a stack whose configuration already sets up the AWS provider or a backend (for example state in an S3
