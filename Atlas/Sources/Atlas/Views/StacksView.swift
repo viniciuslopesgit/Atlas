@@ -226,7 +226,7 @@ private struct StackDetail: View {
                     } else {
                         StackRunList(runs: stack.runs) { openRun = $0 }
                     }
-                case .diagram: TerraformDiagramView(root: stack.url, title: stack.name)
+                case .diagram: TerraformDiagramView(root: stack.url, title: stack.name).id(stack.id)
                 case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
                 case .variables: VariablesTab(stack: stack)
                 case .settings: settings

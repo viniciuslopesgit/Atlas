@@ -136,3 +136,129 @@ struct TerraformGraphTests {
         #expect(StackTab.allCases.map(\.rawValue).contains("Diagram"))
     }
 }
+
+/// The diagram's layout, camera and keyboard, without a window.
+struct TerraformDiagramTests {
+    static func node(_ id: String, _ deps: [String] = [], kind: TerraformGraph.Kind = .resource) -> TerraformGraph.Node {
+        let parts = id.split(separator: ".").map(String.init)
+        return TerraformGraph.Node(id: id, kind: kind, type: parts.first ?? "", name: parts.last ?? "", file: "main.tf", line: 1,
+                                   source: "", dependencies: deps)
+    }
+
+    /// a → b → c, and a → c directly: the direct link crosses b's column.
+    static let chain = TerraformGraph(nodes: [Self.node("aws_vpc.a"), Self.node("aws_subnet.b", ["aws_vpc.a"]),
+                                              Self.node("aws_instance.c", ["aws_subnet.b", "aws_vpc.a"])])
+
+    @Test func longLinksGetAStopInEachColumnTheyCross() {
+        let layout = TerraformGraphLayout.layout(Self.chain)
+        #expect(layout.slots.count == 3)
+        let stops = layout.waypoints[.init(from: "aws_vpc.a", to: "aws_instance.c")]
+        #expect(stops?.map(\.column) == [1])
+        // The stop has a place of its own, not the block's.
+        #expect(stops?.first != layout.slots["aws_subnet.b"])
+        #expect(layout.waypoints[.init(from: "aws_vpc.a", to: "aws_subnet.b")] == nil)
+        // The diagram is big enough for the stop.
+        let geometry = DiagramGeometry(layout)
+        let lowest = (Array(layout.slots.values) + (stops ?? [])).map(\.row).max()!
+        #expect(geometry.size.height >= DiagramGeometry.point(.init(column: 0, row: lowest)).y + DiagramGeometry.nodeSize.height / 2)
+    }
+
+    @Test func clicksFindTheBlockUnderThePointer() {
+        let geometry = DiagramGeometry(TerraformGraphLayout.layout(Self.chain))
+        let center = geometry.centers["aws_subnet.b"]!
+        #expect(geometry.node(at: center) == "aws_subnet.b")
+        #expect(geometry.node(at: CGPoint(x: center.x + DiagramGeometry.nodeSize.width / 2 - 1, y: center.y)) == "aws_subnet.b")
+        #expect(geometry.node(at: CGPoint(x: center.x + DiagramGeometry.nodeSize.width / 2 + 10, y: center.y)) == nil)
+        #expect(geometry.node(at: .zero) == nil)
+    }
+
+    @Test func zoomKeepsThePointUnderThePointer() {
+        var camera = DiagramCamera(zoom: 1, pan: CGSize(width: 30, height: -20))
+        let pointer = CGPoint(x: 400, y: 250)
+        let under = camera.content(pointer)
+        camera.zoom(to: 1.6, around: pointer)
+        #expect(camera.zoom == 1.6)
+        #expect(abs(camera.screen(under).x - pointer.x) < 0.001 && abs(camera.screen(under).y - pointer.y) < 0.001)
+        camera.zoom(to: 50, around: pointer)
+        #expect(camera.zoom == DiagramCamera.zoomRange.upperBound)
+        camera.zoom(to: 0.001, around: pointer)
+        #expect(camera.zoom == DiagramCamera.zoomRange.lowerBound)
+    }
+
+    @Test func fitShowsEverythingInTheFreeAreaWithoutEnlarging() {
+        var camera = DiagramCamera()
+        let area = CGRect(x: 0, y: 0, width: 800, height: 600)
+        camera.fit(CGSize(width: 1600, height: 600), in: area)
+        #expect(camera.zoom == 0.5)
+        #expect(camera.shows(CGRect(x: 0, y: 0, width: 1600, height: 600), in: area.insetBy(dx: -0.5, dy: -0.5)))
+        camera.fit(CGSize(width: 200, height: 100), in: area)
+        #expect(camera.zoom == 1)
+        #expect(camera.screen(CGPoint(x: 100, y: 50)) == CGPoint(x: 400, y: 300))
+        // Nothing to fit in: the camera stays as it is.
+        let before = camera
+        camera.fit(CGSize(width: 200, height: 100), in: .zero)
+        #expect(camera == before)
+    }
+
+    @Test func centeringAndMovingAndWhatIsInView() {
+        var camera = DiagramCamera(zoom: 2, pan: .zero)
+        let area = CGRect(x: 0, y: 0, width: 600, height: 400)
+        camera.center(CGPoint(x: 500, y: 500), in: area)
+        #expect(camera.screen(CGPoint(x: 500, y: 500)) == CGPoint(x: 300, y: 200))
+        camera.move(by: CGSize(width: 10, height: -5))
+        #expect(camera.screen(CGPoint(x: 500, y: 500)) == CGPoint(x: 310, y: 195))
+        let visible = camera.visible(in: area.size)
+        #expect(visible.width == 300 && visible.height == 200)
+        #expect(camera.shows(CGRect(x: 490, y: 490, width: 20, height: 20), in: area))
+        #expect(!camera.shows(CGRect(x: 0, y: 0, width: 20, height: 20), in: area))
+    }
+
+    @Test func arrowKeysFollowTheLinks() {
+        let graph = TerraformGraph(nodes: [Self.node("aws_vpc.a"), Self.node("aws_vpc.z"), Self.node("aws_subnet.b", ["aws_vpc.a"]),
+                                           Self.node("aws_instance.c", ["aws_subnet.b"])])
+        let slots = TerraformGraphLayout.slots(graph)
+        typealias Nav = DiagramNavigation
+        #expect(Nav.next(from: nil, .right, in: graph, slots: slots) == "aws_vpc.a" || Nav.next(from: nil, .right, in: graph, slots: slots) == "aws_vpc.z")
+        #expect(Nav.next(from: "aws_vpc.a", .right, in: graph, slots: slots) == "aws_subnet.b")
+        #expect(Nav.next(from: "aws_subnet.b", .right, in: graph, slots: slots) == "aws_instance.c")
+        #expect(Nav.next(from: "aws_instance.c", .left, in: graph, slots: slots) == "aws_subnet.b")
+        #expect(Nav.next(from: "aws_subnet.b", .left, in: graph, slots: slots) == "aws_vpc.a")
+        #expect(Nav.next(from: "aws_instance.c", .right, in: graph, slots: slots) == nil)
+        // Up and down stay in the column.
+        let top = ["aws_vpc.a", "aws_vpc.z"].min { slots[$0]!.row < slots[$1]!.row }!
+        let bottom = top == "aws_vpc.a" ? "aws_vpc.z" : "aws_vpc.a"
+        #expect(Nav.next(from: top, .down, in: graph, slots: slots) == bottom)
+        #expect(Nav.next(from: bottom, .up, in: graph, slots: slots) == top)
+        #expect(Nav.next(from: top, .up, in: graph, slots: slots) == nil)
+        // A block with nothing linked on the right moves to the nearest block there.
+        #expect(Nav.next(from: "aws_vpc.z", .right, in: graph, slots: slots) == "aws_subnet.b")
+    }
+
+    @Test func modulesSayWhatTheyHold() {
+        let inner = TerraformGraph(nodes: [Self.node("aws_eks_cluster.a"), Self.node("aws_eks_node_group.b"), Self.node("aws_iam_role.c"),
+                                           Self.node("data.aws_region.r", kind: .data), Self.node("module.x", kind: .module)])
+        let summary = TerraformModuleSummary(inner)
+        #expect(summary.resources == 3 && summary.dataSources == 1 && summary.modules == 1)
+        #expect(summary.services == ["EKS", "IAM"])
+        #expect(summary.text == "3 resources, 1 module")
+        #expect(TerraformModuleSummary(TerraformGraph(nodes: [Self.node("aws_vpc.a")])).text == "1 resource")
+        #expect(TerraformDiagramView.counts(inner) == "3 resources, 1 module, 1 data source")
+        #expect(TerraformDiagramView.counts(TerraformGraph(nodes: [])) == "No blocks")
+    }
+
+    @Test func servicesHaveAFamily() {
+        #expect(TerraformNodeStyle.of(Self.node("aws_vpc.a")).category == .network)
+        #expect(TerraformNodeStyle.of(Self.node("aws_iam_role.a")).category == .security)
+        #expect(TerraformNodeStyle.of(Self.node("aws_s3_bucket.a")).category == .storage)
+        #expect(TerraformNodeStyle.of(Self.node("aws_eks_cluster.a")).category == .compute)
+        #expect(TerraformNodeStyle.of(Self.node("module.a", kind: .module)).category == .module)
+        #expect(TerraformNodeStyle.of(Self.node("cloudflare_record.a")).category == .other)
+    }
+
+    @Test func minimapKeepsTheDiagramsShape() {
+        let size = DiagramMinimap.size(for: CGSize(width: 3600, height: 900))
+        let inner = CGSize(width: size.width - DiagramMinimap.padding * 2, height: size.height - DiagramMinimap.padding * 2)
+        #expect(inner.width <= 180.001 && inner.height <= 110.001)
+        #expect(abs(inner.width / inner.height - 4) < 0.01)
+    }
+}

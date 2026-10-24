@@ -304,11 +304,20 @@ private extension TerraformGraph.Node {
 // MARK: - Layout
 
 /// Columns from left to right: a node sits one column after the furthest node it depends on, so every edge points
-/// right. Within a column, nodes are ordered near the nodes they connect to (a few barycenter sweeps).
+/// right. A link that crosses several columns gets an invisible stop in each, so it runs between the blocks instead of
+/// under them. Within a column, nodes are ordered near the nodes they connect to (a few barycenter sweeps).
 enum TerraformGraphLayout {
     struct Slot: Equatable { let column: Int; let row: Double }
 
-    static func slots(_ graph: TerraformGraph) -> [String: Slot] {
+    struct Layout: Equatable {
+        var slots: [String: Slot]
+        /// The stops of the links that cross more than one column, in order.
+        var waypoints: [TerraformGraph.Edge: [Slot]]
+    }
+
+    static func slots(_ graph: TerraformGraph) -> [String: Slot] { layout(graph).slots }
+
+    static func layout(_ graph: TerraformGraph) -> Layout {
         let byId = Dictionary(uniqueKeysWithValues: graph.nodes.map { ($0.id, $0) })
         var rank: [String: Int] = [:]
         var visiting = Set<String>()
@@ -325,22 +334,37 @@ enum TerraformGraphLayout {
         let last = rank.values.max() ?? 0
         for n in graph.nodes where n.kind == .output { rank[n.id] = max(rank[n.id] ?? 0, last) }
 
-        let columnCount = (rank.values.max() ?? -1) + 1
+        var column = rank
+        var before: [String: [String]] = [:], after: [String: [String]] = [:]
+        var chains: [TerraformGraph.Edge: [String]] = [:]
+        func link(_ a: String, _ b: String) { after[a, default: []].append(b); before[b, default: []].append(a) }
+        for e in graph.edges {
+            guard let a = rank[e.from], let b = rank[e.to] else { continue }
+            var previous = e.from
+            if b - a > 1 {
+                let stops = ((a + 1)..<b).map { "\u{1}\(e.from)>\(e.to)#\($0)" }
+                for (c, stop) in zip((a + 1)..<b, stops) { column[stop] = c; link(previous, stop); previous = stop }
+                chains[e] = stops
+            }
+            link(previous, e.to)
+        }
+
+        let columnCount = (column.values.max() ?? -1) + 1
         var columns: [[String]] = Array(repeating: [], count: columnCount)
         for n in graph.nodes.sorted(by: { ($0.kind, $0.id) < ($1.kind, $1.id) }) { columns[rank[n.id] ?? 0].append(n.id) }
+        for stop in column.keys.filter({ byId[$0] == nil }).sorted() { columns[column[stop]!].append(stop) }
 
-        let dependents = Dictionary(grouping: graph.edges, by: \.from).mapValues { $0.map(\.to) }
         func position(in cols: [[String]]) -> [String: Int] {
             var p: [String: Int] = [:]
             for col in cols { for (i, id) in col.enumerated() { p[id] = i } }
             return p
         }
-        for sweep in 0..<4 {
+        for sweep in 0..<6 {
             let p = position(in: columns)
             let order = sweep % 2 == 0 ? Array(columns.indices.dropFirst()) : Array(columns.indices.dropLast().reversed())
             for c in order {
                 func center(_ id: String) -> Double {
-                    let near = sweep % 2 == 0 ? byId[id]?.dependencies ?? [] : dependents[id] ?? []
+                    let near = sweep % 2 == 0 ? before[id] ?? [] : after[id] ?? []
                     let known = near.compactMap { p[$0] }
                     return known.isEmpty ? Double(p[id] ?? 0) : Double(known.reduce(0, +)) / Double(known.count)
                 }
@@ -349,12 +373,13 @@ enum TerraformGraphLayout {
         }
         // Columns are centered on the tallest one.
         let tallest = columns.map(\.count).max() ?? 0
-        var slots: [String: Slot] = [:]
+        var all: [String: Slot] = [:]
         for (c, col) in columns.enumerated() {
             let offset = Double(tallest - col.count) / 2
-            for (r, id) in col.enumerated() { slots[id] = Slot(column: c, row: Double(r) + offset) }
+            for (r, id) in col.enumerated() { all[id] = Slot(column: c, row: Double(r) + offset) }
         }
-        return slots
+        return Layout(slots: all.filter { byId[$0.key] != nil },
+                      waypoints: chains.mapValues { $0.compactMap { all[$0] } })
     }
 }
 

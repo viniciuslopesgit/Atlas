@@ -118,21 +118,15 @@ enum Snapshots {
         resource "aws_cloudwatch_log_group" "app" { name = module.cluster.name }
         """
         let graph = TerraformConfig.link(TerraformConfig.blocks(in: hcl, file: "main.tf"))
-        let slots = TerraformGraphLayout.slots(graph)
-        let size = TerraformDiagramView.contentSize(slots)
-        let w = TerraformDiagramView.nodeSize.width, h = TerraformDiagramView.nodeSize.height
-        let sp = TerraformDiagramView.spacing, m = TerraformDiagramView.margin
-        let centers = slots.mapValues { CGPoint(x: m + CGFloat($0.column) * (w + sp.width) + w / 2, y: m + CGFloat($0.row) * (h + sp.height) + h / 2) }
-        return ZStack(alignment: .topLeading) {
-            DiagramEdges(edges: graph.edges, centers: centers, focus: "module.cluster").frame(width: size.width, height: size.height)
-            ForEach(graph.nodes) { node in
-                DiagramNode(node: node, style: .of(node), isSelected: node.id == "module.cluster")
-                    .frame(width: w, height: h).position(centers[node.id]!)
-            }
-        }
-        .frame(width: size.width, height: size.height)
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
-        .card(radius: Radius.tile)
+        let scene = DiagramScene(graph)
+        let cluster = TerraformModuleSummary(TerraformConfig.link(TerraformConfig.blocks(in: """
+        resource "aws_eks_cluster" "this" {}
+        resource "aws_eks_node_group" "this" {}
+        resource "aws_iam_role" "nodes" {}
+        """, file: "eks.tf")))
+        return DiagramContent(scene: scene, selection: "module.cluster", hovered: nil, matches: nil, modules: ["module.cluster": cluster])
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+            .card(radius: Radius.tile)
     }
 
     private static var stacks: some View {

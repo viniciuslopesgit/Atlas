@@ -15,6 +15,8 @@ enum Palette {
     /// "Slate" — neutral or terminated states.
     static let neutral = adaptive(light: 0x6B7682, dark: 0x8D98A4)
     static let purple = adaptive(light: 0x6E5BB8, dark: 0xA594E8)
+    /// "Fjord" — networks, in the Terraform diagram.
+    static let blue = adaptive(light: 0x2F6DB5, dark: 0x6FA3E8)
 
     static func ec2State(_ state: String) -> Color {
         switch state {
