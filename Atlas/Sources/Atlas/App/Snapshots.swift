@@ -133,9 +133,12 @@ enum Snapshots {
             .card(radius: Radius.tile)
     }
 
+    /// `ATLAS_SNAPSHOT_OPEN` opens a block (or `module:<path>`) as double-clicking it does.
     private static func diagram(folder: URL) -> some View {
-        DiagramContent(scene: DiagramScene(architecture: TerraformArchitecture(TerraformStack.load(root: folder))),
-                       selection: ProcessInfo.processInfo.environment["ATLAS_SNAPSHOT_SELECT"], hovered: nil, matches: nil, modules: [:])
+        let env = ProcessInfo.processInfo.environment
+        let open = env["ATLAS_SNAPSHOT_OPEN"].map { $0.hasPrefix("module:") ? TerraformDiagramView.Focus.Target.module(String($0.dropFirst(7))) : .block($0) }
+        let scene = TerraformDiagramView.scene(mode: .architecture, stack: TerraformStack.load(root: folder), graph: nil, hidden: [], focus: open)!
+        return DiagramContent(scene: scene, selection: env["ATLAS_SNAPSHOT_SELECT"], hovered: nil, matches: nil, modules: [:])
             .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
             .card(radius: Radius.tile)
     }

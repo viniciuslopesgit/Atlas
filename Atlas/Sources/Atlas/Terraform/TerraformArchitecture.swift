@@ -325,7 +325,9 @@ struct TerraformArchitecture: Sendable, Equatable {
 
     static func provider(_ type: String) -> String { type.split(separator: "_").first.map(String.init) ?? type }
 
-    init(_ stack: TerraformStack, showData: Bool = true) {
+    /// `only`, when given, keeps the cards it names and the boxes around them (see `related(to:)`): the view of one
+    /// block opened from the whole stack.
+    init(_ stack: TerraformStack, showData: Bool = true, only: Set<String>? = nil) {
         let graph = stack.graph
         self.graph = graph
         self.modules = stack.modules
@@ -374,7 +376,8 @@ struct TerraformArchitecture: Sendable, Equatable {
         enum Place: Hashable { case global, region, vpc(String), subnet(String), spread(String, Kind), existing(String), cluster(String), outside }
         var places: [Place: [String]] = [:]
         let boxNodes = Set(vpcs + subnets + clusters + existing)
-        for n in graph.nodes where (n.kind == .resource || (n.kind == .data && showData)) && foldedInto[n.id] == nil && !boxNodes.contains(n.id) {
+        for n in graph.nodes where (n.kind == .resource || (n.kind == .data && showData)) && foldedInto[n.id] == nil && !boxNodes.contains(n.id)
+            && only?.contains(n.id) != false {
             let provider = Self.provider(n.type)
             let place: Place
             if Self.clusterProviders.contains(provider) || (n.type.hasPrefix("aws_eks_") && n.type != "aws_eks_node_group") {
@@ -467,12 +470,34 @@ struct TerraformArchitecture: Sendable, Equatable {
         var top = [Box(id: "cloud", kind: .cloud, title: "AWS Cloud", children: cloud, isRow: true)]
         let outside = cards(.outside)
         if !outside.isEmpty { top.append(Box(id: "outside", kind: .outside, title: "Outside AWS", subtitle: "Other Terraform providers", cards: outside)) }
+        // A box stays when something is drawn in it or it stands for a block shown; the whole stack keeps its region.
         func prune(_ b: Box) -> Box? {
             var b = b
             b.children = b.children.compactMap(prune)
-            return b.isEmpty && b.kind != .region ? nil : b
+            let shown = b.node.map { only?.contains($0) != false } ?? false
+            let empty = b.cards.isEmpty && b.children.isEmpty && !shown
+            return empty && (b.kind != .region || only != nil) ? nil : b
         }
-        root = prune(Box(id: "root", kind: .group, title: "", children: top))!
+        root = prune(Box(id: "root", kind: .group, title: "", children: top)) ?? Box(id: "root", kind: .group, title: "")
+    }
+
+    /// What opening a block shows: the block, what it uses and what uses it (its attached blocks' links included) and,
+    /// for a block drawn as a box (a VPC, a subnet, an EKS cluster), everything inside it.
+    func related(to id: String) -> Set<String> {
+        let id = foldedInto[id] ?? id
+        var ids: Set<String> = [id]
+        for one in [id] + (folded[id] ?? []) {
+            ids.formUnion(graph.node(one)?.dependencies ?? [])
+            ids.formUnion(graph.dependents(of: one))
+        }
+        func inside(_ b: Box) -> [String] { b.cards + b.children.flatMap(inside) }
+        for b in boxes where b.node == id { ids.formUnion(inside(b)) }
+        return Set(ids.map { foldedInto[$0] ?? $0 })
+    }
+
+    /// Every block of a module of the stack (`cluster`, `cluster/shim`), the modules it calls included.
+    func blocks(inModule path: String) -> Set<String> {
+        Set(modules.filter { $0.value == path || $0.value.hasPrefix(path + "/") }.keys.map { foldedInto[$0] ?? $0 })
     }
 
     /// How many leading characters two types share.

@@ -33,6 +33,11 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
   its page in the Terraform Registry documentation. Move with two fingers or by dragging, zoom with a pinch,
   ⌘-scroll or ⌘+ / ⌘−, fit with ⌘0 or a double-click, follow the cards with the arrow keys, find a block by name,
   and jump around a large stack with the overview in the corner
+- In the Architecture view, double-click any block (or select it and press Return or Open) to see only that block
+  with what it uses, what uses it and what is inside it: opening the EKS cluster shows its node groups in their
+  subnets, its security group, its IAM role and its Kubernetes and Helm resources. Open any block from there to go
+  further, open a block's module from its Module row to see all of the module, and go back with Back (⌘[) or the path
+  above the diagram
 
 ### Changed
 - Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against
@@ -69,6 +74,8 @@ adds the resources to the open project or to a stack. A stack's runs open as a t
 - A downloaded run log is readable only by you, and errors in the system log no longer show AWS error details
 
 ### Fixed
+- Opening a large stack's Diagram tab no longer freezes Atlas: moving the pointer over the diagram no longer redraws
+  every block, the diagram is built away from the main thread, and the blocks are drawn flat
 - The stack diagram read files saved with Windows line endings (CR LF) as one line and left out every block in
   them
 - Import into a stack whose configuration already sets up the AWS provider or a backend (for example state in an S3
