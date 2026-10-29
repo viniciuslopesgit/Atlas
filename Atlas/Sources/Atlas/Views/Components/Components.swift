@@ -48,8 +48,11 @@ enum Typo {
     static let pageTitle = Font.system(size: 20, weight: .medium)
     static let sectionTitle = Font.system(size: 12, weight: .regular)
     /// Titles of sheets, inspectors and side panels: a step below the page title, never bold or expanded.
-    static let panelTitle = Font.system(size: 15, weight: .medium)
-    static func figure(_ size: CGFloat, weight: Font.Weight = .light) -> Font {
+    /// Size and weight of panel titles and figures: Fonts themselves only compare equal on some macOS versions.
+    static let panelTitleStyle: (size: CGFloat, weight: Font.Weight) = (15, .medium)
+    static let figureWeight: Font.Weight = .light
+    static let panelTitle = Font.system(size: panelTitleStyle.size, weight: panelTitleStyle.weight)
+    static func figure(_ size: CGFloat, weight: Font.Weight = figureWeight) -> Font {
         .system(size: size, weight: weight).monospacedDigit()
     }
 }

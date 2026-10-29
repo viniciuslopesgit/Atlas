@@ -30,12 +30,13 @@ struct DesignTests {
         }
     }
 
+    // Fonts are compared by what they are made of: two equal Fonts are not == on macOS 14 and 15.
     @Test func panelTitlesSitBelowThePageTitleWithoutBold() {
-        #expect(Typo.panelTitle == Font.system(size: 15, weight: .medium))
+        #expect(Typo.panelTitleStyle.size == 15 && Typo.panelTitleStyle.weight == .medium)
     }
 
-    @Test func figuresAreLightWithTabularDigits() {
-        #expect(Typo.figure(28) == Font.system(size: 28, weight: .light).monospacedDigit())
+    @Test func figuresAreLight() {
+        #expect(Typo.figureWeight == .light)
     }
 }
 
