@@ -30,6 +30,8 @@ class MinimumMacOSTests(unittest.TestCase):
         ci = read(CI)
         job = re.search(r"\n  macos12:\n(.*?)\n  release:", ci, re.S).group(1)
         self.assertIn("vars.MACOS12_RUNNER", job)
+        # The scripts it runs must be checked out (a one-line sparse-checkout list left them out).
+        self.assertNotIn("sparse-checkout", job)
         self.assertIn("min-os.sh", job)
         self.assertIn("selftest.sh", job)
         self.assertIn("needs: [check, macos12]", ci)

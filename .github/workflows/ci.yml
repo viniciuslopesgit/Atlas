@@ -128,10 +128,7 @@ jobs:
     runs-on: ${{ vars.MACOS12_RUNNER && fromJSON(vars.MACOS12_RUNNER) || 'macos-15' }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: Atlas/scripts/min-os.sh Atlas/scripts/selftest.sh Atlas/Package.swift
-          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4 # min-os.sh, selftest.sh and Package.swift
 
       - uses: actions/download-artifact@v4
         with:
