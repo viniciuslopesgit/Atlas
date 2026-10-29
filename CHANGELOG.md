@@ -13,7 +13,8 @@ they loaded from AWS for each account and region: going back to EC2, S3, IAM, Cl
 the Dashboard shows it at once and loads it again after 3 minutes, after a change made on the page, or with Refresh
 (⌘R). Infrastructure as Code is now its own menu in the sidebar, below Stacks, and Import from AWS lives there: it
 adds the resources to the open project or to a stack. A stack's runs open as a timeline of their phases. Atlas also
-has a new icon, which the Dock and Finder show in full.
+has a new icon, which the Dock and Finder show in full, and it now runs on macOS 12 Monterey and macOS 13 Ventura,
+not only macOS 14 or later.
 
 ### Added
 - Import from AWS, in Infrastructure as Code, can add the resources to a stack: the stack imports them in its
@@ -41,6 +42,10 @@ has a new icon, which the Dock and Finder show in full.
   above the diagram
 
 ### Changed
+- Atlas runs on macOS 12 Monterey or later (it needed macOS 14). On macOS 12 the cost charts are replaced by a note
+  (Swift Charts needs macOS 13), EC2 metrics are drawn as simple lines, the S3 and GuardDuty tables show Open and
+  Actions buttons for the selected rows instead of a right-click menu and double-click, and the side panels have a
+  fixed width; everything else works the same
 - A new app icon: the Atlas star on a Meridian squircle, over the meridians and parallels of an atlas page. It has
   the macOS icon shape, so the Dock and Finder show it in full instead of inside a grey frame, and each size is
   drawn on its own, sharp from 16 to 1024 pixels

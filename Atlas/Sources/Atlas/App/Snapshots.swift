@@ -6,6 +6,7 @@ import AppKit
 enum Snapshots {
     static let folder = ProcessInfo.processInfo.environment["ATLAS_SNAPSHOT"].map { URL(fileURLWithPath: $0) }
 
+    @available(macOS 13, *) // ImageRenderer
     static func render(to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var pages: [(String, AnyView)] = [

@@ -420,7 +420,7 @@ struct TerminalPanel: View {
             ScrollView([.vertical, .horizontal]) {
                 TerminalLines(lines: lines)
             }
-            .onChange(of: lines.last?.id) { _, id in if let id { proxy.scrollTo(id, anchor: .bottom) } }
+            .onChange(of: lines.last?.id) { id in if let id { proxy.scrollTo(id, anchor: .bottom) } }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
@@ -545,7 +545,7 @@ struct ImportFromAwsSheet: View {
                 Toggle("Include AWS-managed resources (default VPC and subnets, service-linked roles…)", isOn: $includeAwsManaged)
             }
         }
-        .formStyle(.grouped)
+        .groupedForm()
     }
 
     private func results(_ a: ImportAnalysis) -> some View {

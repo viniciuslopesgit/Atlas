@@ -163,11 +163,11 @@ enum TerraformConfig {
                 let prefix = kind == .module ? "module" : kind == .variable ? "var" : "output"
                 var n = TerraformGraph.Node(id: "\(prefix).\(m[1])", kind: kind, type: "", name: m[1], file: file, line: i + 1, source: raw)
                 if kind == .module {
-                    n.moduleSource = body.firstMatch(of: #/(?m)^\s*source\s*=\s*"([^"]*)"/#).map { String($0.1) }
+                    n.moduleSource = body.firstMatch(#"(?m)^\s*source\s*=\s*"([^"]*)""#).map { String($0[1]) }
                     n.repeated = topAttribute(body, ["count", "for_each"]).first
                 }
                 if kind == .variable {
-                    n.defaultValue = attributes(body)["default"]?.wholeMatch(of: #/"([^"$]*)"/#).map { String($0.1) }
+                    n.defaultValue = attributes(body)["default"]?.wholeMatch(#""([^"$]*)""#).map { String($0[1]) }
                 }
                 nodes.append(n.withBody(body))
             } else if match(localsBlock, trimmed) != nil {
@@ -427,7 +427,7 @@ enum TerraformDocs {
 
     /// A resource's or data source's page, for a `hashicorp` provider.
     static func url(type: String, kind: TerraformGraph.Kind) -> URL? {
-        guard kind == .resource || kind == .data, type.wholeMatch(of: #/[a-z0-9]+_[a-z0-9_]+/#) != nil,
+        guard kind == .resource || kind == .data, type.wholeMatch(#"[a-z0-9]+_[a-z0-9_]+"#) != nil,
               let provider = type.split(separator: "_").first.map(String.init), hashicorpProviders.contains(provider) else { return nil }
         let page = type.dropFirst(provider.count + 1)
         return URL(string: "https://registry.terraform.io/providers/hashicorp/\(provider)/latest/docs/\(kind == .data ? "data-sources" : "resources")/\(page)")
@@ -436,7 +436,7 @@ enum TerraformDocs {
     /// A registry module's page (`namespace/name/provider`, optionally on registry.terraform.io).
     static func url(moduleSource source: String) -> URL? {
         let plain = source.hasPrefix("registry.terraform.io/") ? String(source.dropFirst("registry.terraform.io/".count)) : source
-        guard plain.wholeMatch(of: #/[A-Za-z0-9][A-Za-z0-9_\-]*\/[A-Za-z0-9][A-Za-z0-9_\-]*\/[a-z0-9]+/#) != nil else { return nil }
+        guard plain.wholeMatch(#"[A-Za-z0-9][A-Za-z0-9_\-]*\/[A-Za-z0-9][A-Za-z0-9_\-]*\/[a-z0-9]+"#) != nil else { return nil }
         return URL(string: "https://registry.terraform.io/modules/\(plain)/latest")
     }
 

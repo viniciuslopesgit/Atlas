@@ -236,28 +236,11 @@ if [ $FULL = 1 ]; then
         || fail "The built app's version is not $VERSION."
     ok "universal ($ARCHS), signed, version $VERSION"
 
+    step "Runs on macOS 12"
+    ./scripts/min-os.sh $APP || fail "The app would not start on the oldest macOS it supports (scripts/min-os.sh)."
+
     step "Self-test of the built app"
-    # The release binary starts with throwaway storage and in-memory secrets, opens its window and
-    # checks the code paths that protect credentials and files (ATLAS_SMOKE_TEST in AtlasApp.swift).
-    OUT=.build/check-selftest.log
-    RC=0
-    ATLAS_SMOKE_TEST=1 perl -e 'alarm shift; exec @ARGV' 120 $APP/Contents/MacOS/Atlas >$OUT 2>&1 || RC=$?
-    if [ $RC != 0 ]; then
-        tail -20 $OUT
-        SIG=""; (( RC > 128 && RC < 160 )) && SIG=" (signal $((RC - 128)))"
-        [ $RC = 142 ] && SIG=" (2 min timeout)"
-        fail "The self-test exited with code $RC$SIG (log in $OUT)."
-    fi
-    for expected in \
-        "SigV4 reference signature: true" \
-        "HCL strings cannot interpolate: true" \
-        "S3 downloads stay in the chosen folder: true" \
-        "SSM script quotes every argument: true" \
-        "Secrets kept in memory only: true" \
-        "SMOKE TEST OK"; do
-        grep -qF -- "$expected" $OUT || fail "Self-test: missing \"$expected\" (see $OUT)."
-    done
-    ok "window opened; 5 checks correct"
+    ./scripts/selftest.sh $APP .build/check-selftest.log || fail "The self-test failed."
 
     worktree_hash >.build/check-passed
 fi

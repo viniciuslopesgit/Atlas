@@ -60,10 +60,8 @@ struct Ec2View: View {
             if !selection.isEmpty { actionBar }
         }
         .padding(24)
-        .inspector(isPresented: .constant(selection.count == 1)) {
-            if let instance = selectedInstances.first {
-                InstanceDetail(instance: instance).inspectorColumnWidth(min: 340, ideal: 400, max: 520)
-            }
+        .sideInspector(isPresented: selection.count == 1, min: 340, ideal: 400, max: 520) {
+            if let instance = selectedInstances.first { InstanceDetail(instance: instance) }
         }
         .task(id: state.sessionKey) { await load() }
         .confirmationDialog(pendingAction.map { "\($0.title) \(selection.count) instance(s)?" } ?? "",
@@ -272,12 +270,12 @@ private struct InstanceDetail: View {
         if instance.state != "running" {
             Text("Metrics are available for running instances.").font(.callout).foregroundStyle(.secondary)
         } else if let m = metrics {
-            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
-                GridRow {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
                     MiniChart(title: "CPU %", points: m.cpu, format: { String(format: "%.1f%%", $0) })
                     MiniChart(title: "Disk write", points: m.diskWrite, format: { ByteFormat.string(Int64($0)) })
                 }
-                GridRow {
+                HStack(spacing: 10) {
                     MiniChart(title: "Network in", points: m.networkIn, format: { ByteFormat.string(Int64($0)) })
                     MiniChart(title: "Network out", points: m.networkOut, format: { ByteFormat.string(Int64($0)) })
                 }
@@ -300,17 +298,24 @@ private struct MiniChart: View {
                 Spacer()
                 Text(points.last.map { format($0.value) } ?? "—").font(.caption.monospacedDigit())
             }
-            Chart(points) { p in
-                AreaMark(x: .value("t", p.timestamp), y: .value("v", p.value))
-                    .foregroundStyle(Palette.accent.opacity(0.18))
-                LineMark(x: .value("t", p.timestamp), y: .value("v", p.value))
-                    .foregroundStyle(Palette.accent)
+            Group {
+                if #available(macOS 13, *) {
+                    Chart(points) { p in
+                        AreaMark(x: .value("t", p.timestamp), y: .value("v", p.value))
+                            .foregroundStyle(Palette.accent.opacity(0.18))
+                        LineMark(x: .value("t", p.timestamp), y: .value("v", p.value))
+                            .foregroundStyle(Palette.accent)
+                    }
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                } else {
+                    SparklineShape(values: points.map(\.value)).stroke(Palette.accent, lineWidth: 1.5)
+                }
             }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
             .frame(height: 50)
         }
         .padding(8)
+        .frame(maxWidth: .infinity)
         .card()
     }
 }

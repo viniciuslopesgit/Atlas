@@ -9,7 +9,7 @@
 # (bump_version.sh --auto: patch, minor or major from the Conventional Commits, this one included) and writes
 # its CHANGELOG section from the commits. To word the section yourself, run bump_version.sh first and edit it.
 # When only docs, scripts or tests changed, there is no new version. After the push, CI
-# (.github/workflows/ci.yml) runs the same full check on macOS 14 and 15 and publishes the X.Y.Z Release as a
+# (.github/workflows/ci.yml) runs the same full check on macOS 14 and 15 (and the app on macOS 12) and publishes the X.Y.Z Release as a
 # beta, with Atlas-X.Y.Z.zip and SHA256SUMS; promote.yml approves and publishes it as stable on main once it
 # meets docs/RELEASE_CRITERIA.md.
 # The commit includes every change in the folder (git add -A), which are exactly the ones that were tested.
@@ -73,7 +73,7 @@ fi
 git push -q -u origin dev
 echo "✓ Pushed to origin/dev"
 if [ $RELEASE = 1 ]; then
-    echo "• GitHub Actions now checks it on macOS 14 and 15 and publishes Atlas $VERSION as a beta:"
+    echo "• GitHub Actions now checks it on macOS 14 and 15, then on macOS 12, and publishes Atlas $VERSION as a beta:"
     echo "  https://github.com/viniciuslopesgit/Atlas/actions/workflows/ci.yml"
 fi
 

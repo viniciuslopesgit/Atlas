@@ -47,7 +47,7 @@ struct S3BucketSettingsSheet: View {
                     lifecycleSection
                     policySection
                 }
-                .formStyle(.grouped)
+                .groupedForm()
                 .disabled(isApplying)
             }
             if let error { ErrorBanner(message: error) { self.error = nil }.padding(.horizontal) }

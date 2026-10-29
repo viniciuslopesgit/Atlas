@@ -29,7 +29,7 @@ print(f"""
 
 Verify the file: `shasum -a 256 -c Atlas-{v}.dmg.sha256` in the folder where you downloaded both files.
 
-macOS 14 or later · Apple silicon and Intel.
+macOS 12 or later · Apple silicon and Intel.
 """)
 if lists:
     print(re.sub(r"^### ", "## ", lists.strip(), flags=re.M))

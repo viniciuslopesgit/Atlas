@@ -35,7 +35,7 @@ final class GuardDutyAlerts {
 
     init(folder: URL, context: @escaping () -> Context?,
          isEnabled: @escaping () -> Bool = { UserDefaults.standard.object(forKey: GuardDutyAlerts.enabledKey) as? Bool ?? true },
-         post: @escaping @MainActor (String, String) -> Void = StacksModel.notify) {
+         post: @escaping @MainActor (String, String) -> Void = { StacksModel.notify($0, $1) }) {
         file = folder.appendingPathComponent("guardduty-alerts.json")
         self.context = context
         self.isEnabled = isEnabled

@@ -18,7 +18,7 @@ This document defines the states of a version, what it takes to move from one to
 | State | Where it is | How it gets there | Who decides |
 |---|---|---|---|
 | **Alpha** | Untagged commits on `dev`; local builds | Quick check in the pre-commit hook | Whoever commits |
-| **Beta** | GitHub Release marked as pre-release, with `Atlas-X.Y.Z.zip` and `SHA256SUMS` | `Atlas/scripts/ship.sh`: new version when the app changed → local full check → commit → push `dev` → CI full check on macOS 14 and 15 → `X.Y.Z` tag and Release. A change merged on GitHub gets its version from CI's `version` job | Automatic |
+| **Beta** | GitHub Release marked as pre-release, with `Atlas-X.Y.Z.zip` and `SHA256SUMS` | `Atlas/scripts/ship.sh`: new version when the app changed → local full check → commit → push `dev` → CI full check on macOS 14 and 15 and the app on macOS 12 → `X.Y.Z` tag and Release. A change merged on GitHub gets its version from CI's `version` job | Automatic |
 | **Candidate (RC)** | The beta that `stable.sh` points to as candidate | Every automatic criterion in section 3.3 met | Automatic |
 | **Stable** | "Atlas X.Y.Z (stable version)" commit on `main`; Release published as stable (**Latest**), with the stable notes | `promote.yml` (every 6 h) runs `Atlas/scripts/stable.sh --apply`: new full check in a clean copy of the tag, build and self-test of `main`'s content, Pull Request with merge | Automatic for every version: the rules approve it. A person can only stop it, with a `hold-release` issue |
 
@@ -61,7 +61,7 @@ The README's download link points to **Latest**, which is always the latest stab
 | R3 | A published version never changes: if the app changed since its tag, the version must be bumped | B | Check output |
 | R4 | Universal app (arm64 + x86_64), signed, right version | B | `lipo`, `codesign --verify` |
 | R5 | Self-test of the built release binary: it opens its window with throwaway storage and in-memory secrets, and 5 security checks give the expected result | B | `.build/check-selftest.log` |
-| R6 | The same full check on GitHub's macOS 14 and macOS 15 runners | B | CI run |
+| R6 | The same full check on GitHub's macOS 14 and macOS 15 runners, and the checked app built for macOS 12 (`min-os.sh`, started there with a macOS 12 runner) | B | CI run |
 
 ### 3.3 To become a candidate (`stable.py`)
 

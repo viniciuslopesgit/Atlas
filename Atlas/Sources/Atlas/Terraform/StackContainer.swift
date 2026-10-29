@@ -226,8 +226,8 @@ printf '{"kind":"ExecCredential","apiVersion":"%s","spec":{},"status":{"expirati
 
         /// Reads Docker's and Apple container's JSON, and plain label lists.
         init(inspect output: String) {
-            isCurrent = output.firstMatch(of: #/io\.cloud-atlas\.layout"?\s*[:=]\s*"?(\d+)/#).map { Int($0.1) == StackContainer.layout } ?? false
-            isRunning = output.firstMatch(of: #/"Running"\s*:\s*true|"status"\s*:\s*"running"/#) != nil
+            isCurrent = output.firstMatch(#"io\.cloud-atlas\.layout"?\s*[:=]\s*"?(\d+)"#).map { Int($0[1]) == StackContainer.layout } ?? false
+            isRunning = output.firstMatch(#""Running"\s*:\s*true|"status"\s*:\s*"running""#) != nil
         }
     }
 

@@ -296,9 +296,11 @@ struct TerraformDiagramTests {
     /// Regression: a diagram larger than the view (any real stack in the Architecture view) made the view as large and
     /// centred it, so the diagram, the zoom controls and the inspector were drawn out of sight and the tab looked blank
     /// and frozen. The stage keeps the size it is given and starts the diagram at its top-left corner.
-    @Test @MainActor func aDiagramLargerThanTheViewKeepsTheViewsSize() throws {
+    /// On macOS 12 (no Layout) the holder does the same with an overlay.
+    @available(macOS 13, *) // ImageRenderer: the tests run on a newer macOS
+    @Test(arguments: [true, false]) @MainActor func aDiagramLargerThanTheViewKeepsTheViewsSize(useLayout: Bool) throws {
         let diagram = Color(red: 1, green: 0, blue: 0).frame(width: 40, height: 40).frame(width: 3000, height: 2000, alignment: .topLeading)
-        let stage = ImageRenderer(content: DiagramStage { diagram }.background(Color.white))
+        let stage = ImageRenderer(content: DiagramHolder(useLayout: useLayout) { diagram }.background(Color.white))
         stage.proposedSize = ProposedViewSize(width: 300, height: 200)
         let image = try #require(stage.cgImage)
         #expect(image.width == 300 && image.height == 200)

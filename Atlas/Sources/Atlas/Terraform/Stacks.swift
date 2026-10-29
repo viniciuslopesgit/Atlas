@@ -292,9 +292,9 @@ struct DriftReport: Equatable, Sendable {
 
     /// "Plan: 0 to add, 3 to change, 0 to destroy." → "3 to change"
     static func summary(_ output: String) -> String? {
-        guard let m = output.firstMatch(of: #/Plan:\s+(.+?)\./#) else { return nil }
-        let parts = m.1.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.hasPrefix("0 ") }
-        return parts.isEmpty ? String(m.1).trimmingCharacters(in: .whitespaces) : parts.joined(separator: ", ")
+        guard let m = output.firstMatch(#"Plan:\s+(.+?)\."#) else { return nil }
+        let parts = m[1].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.hasPrefix("0 ") }
+        return parts.isEmpty ? String(m[1]).trimmingCharacters(in: .whitespaces) : parts.joined(separator: ", ")
     }
 
     /// The resource diff, from the first `# address …` line up to `Plan:`.
@@ -315,15 +315,15 @@ struct DriftReport: Equatable, Sendable {
 
     static func changes(_ output: String) -> [Change] {
         output.components(separatedBy: "\n").compactMap { line in
-            guard let m = line.firstMatch(of: #/^\s*# (\S+) (will be|must be|has been) (.+)$/#) else { return nil }
-            let what = String(m.3)
+            guard let m = line.firstMatch(#"^\s*# (\S+) (will be|must be|has been) (.+)$"#) else { return nil }
+            let what = String(m[3])
             let action: Change.Action? =
                 what.hasPrefix("created") ? .create
                 : what.hasPrefix("updated") || what.hasPrefix("changed") ? .update
                 : what.hasPrefix("replaced") || what.contains("replaced") ? .replace
                 : what.hasPrefix("destroyed") || what.hasPrefix("deleted") ? .destroy
                 : what.hasPrefix("read") ? .read : nil
-            return action.map { Change(address: String(m.1), action: $0) }
+            return action.map { Change(address: String(m[1]), action: $0) }
         }
     }
 }

@@ -80,7 +80,7 @@ struct TerraformCLI: Sendable {
     func version() async -> String? {
         let r = await run(["version", "-json"], in: FileManager.default.temporaryDirectory, timeout: 10)
         guard r.isSuccess else { return nil }
-        if let m = r.stdout.firstMatch(of: #/"terraform_version"\s*:\s*"([^"]+)"/#) { return "v\(m.1)" }
+        if let m = r.stdout.firstMatch(#""terraform_version"\s*:\s*"([^"]+)""#) { return "v\(m[1])" }
         return r.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -350,7 +350,7 @@ enum TerraformDiagnostics {
     /// Terraform 1.x `╷ … ╵` diagnostic blocks that contain an error, or legacy `Error:` lines.
     static func errors(stdout: String, stderr: String) -> [String] {
         let combined = stdout + "\n" + stderr
-        let blocks = combined.matches(of: #/(?s)╷(.*?)╵/#).map { String($0.1) }
+        let blocks = combined.allMatches(#"(?s)╷(.*?)╵"#).map { String($0[1]) }
         if !blocks.isEmpty {
             return blocks
                 .map { $0.replacingOccurrences(of: "│ ", with: "").replacingOccurrences(of: "│", with: "")

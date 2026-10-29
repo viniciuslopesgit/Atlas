@@ -95,7 +95,7 @@ struct DashboardBody: View {
             SectionHeader("Daily cost")
             if s.dailyCosts.isEmpty {
                 Text("No cost data for this period.").foregroundStyle(.secondary).frame(height: 220)
-            } else {
+            } else if #available(macOS 13, *) {
                 Chart(s.dailyCosts) { d in
                     BarMark(x: .value("Day", d.date, unit: .day), y: .value("Cost", d.amount))
                         .foregroundStyle(Color.primary.opacity(0.22))
@@ -109,6 +109,8 @@ struct DashboardBody: View {
                     AxisValueLabel { if let d = v.as(Double.self) { Text(Fmt.money(d, s.currency)) } }
                 } }
                 .frame(height: 240)
+            } else {
+                ChartUnavailable().frame(height: 240)
             }
         }
     }

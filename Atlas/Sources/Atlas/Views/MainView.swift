@@ -6,13 +6,43 @@ struct MainView: View {
     @State private var showDockerSetup = false
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: Binding(get: { state.page?.menu }, set: { if let menu = $0 { state.open(menu) } })) {
-                ForEach(SidebarMenu.allCases) { menu in SidebarRow(menu: menu).tag(menu) }
+        split
+        .sheet(isPresented: $state.showSearch) { SearchSheet() }
+        .environmentObject(state.stacks)
+        .sheet(isPresented: $showDockerSetup, onDismiss: { dockerPrompted = true }) { DockerSetupSheet() }
+        .onAppear {
+            state.stacks.startScheduler()
+            state.guardDutyAlerts.start()
+            // First launch: with Docker there is nothing to say; without it, offer Docker Desktop once.
+            if !dockerPrompted && !SmokeTest.isEnabled && state.stacks.runtime == nil { showDockerSetup = true }
+        }
+    }
+
+    /// The sidebar and the page: NavigationSplitView from macOS 13, NavigationView on macOS 12.
+    @ViewBuilder
+    private var split: some View {
+        if #available(macOS 13, *) {
+            NavigationSplitView {
+                sidebar.navigationSplitViewColumnWidth(min: 190, ideal: 210)
+            } detail: {
+                detail
             }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 210)
-            .safeAreaInset(edge: .bottom) { AccountFooter() }
-        } detail: {
+        } else {
+            NavigationView {
+                sidebar.frame(minWidth: 190, idealWidth: 210)
+                detail
+            }
+        }
+    }
+
+    private var sidebar: some View {
+        List(selection: Binding(get: { state.page?.menu }, set: { if let menu = $0 { state.open(menu) } })) {
+            ForEach(SidebarMenu.allCases) { menu in SidebarRow(menu: menu).tag(menu) }
+        }
+        .safeAreaInset(edge: .bottom) { AccountFooter() }
+    }
+
+    private var detail: some View {
             Group {
                 if state.activeAccount == nil && state.page != .settings && state.page != .feedback {
                     EmptyStateView(icon: "person.crop.circle.badge.questionmark",
@@ -48,16 +78,6 @@ struct MainView: View {
                 }
             }
             .animation(.easeOut(duration: 0.2), value: state.notice)
-        }
-        .sheet(isPresented: $state.showSearch) { SearchSheet() }
-        .environmentObject(state.stacks)
-        .sheet(isPresented: $showDockerSetup, onDismiss: { dockerPrompted = true }) { DockerSetupSheet() }
-        .onAppear {
-            state.stacks.startScheduler()
-            state.guardDutyAlerts.start()
-            // First launch: with Docker there is nothing to say; without it, offer Docker Desktop once.
-            if !dockerPrompted && !SmokeTest.isEnabled && state.stacks.runtime == nil { showDockerSetup = true }
-        }
     }
 
     @ViewBuilder

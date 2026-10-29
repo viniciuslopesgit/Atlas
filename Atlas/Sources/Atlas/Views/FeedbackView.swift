@@ -63,7 +63,7 @@ struct FeedbackView: View {
                     ForEach(Feedback.Kind.allCases) { Text($0.rawValue).tag($0) }
                 }
                 TextField("Subject", text: $feedback.subject, prompt: Text("What is it about?"))
-                LabeledContent("Description") {
+                LabeledRow("Description") {
                     TextEditor(text: $feedback.description)
                         .font(.body)
                         .frame(minHeight: 180)
@@ -73,7 +73,7 @@ struct FeedbackView: View {
                     Text(Feedback.systemInfo).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .formStyle(.grouped)
+            .groupedForm()
             .frame(maxWidth: 720)
             HStack {
                 Text("Nothing is sent by Atlas itself: Mail opens with the message ready, or the text is copied for a GitHub issue.")

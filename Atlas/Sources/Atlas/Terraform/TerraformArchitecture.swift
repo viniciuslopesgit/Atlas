@@ -181,24 +181,24 @@ private struct Resolver {
         var expr = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if expr.hasSuffix(",") { expr.removeLast() }
         if let key, let entry = TerraformConfig.entry(key, in: expr) { return literal(entry, in: scope, key: nil) }
-        if let m = expr.wholeMatch(of: #/"((?:[^"\\]|\\.)*)"/#) {
-            var value = String(m.1)
-            for part in value.matches(of: #/\$\{([^}]+)\}/#).reversed() {
-                guard let inner = literal(String(part.1), in: scope, key: nil) else { return nil }
+        if let m = expr.wholeMatch(#""((?:[^"\\]|\\.)*)""#) {
+            var value = String(m[1])
+            for part in value.allMatches(#"\$\{([^}]+)\}"#).reversed() {
+                guard let inner = literal(String(part[1]), in: scope, key: nil) else { return nil }
                 value.replaceSubrange(part.range, with: inner)
             }
             return value
         }
-        if ["true", "false"].contains(expr) || expr.wholeMatch(of: #/-?[0-9.]+/#) != nil { return expr }
-        if let m = expr.wholeMatch(of: #/var\.([A-Za-z0-9_\-]+)(?:\["([^"]+)"\])?/#) {
-            let name = String(m.1), k = m.2.map(String.init) ?? key
+        if ["true", "false"].contains(expr) || expr.wholeMatch(#"-?[0-9.]+"#) != nil { return expr }
+        if let m = expr.wholeMatch(#"var\.([A-Za-z0-9_\-]+)(?:\["([^"]+)"\])?"#) {
+            let name = String(m[1]), k = m.group(2).map(String.init) ?? key
             guard let variable = scope.byId["var.\(name)"] else { return nil }
             if let parent = scope.parent, let call = scope.call, let argument = TerraformConfig.attributes(call.body)[name] {
                 return literal(argument, in: parent, key: k)
             }
             return TerraformConfig.attributes(variable.body)["default"].flatMap { literal($0, in: scope, key: k) }
         }
-        if let m = expr.wholeMatch(of: #/local\.([A-Za-z0-9_\-]+)/#), let local = scope.byId["local.\(m.1)"] {
+        if let m = expr.wholeMatch(#"local\.([A-Za-z0-9_\-]+)"#), let local = scope.byId["local.\(m[1])"] {
             return literal(TerraformConfig.localValue(local.body), in: scope, key: key)
         }
         return nil

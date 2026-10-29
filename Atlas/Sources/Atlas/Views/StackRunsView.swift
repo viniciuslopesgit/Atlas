@@ -124,7 +124,7 @@ struct StackRunDetail: View {
             }
         }
         .onAppear { expanded = Self.initiallyExpanded(run) }
-        .onChange(of: run.phases.count) { _, count in if count > 0 { expanded.insert(count - 1) } }
+        .onChange(of: run.phases.count) { count in if count > 0 { expanded.insert(count - 1) } }
         .sheet(isPresented: Binding(present: $fullScreen)) {
             if let i = fullScreen, i < timeline.count {
                 VStack(alignment: .leading, spacing: 10) {

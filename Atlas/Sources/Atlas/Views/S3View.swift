@@ -112,7 +112,7 @@ struct S3View: View {
                 .buttonStyle(.borderless)
         }
         .padding(12)
-        .onChange(of: selectedBucket) {
+        .onChange(of: selectedBucket) { _ in
             prefix = ""
             Task { await loadObjects() }
         }
@@ -159,7 +159,7 @@ struct S3View: View {
                     TableColumn("Last modified") { o in Text(o.isFolder ? "" : Fmt.dt(o.lastModified)) }
                         .width(min: 130, ideal: 160)
                 }
-                .contextMenu(forSelectionType: String.self) { ids in
+                .selectionContextMenu(selection: selection) { ids in
                     let items = objects.filter { ids.contains($0.id) }
                     if items.count == 1, let o = items.first, !o.isFolder {
                         Button("Edit as Text…") { editing = o }.disabled(o.sizeBytes > 2_000_000)
@@ -427,7 +427,7 @@ private struct CreateBucketSheet: View {
                     }
                 }
             }
-            .formStyle(.grouped)
+            .groupedForm()
             if let error { ErrorBanner(message: error).padding(.horizontal) }
             Divider()
             HStack {
@@ -491,7 +491,7 @@ private struct S3TextEditorSheet: View {
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                TextEditor(text: $text).font(.body.monospaced()).scrollContentBackground(.hidden).padding(6)
+                TextEditor(text: $text).font(.body.monospaced()).hiddenScrollBackground().padding(6)
             }
             if let error { ErrorBanner(message: error).padding(.horizontal) }
             Divider()

@@ -125,8 +125,8 @@ enum EnvVarExtractor {
             }
             if net == 0 {
                 if depth == 3, inVars, let type, let name,
-                   let m = t.firstMatch(of: #/^(\w+)\s*=\s*"([^"]*)"\s*$/#) {
-                    let key = String(m.1), value = String(m.2)
+                   let m = t.firstMatch(#"^(\w+)\s*=\s*"([^"]*)"\s*$"#) {
+                    let key = String(m[1]), value = String(m[2])
                     if !value.trimmingCharacters(in: .whitespaces).isEmpty, !value.hasPrefix("var."),
                        let replacement = visit(raw, key, value, type, name) {
                         out.append(replacement)
@@ -138,7 +138,7 @@ enum EnvVarExtractor {
             }
             switch previous {
             case 0:
-                if let m = t.firstMatch(of: #/^resource\s+"([^"]+)"\s+"([^"]+)"/#) { type = String(m.1); name = String(m.2) }
+                if let m = t.firstMatch(#"^resource\s+"([^"]+)"\s+"([^"]+)""#) { type = String(m[1]); name = String(m[2]) }
             case 1:
                 if !inEnv, t.trimmingCharacters(in: CharacterSet(charactersIn: " \t{")) == "environment" { inEnv = true }
             case 2:
@@ -179,6 +179,6 @@ enum EnvVarExtractor {
     }
 
     static func tfName(_ s: String) -> String {
-        s.lowercased().replacing(#/[^a-z0-9]+/#, with: "_").trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+        s.lowercased().replacingMatches(#"[^a-z0-9]+"#, with: "_").trimmingCharacters(in: CharacterSet(charactersIn: "_"))
     }
 }

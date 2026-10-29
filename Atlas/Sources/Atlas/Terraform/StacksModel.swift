@@ -586,10 +586,10 @@ enum StateBackend {
         let files = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
         return files.filter { ($0.hasSuffix(".tf") || $0.hasSuffix(".tf.json")) && !except.contains($0) }.contains { name in
             guard let text = try? String(contentsOf: dir.appendingPathComponent(name), encoding: .utf8) else { return false }
-            if name.hasSuffix(".json") { return text.firstMatch(of: #/"(backend|cloud)"\s*:/#) != nil }
+            if name.hasSuffix(".json") { return text.firstMatch(#""(backend|cloud)"\s*:"#) != nil }
             return text.split(separator: "\n").contains { line in
                 let t = line.trimmingCharacters(in: .whitespaces)
-                return t.firstMatch(of: #/^(backend\s+"[^"]+"|cloud)\s*\{/#) != nil
+                return t.firstMatch(#"^(backend\s+"[^"]+"|cloud)\s*\{"#) != nil
             }
         }
     }
@@ -663,7 +663,7 @@ enum StateBucket {
             return text.split(separator: "\n").contains { line in
                 let t = line.trimmingCharacters(in: .whitespaces)
                 guard !t.hasPrefix("#"), !t.hasPrefix("//") else { return false }
-                return t.firstMatch(of: #/^(provider\s+"aws"|required_providers|backend\s+")|"(provider|backend|required_providers)"\s*:/#) != nil
+                return t.firstMatch(#"^(provider\s+"aws"|required_providers|backend\s+")|"(provider|backend|required_providers)"\s*:"#) != nil
             }
         }
     }

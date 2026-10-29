@@ -97,7 +97,7 @@ struct CreateUserSheet: View {
                 Toggle("Create an access key for programmatic access", isOn: $o.createAccessKey)
             }
         }
-        .formStyle(.grouped)
+        .groupedForm()
     }
 
     private func result(_ c: CreatedUser) -> some View {

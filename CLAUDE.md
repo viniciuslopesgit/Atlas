@@ -6,7 +6,7 @@ Native macOS app (Swift + SwiftUI) in `Atlas/`. Marketing site in `cloud-atlas.i
 - All work goes to **`dev`**. Never commit or push directly to `main`.
 - `main` only gets stable versions, from `.github/workflows/promote.yml` (`Atlas/scripts/stable.sh --apply`):
   the newest beta that meets `docs/RELEASE_CRITERIA.md`, verified again, as one commit without the files in `.mainignore`.
-- CI (`ci.yml`) runs `check.sh --full` on macOS 14 and 15 and publishes a version without a Release as a beta.
+- CI (`ci.yml`) runs `check.sh --full` on macOS 14 and 15, then starts the app on macOS 12 (oldest supported), and publishes a version without a Release as a beta.
 
 ## After every implementation (mandatory)
 1. `Atlas/scripts/ship.sh "<type>: <message>" --install` — new version when the app changed (automatic: kind from the

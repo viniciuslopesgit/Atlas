@@ -293,7 +293,7 @@ private struct StackDetail: View {
             }
             Button("Remove Stack…", role: .destructive) { confirm = .delete }.disabled(busy)
         }
-        .formStyle(.grouped)
+        .groupedForm()
     }
 }
 
@@ -427,7 +427,7 @@ private struct VariablesTab: View {
                     }
                 }
             }
-            .formStyle(.grouped)
+            .groupedForm()
         }
     }
 }
@@ -461,21 +461,21 @@ private struct NewStackSheet: View {
             Text("New Stack").font(Typo.pageTitle)
             Form {
                 TextField("Name", text: $name, prompt: Text("production-network"))
-                LabeledContent("Folder") {
+                LabeledRow("Folder") {
                     HStack {
                         Text(folder?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "None").foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle)
                         Button("Choose…", action: choose)
                     }
                 }
-                LabeledContent("Account", value: state.activeAccount?.name ?? "—")
-                LabeledContent("Region", value: state.region)
+                LabeledRow("Account", value: state.activeAccount?.name ?? "—")
+                LabeledRow("Region", value: state.region)
                 Picker("Engine", selection: $engine) { ForEach(TerraformEngine.allCases) { Text($0.label).tag($0) } }
-                LabeledContent("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
+                LabeledRow("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
                 Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
                     .help("The state holds every resource's values in plain text; in S3 it is encrypted and never in the stack's folder.")
             }
-            .formStyle(.grouped)
+            .groupedForm()
             Text("\(engine.label) runs with this account's credentials in this region, also for scheduled drift checks.")
                 .font(.caption).foregroundStyle(.secondary)
             if runtime == nil { RuntimeSetupHint() }

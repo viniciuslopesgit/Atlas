@@ -76,7 +76,7 @@ struct SettingsView: View {
                     ForEach(RegionItem.all) { Text("\($0.code) — \($0.display)").tag($0.code) }
                 }
             }
-            .formStyle(.columns)
+            .columnsForm()
 
             HStack {
                 Button {
@@ -167,7 +167,7 @@ private struct UpdateStatusView: View {
                 Button("Check for Updates Now") {
                     Updater.checkNow()
                     Task {
-                        try? await Task.sleep(for: .seconds(8))
+                        try? await Task.sleep(nanoseconds: 8_000_000_000)
                         status = Updater.status()
                     }
                 }

@@ -322,9 +322,14 @@ enum DiagramNavigation {
         guard let id, let here = slots[id] else {
             return slots.min { ($0.value.column, $0.value.row, $0.key) < ($1.value.column, $1.value.row, $1.key) }?.key
         }
+        // Spelled out: older compilers (Xcode 16) give up type-checking it as one expression.
         func closest(_ ids: [String]) -> String? {
-            ids.compactMap { i in slots[i].map { (i, $0) } }
-                .min { (abs($0.1.column - here.column), abs($0.1.row - here.row), $0.0) < (abs($1.1.column - here.column), abs($1.1.row - here.row), $1.0) }?.0
+            let candidates: [(id: String, slot: TerraformGraphLayout.Slot)] = ids.compactMap { i in slots[i].map { (i, $0) } }
+            return candidates.min { a, b in
+                let da = (abs(a.slot.column - here.column), abs(a.slot.row - here.row))
+                let db = (abs(b.slot.column - here.column), abs(b.slot.row - here.row))
+                return (da.0, da.1, a.id) < (db.0, db.1, b.id)
+            }?.id
         }
         switch direction {
         case .up:
@@ -437,7 +442,12 @@ struct DiagramScene: Equatable {
 
     /// A block, what it uses, what uses it and what is inside it, as drawn (folded blocks as the card they are in).
     func neighbourhood(of id: String) -> Set<String> {
-        let near = (byId[id]?.dependencies ?? []) + dependents(of: id) + [id] + (architecture?.folded[id] ?? []) + (inside[id] ?? [])
+        // In steps: older compilers (Xcode 16) give up type-checking it as one expression.
+        var near: [String] = byId[id]?.dependencies ?? []
+        near += dependents(of: id)
+        near.append(id)
+        near += architecture?.folded[id] ?? []
+        near += inside[id] ?? []
         return Set(near.map { geometry.aliases[$0] ?? $0 })
     }
 }
@@ -467,6 +477,8 @@ struct DiagramAnchor: NSViewRepresentable {
     final class Flipped: NSView {
         override var isFlipped: Bool { true }
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        // macOS 12 follows the pointer from AppKit's mouse-moved events, which windows only send when asked.
+        override func viewDidMoveToWindow() { window?.acceptsMouseMovedEvents = true }
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -555,18 +567,16 @@ struct TerraformDiagramView: View {
                 .frame(width: geo.size.width, height: geo.size.height)
                 .background(DiagramAnchor(pointer: pointer))
                 .clipped()
-                .onContinuousHover(coordinateSpace: .local) { phase in
-                    if case .active(let p) = phase { point(at: p) } else { point(at: nil) }
-                }
+                .onPointer { point(at: $0) }
                 .onAppear { resize(geo.size) }
-                .onChange(of: geo.size) { _, s in resize(s) }
+                .onChange(of: geo.size) { s in resize(s) }
             }
             .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
         }
         .card(radius: Radius.tile)
         .task(id: "\(mode.rawValue)|\(folder.path)") { await load() }
-        .onChange(of: mode) { _, _ in go(to: [], selecting: nil) }
-        .onChange(of: hidden) { _, _ in rebuild() }
+        .onChange(of: mode) { _ in go(to: [], selecting: nil) }
+        .onChange(of: hidden) { _ in rebuild() }
         .onAppear(perform: watchScrolling)
         .onDisappear { if let monitor { NSEvent.removeMonitor(monitor) }; monitor = nil }
     }
@@ -650,14 +660,13 @@ struct TerraformDiagramView: View {
         ZStack(alignment: .topLeading) {
             DotGrid(camera: camera).allowsHitTesting(false)
             if let scene {
-                DiagramStage {
-                    DiagramLayer(scene: scene, near: scene.near(selection), matches: matches, modules: modules,
-                                 onSelect: { select($0, reveal: true) })
-                        .equatable()
-                        .scaleEffect(camera.zoom, anchor: .topLeading)
-                        .offset(camera.pan)
-                }
-                .allowsHitTesting(false)
+                let layer = DiagramLayer(scene: scene, near: scene.near(selection), matches: matches, modules: modules,
+                                         onSelect: { select($0, reveal: true) })
+                    .equatable()
+                    .scaleEffect(camera.zoom, anchor: .topLeading)
+                    .offset(camera.pan)
+                DiagramHolder { layer }
+                    .allowsHitTesting(false)
                 DiagramHighlights(scene: scene, selection: selection, hovered: hovered, anchor: anchor, camera: camera)
                     .allowsHitTesting(false)
             }
@@ -675,10 +684,10 @@ struct TerraformDiagramView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .focusable()
-        .focusEffectDisabled()
+        .noFocusEffect()
         .focused($focused)
-        .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow, .return, .escape]) { press in key(press.key) }
-        .onTapGesture(count: 1, coordinateSpace: .local) { p in click(at: p) }
+        .onNavigationKey { key($0) }
+        .onClick { click(at: $0) }
         .gesture(DragGesture(minimumDistance: 3)
             .onChanged { v in
                 if dragStart == nil { dragStart = camera.pan; NSCursor.closedHand.push() }
@@ -786,36 +795,52 @@ struct TerraformDiagramView: View {
         if let id = scene?.geometry.node(at: camera.content(p)) { open(id) } else { fit(animated: true) }
     }
 
-    private func key(_ key: KeyEquivalent) -> KeyPress.Result {
+    /// Whether the key was used.
+    private func key(_ key: NavigationKey) -> Bool {
         switch key {
         case .escape:
-            guard selection != nil else { return .ignored }
+            guard selection != nil else { return false }
             selection = nil
-        case .return:
-            guard let id = selection else { return .ignored }
+        case .enter:
+            guard let id = selection else { return false }
             open(id)
         default:
-            guard let scene else { return .ignored }
-            let direction: DiagramNavigation.Direction = key == .leftArrow ? .left : key == .rightArrow ? .right : key == .upArrow ? .up : .down
+            guard let scene else { return false }
+            let direction: DiagramNavigation.Direction = key == .left ? .left : key == .right ? .right : key == .up ? .up : .down
             let from = selection.map { scene.geometry.aliases[$0] ?? $0 }
             let next = scene.layout.map { DiagramNavigation.next(from: from, direction, in: scene.graph, slots: $0.slots) }
                 ?? DiagramNavigation.nearest(from: from, direction, centers: scene.geometry.centers)
-            guard let next else { return .handled }
+            guard let next else { return true }
             select(next, reveal: true)
         }
-        return .handled
+        return true
     }
 
     /// Two-finger scrolling moves the diagram; with ⌘ (or a pinch) it zooms around the pointer. Only over the diagram,
     /// not over the inspector, which scrolls on its own. A double-click opens the block under it.
+    /// On macOS 12, which has no located hover and taps (13) or key presses (14), the pointer, clicks and keys too.
     private func watchScrolling() {
         guard monitor == nil else { return }
         let pointer = pointer
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify, .leftMouseDown]) { event in
+        var events: NSEvent.EventTypeMask = [.scrollWheel, .magnify, .leftMouseDown]
+        if !OS.hasMacOS13 { events.formUnion([.mouseMoved, .leftMouseUp]) }
+        if !OS.hasMacOS14 { events.insert(.keyDown) }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: events) { event in
+            if event.type == .keyDown {
+                guard focused, let k = NavigationKey(keyCode: event.keyCode), key(k) else { return event }
+                return nil
+            }
+            if event.type == .mouseMoved {
+                point(at: pointer.location(of: event))
+                return event
+            }
             guard let p = pointer.location(of: event), scene != nil, !overOverlay(p) else { return event }
             switch event.type {
             case .leftMouseDown:
                 if event.clickCount == 2 { doubleClick(at: p) }
+                return event
+            case .leftMouseUp:
+                if event.clickCount == 1 && dragStart == nil { click(at: p) }
                 return event
             case .magnify:
                 camera.zoom(to: camera.zoom * (1 + event.magnification), around: p)
@@ -1060,6 +1085,22 @@ struct DiagramLayer: View, Equatable {
 /// Holds the diagram at its own size from the view's top-left corner without letting it size the view. Laid out like
 /// any other view, a diagram larger than the view made the view as large and centred it, which pushed the diagram,
 /// the zoom controls and the inspector out of sight.
+/// DiagramStage from macOS 13; on macOS 12, which has no Layout, an overlay, which does not size the view it is laid
+/// over either.
+struct DiagramHolder<Content: View>: View {
+    var useLayout = OS.hasMacOS13
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        if useLayout, #available(macOS 13, *) {
+            DiagramStage { content }
+        } else {
+            Color.clear.overlay(alignment: .topLeading) { content.fixedSize() }
+        }
+    }
+}
+
+@available(macOS 13, *)
 struct DiagramStage: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         proposal.replacingUnspecifiedDimensions()

@@ -9,7 +9,7 @@ Thank you for your interest. Atlas holds AWS credentials and can change real inf
 
 ## Setup
 
-Requires macOS 14 or later and the Xcode Command Line Tools (`xcode-select --install`), or Xcode.
+Requires macOS 14 or later to build (Atlas itself runs from macOS 12) and the Xcode Command Line Tools (`xcode-select --install`), or Xcode.
 
 ```bash
 git clone -b dev https://github.com/viniciuslopesgit/Atlas.git
@@ -31,7 +31,7 @@ More in [docs/development.md](docs/development.md).
 6. **No dependencies.** The AWS client (SigV4 and the protocols) lives in `Atlas/Sources/Atlas/AWS/`. A new dependency needs an issue first (MIT-compatible license, maintenance, real need).
 7. **Conventional Commits** (`feat:`, `fix:`, …), checked by the `commit-msg` hook. Code, comments, commits and CHANGELOG in English.
 
-CI runs `Atlas/scripts/check.sh --full` on macOS 14 and 15 on every Pull Request to `dev`, and it must pass.
+CI runs `Atlas/scripts/check.sh --full` on macOS 14 and 15, and the built app on macOS 12, on every Pull Request to `dev`, and it must pass.
 
 ## Reporting bugs
 

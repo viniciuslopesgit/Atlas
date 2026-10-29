@@ -138,8 +138,8 @@ struct GuardDutyView: View {
             }
         }
         .padding(24)
-        .inspector(isPresented: .constant(selected.count == 1)) {
-            if selected.count == 1, let f = selected.first { inspector(f).inspectorColumnWidth(min: 320, ideal: 380) }
+        .sideInspector(isPresented: selected.count == 1, min: 320, ideal: 380) {
+            if selected.count == 1, let f = selected.first { inspector(f) }
         }
         .confirmationDialog(showArchived ? "Unarchive \(pendingChange?.count ?? 0) finding(s)?" : "Archive \(pendingChange?.count ?? 0) finding(s)?",
                             isPresented: Binding(present: $pendingChange), presenting: pendingChange) { items in
@@ -194,7 +194,7 @@ struct GuardDutyView: View {
             TableColumn("Count") { f in Text("\(f.count)").monospacedDigit() }.width(min: 44, ideal: 56)
             TableColumn("Last seen") { f in Text(Fmt.dt(f.lastSeen ?? f.updatedAt)) }.width(min: 130, ideal: 160)
         }
-        .contextMenu(forSelectionType: String.self) { ids in
+        .selectionContextMenu(selection: selection) { ids in
             let items = findings.filter { ids.contains($0.id) }
             Button("Copy Finding ID") { copy(items.map(\.id).joined(separator: "\n")) }
             Divider()
@@ -375,7 +375,7 @@ struct SecurityAuditView: View {
             .padding(24)
         }
         .overlay { LoadingOverlay(isLoading: isRunning && result == nil) }
-        .onChange(of: state.sessionKey) { result = nil }
+        .onChange(of: state.sessionKey) { _ in result = nil }
     }
 
     private func run() async {
@@ -421,15 +421,19 @@ struct BillingView: View {
                         .frame(maxWidth: 320)
                     VStack(alignment: .leading) {
                         SectionHeader("Monthly cost")
-                        Chart(r.entries) { e in
-                            BarMark(x: .value("Month", e.month, unit: .month), y: .value("Cost", e.amount))
-                                .foregroundStyle(by: .value("Group", e.service))
+                        if #available(macOS 13, *) {
+                            Chart(r.entries) { e in
+                                BarMark(x: .value("Month", e.month, unit: .month), y: .value("Cost", e.amount))
+                                    .foregroundStyle(by: .value("Group", e.service))
+                            }
+                            .chartForegroundStyleScale(domain: r.topServices)
+                            .chartXAxis { AxisMarks(values: .stride(by: .month)) { _ in
+                                AxisGridLine(); AxisValueLabel(format: .dateTime.month(.abbreviated).year(.twoDigits))
+                            } }
+                            .frame(height: 300)
+                        } else {
+                            ChartUnavailable().frame(height: 300)
                         }
-                        .chartForegroundStyleScale(domain: r.topServices)
-                        .chartXAxis { AxisMarks(values: .stride(by: .month)) { _ in
-                            AxisGridLine(); AxisValueLabel(format: .dateTime.month(.abbreviated).year(.twoDigits))
-                        } }
-                        .frame(height: 300)
                     }
                     .padding(16)
                     .card()
@@ -446,6 +450,14 @@ struct BillingView: View {
     private func breakdownTable(_ r: BillingReport) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionHeader("Breakdown")
+            if #available(macOS 13, *) { breakdownGrid(r) } else { breakdownRows(r) }
+        }
+        .padding(16)
+        .card()
+    }
+
+    @available(macOS 13, *)
+    private func breakdownGrid(_ r: BillingReport) -> some View {
             Grid(alignment: .trailing, horizontalSpacing: 18, verticalSpacing: 6) {
                 GridRow {
                     Text("").gridColumnAlignment(.leading)
@@ -465,9 +477,32 @@ struct BillingView: View {
                     .font(.callout)
                 }
             }
+    }
+
+    /// The breakdown on macOS 12 (no Grid): fixed-width columns.
+    private func breakdownRows(_ r: BillingReport) -> some View {
+        let cell: CGFloat = 96
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 18) {
+                Text("").frame(width: 260, alignment: .leading)
+                ForEach(r.monthLabels, id: \.self) { Text($0).font(.caption.weight(.medium)).frame(width: cell, alignment: .trailing) }
+                Text("Total").font(.caption.weight(.medium)).frame(width: cell, alignment: .trailing)
+            }
+            Divider()
+            ForEach(r.topServices, id: \.self) { svc in
+                let rows = r.entries.filter { $0.service == svc }
+                HStack(spacing: 18) {
+                    Text(svc).lineLimit(1).frame(width: 260, alignment: .leading)
+                    ForEach(r.monthLabels, id: \.self) { m in
+                        Text(Fmt.money(rows.first { $0.monthLabel == m }?.amount ?? 0, r.currency)).monospacedDigit()
+                            .frame(width: cell, alignment: .trailing)
+                    }
+                    Text(Fmt.money(rows.reduce(0) { $0 + $1.amount }, r.currency)).monospacedDigit().fontWeight(.medium)
+                        .frame(width: cell, alignment: .trailing)
+                }
+                .font(.callout)
+            }
         }
-        .padding(16)
-        .card()
     }
 
     private func load() async {

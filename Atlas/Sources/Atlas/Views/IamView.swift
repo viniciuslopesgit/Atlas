@@ -87,7 +87,7 @@ struct IamView: View {
             .overlay { if isLoading { ProgressView() } }
         }
         .padding(24)
-        .inspector(isPresented: .constant(hasSelection)) { inspector.inspectorColumnWidth(min: 320, ideal: 380, max: 520) }
+        .sideInspector(isPresented: hasSelection, min: 320, ideal: 380, max: 520) { inspector }
         .task(id: "\(state.sessionKey)|\(tab)") { await load() }
         .sheet(isPresented: $showCreateUser) {
             if let client = state.client {

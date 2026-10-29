@@ -88,7 +88,7 @@ struct TerraformCLITests {
     @Test func cancellationStopsTheProcess() async throws {
         let (cli, dir) = try fakeTerraform()
         let task = Task { await cli.run(["sleep"], in: dir) }
-        try await Task.sleep(for: .milliseconds(500))
+        try await Task.sleep(nanoseconds: 500_000_000)
         task.cancel()
         #expect(await task.value.status == .cancelled)
     }

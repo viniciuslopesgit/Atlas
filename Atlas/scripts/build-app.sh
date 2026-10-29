@@ -18,8 +18,15 @@ if [ "$UNIVERSAL" = 1 ]; then
   # Apple silicon + Intel. Without full Xcode there is no multiple --arch: one build per triple, joined by lipo.
   BINS=()
   # A build folder per architecture: newer SwiftPM writes every triple to the same Products folder.
+  # macOS 12 needs the Swift 5.6 compatibility library; some Command Line Tools ship it without an Intel slice, and
+  # that slice then targets macOS 13, whose Swift runtime needs none. CI's Xcode builds both for macOS 12 (min-os.sh).
+  COMPAT56="$(dirname "$(xcrun -f swiftc)")/../lib/swift/macosx/libswiftCompatibility56.a"
   for ARCH in arm64 x86_64; do
-    ARGS=(-c release --triple "$ARCH-apple-macosx14.0" --scratch-path ".build/$ARCH")
+    MIN=12.0
+    if [ -f "$COMPAT56" ] && ! lipo -archs "$COMPAT56" | tr ' ' '\n' | grep -qx "$ARCH"; then
+      MIN=13.0; echo "warning: this toolchain cannot back-deploy $ARCH to macOS 12.0: that slice targets macOS $MIN" >&2
+    fi
+    ARGS=(-c release --triple "$ARCH-apple-macosx$MIN" --scratch-path ".build/$ARCH")
     [ "${SKIP_BUILD:-0}" = 1 ] || swift build "${ARGS[@]}"
     BINS+=("$(swift build "${ARGS[@]}" --show-bin-path)/Atlas")
   done
