@@ -196,7 +196,7 @@ private struct MainToolbar: ToolbarContent {
 
                 Picker("Region", selection: $state.region) {
                     ForEach(RegionItem.all) { r in
-                        Text("\(r.code) — \(r.display)").tag(r.code)
+                        Text(RegionItem.label(r.code)).tag(r.code)
                     }
                 }
                 .frame(width: 260)

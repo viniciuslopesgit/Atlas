@@ -36,6 +36,10 @@ struct RegionItem: Identifiable, Hashable {
     ]
 
     static func displayName(_ code: String) -> String { all.first { $0.code == code }?.display ?? code }
+    /// "eu-west-1 — Europe (Ireland)", as the toolbar shows it; the code alone when the region isn't listed.
+    static func label(_ code: String) -> String {
+        all.first { $0.code == code }.map { "\($0.code) — \($0.display)" } ?? code
+    }
 }
 
 // MARK: - EC2

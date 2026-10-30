@@ -68,3 +68,11 @@ struct ParsingTests {
         #expect(nil != AWSDate.parse("2024-05-01T10:20:30+00:00"))
     }
 }
+
+struct RegionLabelTests {
+    /// The New Stack sheet and the toolbar name the region the same way; an unknown code still shows.
+    @Test func aRegionShowsItsCodeAndName() {
+        #expect(RegionItem.label("eu-west-1") == "eu-west-1 — Europe (Ireland)")
+        #expect(RegionItem.label("me-central-1") == "me-central-1")
+    }
+}

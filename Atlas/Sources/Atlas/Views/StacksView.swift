@@ -509,24 +509,30 @@ private struct NewStackSheet: View {
             Picker("", selection: $source) { ForEach(Source.allCases) { Text($0.rawValue).tag($0) } }
                 .pickerStyle(.segmented).labelsHidden().disabled(cloning != nil)
             Form {
-                TextField("Name", text: $name, prompt: Text("production-network"))
-                if source == .folder {
-                    LabeledRow("Folder") {
-                        HStack {
-                            Text(folder.map(Self.display) ?? "None").foregroundStyle(.secondary)
-                                .lineLimit(1).truncationMode(.middle)
-                            Button("Choose…", action: choose)
+                Section {
+                    TextField("Name", text: $name, prompt: Text("production-network"))
+                    if source == .folder {
+                        LabeledRow("Folder") {
+                            HStack {
+                                Text(folder.map(Self.display) ?? "None").foregroundStyle(.secondary)
+                                    .lineLimit(1).truncationMode(.middle)
+                                Button("Choose…", action: choose)
+                            }
                         }
+                    } else {
+                        gitFields
                     }
-                } else {
-                    gitFields
                 }
-                LabeledRow("Account", value: state.activeAccount?.name ?? "—")
-                LabeledRow("Region", value: state.region)
-                Picker("Engine", selection: $engine) { ForEach(TerraformEngine.allCases) { Text($0.label).tag($0) } }
-                LabeledRow("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
-                Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
-                    .help("The state holds every resource's values in plain text; in S3 it is encrypted and never in the stack's folder.")
+                // Its own section, so switching between a folder and a repository (which changes the rows above)
+                // doesn't leave these rows drawn empty.
+                Section {
+                    LabeledRow("Account", value: state.activeAccount?.name ?? "—")
+                    LabeledRow("Region", value: RegionItem.label(state.region))
+                    Picker("Engine", selection: $engine) { ForEach(TerraformEngine.allCases) { Text($0.label).tag($0) } }
+                    LabeledRow("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
+                    Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
+                        .help("The state holds every resource's values in plain text; in S3 it is encrypted and never in the stack's folder.")
+                }
             }
             .groupedForm()
             .disabled(cloning != nil)

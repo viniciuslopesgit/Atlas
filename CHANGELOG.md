@@ -4,6 +4,13 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.10.2] - 2026-10-30
+
+Atlas 2.10.2 brings 1 fix.
+
+### Fixed
+- The New Stack sheet shows the region the stack will use, with its name, also after switching to a git repository
+
 ## [2.10.1] - 2026-10-30
 
 Atlas 2.10.1 clones private Bitbucket repositories with an API token. Bitbucket only takes an API token with the
@@ -438,6 +445,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.10.2]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.2
 [2.10.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.1
 [2.10.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.0
 [2.9.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.9.0
