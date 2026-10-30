@@ -79,8 +79,9 @@ struct CostService {
             r.forecast = r.current
             if tomorrow < next, let f = try? await call("GetCostForecast", [
                 "TimePeriod": period(tomorrow, next), "Metric": "UNBLENDED_COST", "Granularity": "MONTHLY"]) {
-                // The forecast covers the rest of the month; add what has been spent so far.
-                r.forecast = r.current + f.dict("Total").number("Amount")
+                // A MONTHLY forecast is the whole month's (its period starts on the 1st), spent so far included:
+                // adding it to the spend counted the month twice. It never ends below what was spent.
+                r.forecast = max(r.current, f.dict("Total").number("Amount"))
             }
         }
         return r

@@ -17,12 +17,13 @@ private func costRow(_ start: String, _ amount: Double) -> String {
 
 /// Dashboard services against fixture responses (in the serialized ServiceTests suite: the mock is shared).
 extension ServiceTests {
-    /// Answers Cost Explorer: two days this month, 100 last month, services over two pages, forecast 50.
-    private func costClient() -> AWSClient {
+    /// Answers Cost Explorer: two days this month (18), 100 last month, services over two pages, a month forecast.
+    private func costClient(forecast: Double = 60) -> AWSClient {
         MockURLProtocol.client { req, body in
             let b = json(body)
             if req.value(forHTTPHeaderField: "x-amz-target")?.hasSuffix("GetCostForecast") == true {
-                return .init(body: #"{"Total":{"Amount":"50","Unit":"USD"}}"#)
+                // As Cost Explorer answers: the whole month, from the 1st, what was spent included.
+                return .init(body: #"{"Total":{"Amount":"\#(forecast)","Unit":"USD"},"ForecastResultsByTime":[{"TimePeriod":{"Start":"2026-10-01","End":"2026-11-01"},"MeanValue":"\#(forecast)"}]}"#)
             }
             if b["GroupBy"] != nil {
                 let group = { (name: String, amount: Double) in
@@ -70,10 +71,16 @@ extension ServiceTests {
         let forecast = try #require(MockURLProtocol.requests.map { json($0.body) }.first { $0["Metric"] != nil })
         #expect(forecast["TimePeriod"] as? [String: String] == ["Start": "2026-10-31", "End": "2026-11-01"])
         #expect(forecast["Metric"] as? String == "UNBLENDED_COST")
-        #expect(c.isCurrent && c.forecast == 18 + 50)
+        #expect(c.isCurrent && c.forecast == 60, "the forecast is the month's total; it used to be added to the spend (18 + 60)")
         #expect(MockURLProtocol.requests.map { json($0.body) }.allSatisfy {
             ($0["Metrics"] as? [String]).map { $0 == ["UnblendedCost"] } ?? true
         }, "the Billing console's unblended cost")
+    }
+
+    @Test func dashboardForecastNeverEndsBelowTheSpend() async throws {
+        let c = try await CostService(client: costClient(forecast: 5)).monthCosts(CostMonth(year: 2026, month: 10),
+                                                                                   now: utc("2026-10-30T10:00:00Z"))
+        #expect(c.forecast == 18)
     }
 
     @Test func dashboardLastDayOfTheMonthNeedsNoForecast() async throws {
