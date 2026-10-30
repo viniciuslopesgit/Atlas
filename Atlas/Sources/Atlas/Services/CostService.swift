@@ -18,62 +18,93 @@ struct CostService {
     struct MonthCosts {
         var current = 0.0
         var last = 0.0
-        var forecast = 0.0
+        /// Spent so far plus Cost Explorer's forecast for the rest of the month; nil for a month that has ended.
+        var forecast: Double?
         var currency = "USD"
         var daily: [DailyCost] = []
         var services: [ServiceCost] = []
+        /// Whether the month is still going on: the total is month to date.
+        var isCurrent = false
     }
 
-    /// Costs for the month containing `month` (daily breakdown, previous month total, service split, forecast).
-    func monthCosts(_ month: Date) async throws -> MonthCosts {
+    /// Unblended cost, as the AWS Billing console shows it.
+    static let metric = "UnblendedCost"
+
+    /// Costs of `month` (daily breakdown, previous month total, service split, forecast). Cost Explorer counts
+    /// days in UTC, and its End is exclusive: the current month runs until tomorrow, so today's cost so far counts.
+    func monthCosts(_ month: CostMonth, now: Date = Date()) async throws -> MonthCosts {
         let cal = Self.utc
-        let today = cal.startOfDay(for: Date())
-        let first = cal.date(from: cal.dateComponents([.year, .month], from: month))!
-        let next = cal.date(byAdding: .month, value: 1, to: first)!
-        let prev = cal.date(byAdding: .month, value: -1, to: first)!
-        let isCurrent = cal.isDate(first, equalTo: today, toGranularity: .month)
-        // Cost Explorer requires End > Start; on the 1st of the month use tomorrow.
-        let rawEnd = isCurrent ? today : next
-        let end = rawEnd > first ? rawEnd : cal.date(byAdding: .day, value: 1, to: first)!
+        let today = cal.startOfDay(for: now)
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: today)!
+        let first = month.start(in: cal)
+        let next = month.adding(1).start(in: cal)
+        let prev = month.adding(-1).start(in: cal)
+        let isCurrent = first <= today && today < next
+        let end = isCurrent ? tomorrow : next
+        let metric = Self.metric
 
         @Sendable func period(_ s: Date, _ e: Date) -> [String: String] { ["Start": AWSDate.day(s), "End": AWSDate.day(e)] }
 
-        async let dailyResp = call("GetCostAndUsage", [
-            "TimePeriod": period(first, end), "Granularity": "DAILY", "Metrics": ["BlendedCost"]])
-        async let prevResp = call("GetCostAndUsage", [
-            "TimePeriod": period(prev, first), "Granularity": "MONTHLY", "Metrics": ["BlendedCost"]])
-        async let svcResp = call("GetCostAndUsage", [
-            "TimePeriod": period(first, end), "Granularity": "MONTHLY", "Metrics": ["BlendedCost"],
+        var r = MonthCosts(isCurrent: isCurrent)
+        guard first <= today else { return r } // a month that hasn't started has no costs yet
+
+        async let dailyRows = pages(["TimePeriod": period(first, end), "Granularity": "DAILY", "Metrics": [metric]])
+        async let prevRows = pages(["TimePeriod": period(prev, first), "Granularity": "MONTHLY", "Metrics": [metric]])
+        async let svcRows = pages([
+            "TimePeriod": period(first, end), "Granularity": "MONTHLY", "Metrics": [metric],
             "GroupBy": [["Type": "DIMENSION", "Key": "SERVICE"]]])
 
-        var r = MonthCosts()
-        for row in try await dailyResp.array("ResultsByTime") {
-            let metric = row.dict("Total").dict("BlendedCost")
-            let amount = metric.number("Amount")
-            if !metric.string("Unit").isEmpty { r.currency = metric.string("Unit") }
-            r.current += amount
-            if let d = AWSDate.parseDay(row.dict("TimePeriod").string("Start")) {
-                r.daily.append(DailyCost(date: d, amount: amount))
+        var days: [Date: Double] = [:]
+        for row in try await dailyRows {
+            let m = row.dict("Total").dict(metric)
+            if !m.string("Unit").isEmpty { r.currency = m.string("Unit") }
+            r.current += m.number("Amount")
+            if let d = Self.localDay(row.dict("TimePeriod").string("Start")) { days[d, default: 0] += m.number("Amount") }
+        }
+        r.daily = days.map { DailyCost(date: $0.key, amount: $0.value) }.sorted { $0.date < $1.date }
+        r.last = try await prevRows.reduce(0) { $0 + $1.dict("Total").dict(metric).number("Amount") }
+
+        // A page can hold part of the groups; add each service up across pages.
+        var services: [String: Double] = [:]
+        for row in try await svcRows {
+            for g in row.array("Groups") {
+                services[g.strings("Keys").first ?? "Other", default: 0] += g.dict("Metrics").dict(metric).number("Amount")
             }
         }
-        r.last = try await prevResp.array("ResultsByTime").first?.dict("Total").dict("BlendedCost").number("Amount") ?? 0
-        r.services = try await svcResp.array("ResultsByTime").first?.array("Groups").compactMap { g in
-            let amount = g.dict("Metrics").dict("BlendedCost").number("Amount")
-            guard amount > 0.001 else { return nil }
-            return ServiceCost(serviceName: g.strings("Keys").first ?? "Other", amount: amount)
-        }.sorted { $0.amount > $1.amount } ?? []
+        r.services = services.filter { $0.value >= 0.005 }
+            .map { ServiceCost(serviceName: $0.key, amount: $0.value) }
+            .sorted { $0.amount != $1.amount ? $0.amount > $1.amount : $0.serviceName < $1.serviceName }
 
-        r.forecast = r.current
-        let lastDay = cal.date(byAdding: .day, value: -1, to: next)!
-        if isCurrent && today < lastDay {
-            let tomorrow = cal.date(byAdding: .day, value: 1, to: today)!
-            if let f = try? await call("GetCostForecast", [
-                "TimePeriod": period(tomorrow, next), "Metric": "BLENDED_COST", "Granularity": "MONTHLY"]) {
-                // Forecast covers the remainder of the month; add what has been spent so far.
+        if isCurrent {
+            r.forecast = r.current
+            if tomorrow < next, let f = try? await call("GetCostForecast", [
+                "TimePeriod": period(tomorrow, next), "Metric": "UNBLENDED_COST", "Granularity": "MONTHLY"]) {
+                // The forecast covers the rest of the month; add what has been spent so far.
                 r.forecast = r.current + f.dict("Total").number("Amount")
             }
         }
         return r
+    }
+
+    /// Every ResultsByTime row, following NextPageToken.
+    private func pages(_ body: [String: Any]) async throws -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        var token: String?
+        repeat {
+            var b = body
+            if let token { b["NextPageToken"] = token }
+            let resp = try await call("GetCostAndUsage", b)
+            rows += resp.array("ResultsByTime")
+            token = resp["NextPageToken"] as? String
+        } while token?.isEmpty == false
+        return rows
+    }
+
+    /// A Cost Explorer day ("2026-10-05") at local midnight, so charts put it on that day in any time zone.
+    static func localDay(_ s: String, calendar: Calendar = .current) -> Date? {
+        let parts = s.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
     }
 
     /// Monthly cost per dimension for the period (inclusive), top 7 + "Others".

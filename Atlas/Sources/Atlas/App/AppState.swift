@@ -164,8 +164,10 @@ final class AppState: ObservableObject {
 
     /// Page data for the active account and region: a cached value is shown at once, and `fetch` runs only when
     /// there is none, it is older than the cache's ttl, after Refresh, or with `force` (after a change made on the page).
-    func cached<T>(_ key: String, force: Bool = false, show: (T) -> Void, fetch: () async throws -> T) async throws {
-        let full = "\(activeAccount?.id ?? "none")|\(region)|\(key)"
+    /// `regional: false` keeps one entry for every region, for global services such as Cost Explorer.
+    func cached<T>(_ key: String, force: Bool = false, regional: Bool = true,
+                   show: (T) -> Void, fetch: () async throws -> T) async throws {
+        let full = "\(activeAccount?.id ?? "none")|\(regional ? region : "global")|\(key)"
         let token = refreshToken
         if let value = cache.value(full, as: T.self) {
             show(value)
@@ -178,6 +180,9 @@ final class AppState: ObservableObject {
         cache.store(value, for: full, token: token)
         show(value)
     }
+
+    /// The cards the dashboard shows, saved in Atlas's folder.
+    private(set) lazy var dashboardLayout = DashboardLayoutStore(folder: store.folder)
 
     /// Stacks and their drift scheduler live as long as the app.
     private(set) lazy var stacks = StacksModel(

@@ -10,7 +10,7 @@ enum Snapshots {
     static func render(to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var pages: [(String, AnyView)] = [
-            ("dashboard", AnyView(DashboardBody(summary: fixture).padding(24).frame(width: 1100))),
+            ("dashboard", AnyView(DashboardBody(summary: fixture, layout: .standard, width: 1052).padding(24).frame(width: 1100))),
             ("components", AnyView(components.padding(24).frame(width: 720))),
             ("iac", AnyView(iac.padding(24).frame(width: 900))),
             ("stacks", AnyView(stacks.padding(24).frame(width: 900))),
@@ -186,17 +186,19 @@ enum Snapshots {
 
     private static var fixture: DashboardSummary {
         var s = DashboardSummary()
-        s.runningInstances = 9; s.stoppedInstances = 3; s.totalInstances = 12
-        s.s3BucketCount = 27; s.activeAlarms = 2
-        s.currentMonthCost = 1842.37; s.forecastedMonthCost = 2710.10; s.lastMonthCost = 2398.55
-        let cal = Calendar.current
-        let start = cal.date(from: cal.dateComponents([.year, .month], from: Date()))!
-        s.dailyCosts = (0..<22).map { i in
-            DailyCost(date: cal.date(byAdding: .day, value: i, to: start)!, amount: 70 + Double((i * 37) % 31) + (i % 7 >= 5 ? -25 : 0))
+        s.instances = InstanceCounts(running: 9, stopped: 3)
+        s.bucketCount = 27; s.activeAlarms = 2; s.region = "eu-west-1"
+        var c = CostService.MonthCosts(current: 1842.37, last: 2398.55, forecast: 2710.10, isCurrent: true)
+        let start = s.month.start(in: .current)
+        c.daily = (0..<22).map { i in
+            DailyCost(date: Calendar.current.date(byAdding: .day, value: i, to: start)!,
+                      amount: 70 + Double((i * 37) % 31) + (i % 7 >= 5 ? -25 : 0))
         }
-        s.serviceCosts = [("Amazon Elastic Compute Cloud", 912.4), ("Amazon Relational Database Service", 401.2),
-                          ("Amazon Simple Storage Service", 188.9), ("AWS Lambda", 96.3), ("Amazon CloudFront", 71.8),
-                          ("Amazon CloudWatch", 44.1), ("Others", 127.6)].map { ServiceCost(serviceName: $0.0, amount: $0.1) }
+        c.services = [("Amazon Elastic Compute Cloud", 912.4), ("Amazon Relational Database Service", 401.2),
+                      ("Amazon Simple Storage Service", 188.9), ("AWS Lambda", 96.3), ("Amazon CloudFront", 71.8),
+                      ("Amazon CloudWatch", 44.1), ("AWS Key Management Service", 12.6), ("Amazon Route 53", 3.1)]
+            .map { ServiceCost(serviceName: $0.0, amount: $0.1) }
+        s.costs = c
         return s
     }
 }

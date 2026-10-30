@@ -492,40 +492,7 @@ struct SecurityAuditResult {
     }
 }
 
-// MARK: - Dashboard & billing
-
-struct DailyCost: Identifiable, Hashable {
-    let date: Date
-    let amount: Double
-    var id: Date { date }
-}
-
-struct ServiceCost: Identifiable, Hashable {
-    let serviceName: String
-    let amount: Double
-    var id: String { serviceName }
-}
-
-struct DashboardSummary {
-    var runningInstances = 0
-    var stoppedInstances = 0
-    var totalInstances = 0
-    var s3BucketCount = 0
-    var activeAlarms = 0
-
-    var currentMonthCost = 0.0
-    var lastMonthCost = 0.0
-    var forecastedMonthCost = 0.0
-    var currency = "USD"
-    var dailyCosts: [DailyCost] = []
-    var serviceCosts: [ServiceCost] = []
-
-    var accountId = ""
-    var accountArn = ""
-    var region = ""
-    var lastRefreshed = Date()
-    var warnings: [String] = []
-}
+// MARK: - Billing
 
 struct MonthlyServiceCost: Identifiable, Hashable {
     let month: Date

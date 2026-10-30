@@ -26,9 +26,17 @@ struct CloudWatchService {
         return alarms.sorted { (rank($0.state), $0.name) < (rank($1.state), $1.name) }
     }
 
+    /// Metric and composite alarms in the ALARM state, across every page (100 alarms each).
     func activeAlarmCount() async throws -> Int {
-        let xml = try await client.query(.cloudWatch, "DescribeAlarms", ["StateValue": "ALARM", "MaxRecords": "100"])
-        return xml.list("DescribeAlarmsResult/MetricAlarms", item: "member").count
+        var count = 0
+        try await client.queryPaged(.cloudWatch, "DescribeAlarms", [
+            "StateValue": "ALARM", "MaxRecords": "100",
+            "AlarmTypes.member.1": "MetricAlarm", "AlarmTypes.member.2": "CompositeAlarm",
+        ], tokenParam: "NextToken", tokenPath: { $0.str("DescribeAlarmsResult/NextToken") }) { xml in
+            count += xml.list("DescribeAlarmsResult/MetricAlarms", item: "member").count
+                + xml.list("DescribeAlarmsResult/CompositeAlarms", item: "member").count
+        }
+        return count
     }
 
     func ec2Metric(_ instanceId: String, _ metric: String, _ statistic: String,

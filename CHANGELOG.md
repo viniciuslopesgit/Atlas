@@ -4,6 +4,35 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.11.0] - 2026-10-30
+
+Atlas 2.11.0 rebuilds the Dashboard. It is now made of cards you choose: Customize (in the page header) shows and
+hides each card and orders them by dragging, and a card's menu hides it or moves it; the choice is kept on this Mac
+and Restore Defaults brings back the standard layout. The numbers were checked against what AWS returns, and several
+were wrong: picking a month east of UTC (Lisbon in summer) showed the month before, today's cost was left out of the
+month, CloudWatch stopped counting at 100 alarms and ignored composite ones, and terminated instances were counted.
+A source Atlas may not read now says so on its card instead of showing a zero that looks real.
+
+### Added
+- Customize the Dashboard: show, hide and reorder its cards; the layout is saved and has a Restore Defaults
+- An Account card (hidden by default) with the account ID and the identity Atlas signs in as
+- Each card opens its page (Billing, EC2, S3, CloudWatch), and Top services shows each service's share and the rest
+  as one line
+
+### Changed
+- Costs are unblended, as the AWS Billing console shows them, and a past month shows its total without a forecast
+- Cards keep their place in rows that fit the window, from a narrow window to a wide one
+- Only the cards shown are loaded, and Cost Explorer (billed per request) is asked once per account and month,
+  not again for every region
+
+### Fixed
+- The month picked is the month Cost Explorer is asked for, in every time zone, and the picker no longer starts empty
+- The month so far includes today's cost, and the forecast covers only the days left
+- Alarms in the ALARM state are counted on every page, composite alarms included
+- Running and total instances leave out terminated ones; services split over several Cost Explorer pages add up
+- A card whose data could not be loaded shows why, instead of 0; switching account or region never shows the
+  previous one's figures, and without an account the Dashboard says how to add one
+
 ## [2.10.2] - 2026-10-30
 
 Atlas 2.10.2 brings 1 fix.
@@ -445,6 +474,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.11.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.11.0
 [2.10.2]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.2
 [2.10.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.1
 [2.10.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.0
