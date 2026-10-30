@@ -46,6 +46,7 @@ typeset -A MIN_COVERAGE=(
     Terraform/GeneratedHcl.swift 85
     Terraform/EnvVarExtractor.swift 95
     Terraform/TerraformCLI.swift 85
+    Terraform/GitHubRepository.swift 90
     Terraform/TerraformProjects.swift 65
     Terraform/ImportDiscovery.swift 55
     Terraform/Stacks.swift 90
@@ -60,7 +61,7 @@ typeset -A MIN_COVERAGE=(
 typeset -A REVIEWED=(
     URLSession              "AWS/AWSClient.swift Services/SsmShell.swift Services/DockerDesktop.swift"
     SecItem                 "Storage/AccountStore.swift"
-    'Process()'             "Terraform/TerraformCLI.swift App/AppState.swift"
+    'Process()'             "Terraform/TerraformCLI.swift App/AppState.swift Terraform/GitHubRepository.swift"
     NSWorkspace.shared.open "Views/FeedbackView.swift Services/SsmService.swift Views/DockerSetupSheet.swift"
     removeItem              "Services/DockerDesktop.swift Storage/PrivateFile.swift Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"
     moveItem                "Services/DockerDesktop.swift Storage/PrivateFile.swift Services/SsmShell.swift Terraform/StacksModel.swift Terraform/GeneratedHcl.swift Terraform/TerraformCLI.swift Views/IaCView.swift Services/S3Service.swift"

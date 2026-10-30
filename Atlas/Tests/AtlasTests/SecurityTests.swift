@@ -673,4 +673,68 @@ struct DiagramLinkTests {
         try big.write(to: folder.appendingPathComponent("big.tf"), atomically: true, encoding: .utf8)
         #expect(TerraformConfig.graph(folder: folder).nodes.isEmpty)
     }
+
+    // MARK: Stacks from GitHub
+
+    @Test func onlyGitHubOverHttpsIsCloned() {
+        let attacks = [
+            "file:///etc", "file://github.com/a/b", "ext::sh -c touch% /tmp/pwned", "ssh://git@github.com/a/b",
+            "git@github.com:a/b.git", "git://github.com/a/b", "http://github.com/a/b", "https://github.com.evil.com/a/b",
+            "https://evil.com/github.com/a/b", "https://user:pw@github.com/a/b", "https://github.com:22/a/b",
+            "https://github.com/a/b?ref=x", "https://github.com/a/b#x", "https://github.com/-a/b", "https://github.com/a/-b",
+            "https://github.com/a/--upload-pack=touch", "https://github.com/a/b/../c", "https://github.com/a/..",
+            "https://github.com/a/b\nhttps://evil.com/x/y", "https://github.com/a/$(touch x)", "https://github.com/a/b;rm",
+            "-uhttps://github.com/a/b", "--upload-pack=touch /tmp/x", "https://GITHUB.com/a/b", "https://github.com/a/b c",
+        ]
+        for url in attacks {
+            #expect(throws: GitHubSource.Invalid.url, "\(url)") { try GitHubSource(url: url) }
+        }
+    }
+
+    @Test func branchesCannotBecomeGitOptions() {
+        for branch in ["--upload-pack=touch /tmp/x", "-b", "-", "main..dev", "../../x", "a;rm -rf ~", "$(touch x)", "`x`",
+                       "a b", "a\nb", "@{-1}", "~1", "refs/../x", ".hidden", "a/.b", "a//b", "x.lock", "a/"] {
+            #expect(throws: GitHubSource.Invalid.branch, "\(branch)") { try GitHubSource(url: "https://github.com/a/b", branch: branch) }
+        }
+        // A valid branch still reaches git bound to --branch=, before the "--" that ends the options.
+        let args = Git(binary: "/bin/echo").cloneArguments(GitHubSource(owner: "a", repo: "b", branch: "dev"), remote: "u",
+                                                           into: URL(fileURLWithPath: "/x"))
+        #expect(args.contains("--branch=dev") && !args.contains("dev"))
+        #expect(args.suffix(3) == ["--", "u", "/x"])
+    }
+
+    @Test func theSubfolderStaysInsideTheClone() throws {
+        for sub in ["..", "../..", "a/../../b", "./a", "a/./b", "~", "~/x", "a\\..\\b", "a\u{0}b", "a\nb"] {
+            #expect(throws: GitHubSource.Invalid.subfolder, "\(sub)") { try GitHubSource(url: "https://github.com/a/b", subfolder: sub) }
+        }
+        // A symbolic link in the repository that points outside it is refused after the clone.
+        let dir = TestTemp.root.appendingPathComponent("gh-sec-\(UUID().uuidString)", isDirectory: true)
+        let clone = dir.appendingPathComponent("clone")
+        let outside = dir.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: clone, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: clone.appendingPathComponent("infra"), withDestinationURL: outside)
+        #expect(throws: GitError.noSubfolder("infra")) {
+            try GitHubSource(owner: "a", repo: "b", subfolder: "infra").stackFolder(in: clone)
+        }
+        // A clone folder whose name starts like the clone's (clone-evil) is outside too.
+        let sibling = dir.appendingPathComponent("clone-evil")
+        try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: clone.appendingPathComponent("x"), withDestinationURL: sibling)
+        #expect(throws: GitError.noSubfolder("x")) { try GitHubSource(owner: "a", repo: "b", subfolder: "x").stackFolder(in: clone) }
+    }
+
+    @Test func gitRunsWithoutPromptsHooksOrTheCallersGitVariables() {
+        let env = Git.environment(base: ["GIT_SSH_COMMAND": "touch /tmp/pwned", "GIT_DIR": "/etc", "GIT_CONFIG_PARAMETERS": "'core.sshCommand=x'",
+                                         "GIT_CONFIG_COUNT": "1", "GIT_EXEC_PATH": "/tmp", "SSH_ASKPASS": "/tmp/x", "HOME": "/Users/x"])
+        #expect(env.keys.filter { $0.hasPrefix("GIT_") }.sorted() == ["GIT_ASKPASS", "GIT_TERMINAL_PROMPT"])
+        #expect(env["GIT_TERMINAL_PROMPT"] == "0" && env["GIT_ASKPASS"] == "" && env["SSH_ASKPASS"] == nil && env["HOME"] == "/Users/x")
+        let h = Git(binary: "/bin/echo").hardening
+        for setting in ["protocol.allow=never", "protocol.https.allow=always", "core.hooksPath=/dev/null", "core.fsmonitor=false",
+                        "submodule.recurse=false"] {
+            #expect(h.contains(setting), "\(setting)")
+        }
+        #expect(!h.contains { $0.hasPrefix("protocol.file") || $0.hasPrefix("protocol.ext") || $0.hasPrefix("protocol.ssh") })
+        #expect(Git(binary: "/bin/echo").pullArguments.contains("--ff-only"))
+    }
 }

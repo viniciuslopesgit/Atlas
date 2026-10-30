@@ -4,6 +4,26 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.8.0] - 2026-10-30
+
+Atlas 2.8.0 creates stacks from GitHub. New Stack now offers a GitHub repository next to a local folder: enter
+`https://github.com/owner/repository`, optionally a branch and the folder inside it that holds the `.tf` files, and
+Atlas clones it into its own data folder (or a folder you choose) and opens the stack like any other. Pull updates a
+stack created from GitHub, fast-forward only, and drops the saved plan so the next Apply follows a new Plan. Public
+repositories work as they are; private ones use your own git credentials (`gh auth login`, then `gh auth setup-git`),
+and Atlas never asks for or stores a token. Git runs with no prompts, no hooks and no submodules, over https to
+github.com only.
+
+### Added
+- New Stack can clone a GitHub repository (https://github.com/owner/repository, an optional branch and folder) into
+  Atlas's data folder or a folder you choose, and creates the stack in it; a bad address, a missing repository or
+  branch, git not being installed or a private repository without credentials each get a clear message
+- Pull, in a stack created from GitHub, updates its folder from the repository (fast-forward only) as a run in its
+  History; its Settings show the repository, branch and folder
+
+### Fixed
+- A stack run's output keeps each line whole in the timeline and scrolls sideways, instead of breaking lines every few characters
+
 ## [2.7.1] - 2026-10-30
 
 Atlas 2.7.1 brings 1 fix.
@@ -368,6 +388,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.8.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.8.0
 [2.7.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.1
 [2.7.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.0
 [2.6.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.6.0

@@ -27,11 +27,14 @@ final class StacksModel: ObservableObject {
     /// Runs on this Mac when there is no container runtime.
     private let makeCLI: (TerraformEngine) -> TerraformCLI
     private let locateRuntime: () -> ContainerRuntime?
+    /// Clones and pulls stacks created from GitHub.
+    let git: Git
 
     init(store: StackStore, clientFor: @escaping @MainActor (StackEntry) -> AWSClient?,
          makeCLI: @escaping (TerraformEngine) -> TerraformCLI = { TerraformCLI(binary: TerraformCLI.locate(command: $0.command), timeout: 900) },
-         runtime: @escaping () -> ContainerRuntime? = { nil }) {
+         runtime: @escaping () -> ContainerRuntime? = { nil }, git: Git = Git()) {
         self.store = store
+        self.git = git
         self.clientFor = clientFor
         self.makeCLI = makeCLI
         self.locateRuntime = runtime
@@ -86,10 +89,12 @@ final class StacksModel: ObservableObject {
     /// stack keeps its state in the account's S3 state bucket (versioned, encrypted) instead of a file in its folder.
     @discardableResult
     func create(name: String, folder: URL, accountId: String, region: String, engine: TerraformEngine = .terraform,
-                remoteState: Bool = false) -> StackEntry {
+                remoteState: Bool = false, repository: GitHubSource? = nil, clone: URL? = nil) -> StackEntry {
         IaCModel.scaffoldIfEmpty(folder)
         var s = StackEntry(name: name, projectPath: folder.path, accountId: accountId, region: region)
         s.engine = engine
+        s.repository = repository
+        s.clonePath = repository == nil ? nil : (clone ?? folder).path
         stacks.append(s)
         save()
         guard runtime != nil || remoteState else { return s }
@@ -206,6 +211,54 @@ final class StacksModel: ObservableObject {
     }
 
     func cancel(_ id: UUID) { tasks[id]?.cancel() }
+
+    // MARK: GitHub
+
+    /// Where repositories are cloned unless the user chooses another folder: Atlas's own data folder.
+    var repositoriesFolder: URL { store.folder.appendingPathComponent("repositories", isDirectory: true) }
+
+    /// A folder for a new clone of `source` in `parent` that does not exist yet: repo, repo-2, repo-3…
+    nonisolated static func cloneFolder(for source: GitHubSource, in parent: URL) -> URL {
+        let base = "\(source.owner)-\(source.repo)"
+        var candidate = parent.appendingPathComponent(base, isDirectory: true)
+        var n = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = parent.appendingPathComponent("\(base)-\(n)", isDirectory: true)
+            n += 1
+        }
+        return candidate
+    }
+
+    /// Fast-forwards a GitHub stack's clone, as a run in its history. The saved plan was made from the old
+    /// configuration, so it is dropped: the next Apply needs a new Plan.
+    func pull(_ id: UUID) {
+        guard let s = stack(id), let clonePath = s.clonePath, s.repository != nil, !busy.contains(id) else { return }
+        let git = git
+        let plan = planFiles(for: s).url(Self.planFile)
+        let log: @Sendable (String) -> Void = { [weak self] line in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.append(.line(line), to: id) } }
+        }
+        busy.insert(id)
+        var run = StackRun(type: .pull, trigger: "manual")
+        run.begin("Pulling")
+        record(id, run)
+        update(id) { $0.status = .running }
+        tasks[id] = Task {
+            log("▶ git pull --ff-only (\(s.repository?.label ?? ""))")
+            var ok = true
+            do {
+                _ = try await git.pull(URL(fileURLWithPath: clonePath, isDirectory: true), onLine: log)
+                // Only Atlas's own saved plan, in its folder for this stack.
+                try? FileManager.default.removeItem(at: plan)
+                log("✔ The folder is up to date with GitHub. Run Plan to see what the changes do.")
+            } catch {
+                log("✗ \(error.localizedDescription)")
+                ok = false
+            }
+            await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } }
+            finish(id, ok: ok, cancelled: Task.isCancelled)
+        }
+    }
 
     private func save() { store.save(stacks) }
 

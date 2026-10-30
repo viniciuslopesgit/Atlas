@@ -75,10 +75,10 @@ struct StacksView: View {
         }
         .padding(24)
         .sheet(isPresented: $showNew) {
-            NewStackSheet(runtime: model.runtime) { name, folder, engine, remoteState in
+            NewStackSheet(runtime: model.runtime) { r in
                 guard let account = state.activeAccount else { return }
-                selection = model.create(name: name, folder: folder, accountId: account.id, region: state.region, engine: engine,
-                                         remoteState: remoteState).id
+                selection = model.create(name: r.name, folder: r.folder, accountId: account.id, region: state.region, engine: r.engine,
+                                         remoteState: r.remoteState, repository: r.repository, clone: r.clone).id
             }
         }
         .onAppear {
@@ -201,6 +201,10 @@ private struct StackDetail: View {
                 // The next step stands out: Apply once a plan is saved, Plan until then.
                 let planned = model.hasSavedPlan(stack)
                 Group {
+                    if stack.repository != nil {
+                        Button("Pull") { start { model.pull(stack.id) } }
+                            .help("Updates the folder from GitHub (fast-forward only). The saved plan is dropped: run Plan again.")
+                    }
                     Button("Init") { start { model.initialize(stack.id) } }
                         .keyboardShortcut("i", modifiers: [.command, .shift])
                     Button("Check Drift") { start { model.checkDrift(stack.id) } }
@@ -276,6 +280,11 @@ private struct StackDetail: View {
     private var settings: some View {
         Form {
             DetailRow("Folder", stack.projectPath, copyable: true)
+            if let repo = stack.repository {
+                DetailRow("Repository", repo.webURL, copyable: true)
+                DetailRow("Branch", repo.branch ?? "Default branch")
+                if let sub = repo.subfolder { DetailRow("Folder in repository", sub) }
+            }
             DetailRow("Account", accountName)
             DetailRow("Region", stack.region)
             DetailRow("Created", Fmt.dt(stack.createdAt))
@@ -446,27 +455,65 @@ private struct RuntimeSetupHint: View {
     }
 }
 
+/// What the New Stack sheet asks for. A GitHub stack also has its repository and the clone's root.
+struct NewStackRequest {
+    var name: String
+    var folder: URL
+    var engine: TerraformEngine
+    var remoteState: Bool
+    var repository: GitHubSource?
+    var clone: URL?
+}
+
 private struct NewStackSheet: View {
+    enum Source: String, CaseIterable, Identifiable {
+        case folder = "Local folder", github = "GitHub repository"
+        var id: String { rawValue }
+    }
+
     let runtime: ContainerRuntime?
-    let onCreate: (String, URL, TerraformEngine, Bool) -> Void
+    let onCreate: (NewStackRequest) -> Void
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var model: StacksModel
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @State private var source: Source = .folder
     @State private var folder: URL?
+    @State private var repoURL = ""
+    @State private var branch = ""
+    @State private var subfolder = ""
+    /// Where the clone goes; nil is Atlas's own folder.
+    @State private var cloneParent: URL?
     @State private var engine: TerraformEngine = .terraform
     @State private var remoteState = true
+    @State private var cloning: Task<Void, Never>?
+    @State private var progress = ""
+    @State private var error: String?
+
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
+    private var parsed: GitHubSource? { try? GitHubSource(url: repoURL, branch: branch, subfolder: subfolder) }
+    private var canCreate: Bool {
+        guard !trimmedName.isEmpty, cloning == nil else { return false }
+        return source == .folder ? folder != nil : parsed != nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New Stack").font(Typo.pageTitle)
+            Picker("", selection: $source) { ForEach(Source.allCases) { Text($0.rawValue).tag($0) } }
+                .pickerStyle(.segmented).labelsHidden().disabled(cloning != nil)
             Form {
                 TextField("Name", text: $name, prompt: Text("production-network"))
-                LabeledRow("Folder") {
-                    HStack {
-                        Text(folder?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "None").foregroundStyle(.secondary)
-                            .lineLimit(1).truncationMode(.middle)
-                        Button("Choose…", action: choose)
+                if source == .folder {
+                    LabeledRow("Folder") {
+                        HStack {
+                            Text(folder.map(Self.display) ?? "None").foregroundStyle(.secondary)
+                                .lineLimit(1).truncationMode(.middle)
+                            Button("Choose…", action: choose)
+                        }
                     }
+                } else {
+                    github
                 }
                 LabeledRow("Account", value: state.activeAccount?.name ?? "—")
                 LabeledRow("Region", value: state.region)
@@ -476,22 +523,104 @@ private struct NewStackSheet: View {
                     .help("The state holds every resource's values in plain text; in S3 it is encrypted and never in the stack's folder.")
             }
             .groupedForm()
+            .disabled(cloning != nil)
             Text("\(engine.label) runs with this account's credentials in this region, also for scheduled drift checks.")
                 .font(.caption).foregroundStyle(.secondary)
+            if source == .github {
+                Text("Plan runs the repository's code with these credentials: only use repositories you trust. Private repositories use your git credentials (gh auth login, then gh auth setup-git); Atlas never stores a token.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
             if runtime == nil { RuntimeSetupHint() }
+            if let error {
+                Label(error, systemImage: "exclamationmark.triangle.fill").font(.callout).foregroundStyle(Palette.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create") {
-                    if let folder { onCreate(name.trimmingCharacters(in: .whitespaces), folder, engine, remoteState) }
-                    dismiss()
+                if cloning != nil {
+                    ProgressView().controlSize(.small)
+                    Text(progress.isEmpty ? "Cloning…" : progress).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || folder == nil)
+                Spacer()
+                Button("Cancel") {
+                    if let cloning { cloning.cancel() } else { dismiss() }
+                }
+                .keyboardShortcut(.cancelAction)
+                Button(source == .github ? "Clone and Create" : "Create", action: create)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canCreate)
             }
         }
         .padding(20)
-        .frame(width: 480)
+        .frame(width: 520)
+    }
+
+    @ViewBuilder private var github: some View {
+        TextField("Repository", text: Binding(get: { repoURL }, set: { new in
+            // The name follows the repository until the user types one of their own.
+            let auto = parsed?.repo
+            repoURL = new
+            if name.isEmpty || name == auto, let repo = parsed?.repo { name = repo }
+            error = nil
+        }), prompt: Text("https://github.com/owner/repository"))
+        TextField("Branch", text: $branch, prompt: Text("default branch"))
+        TextField("Folder in repository", text: $subfolder, prompt: Text("the root, or infra/production"))
+        LabeledRow("Clone into") {
+            HStack {
+                Text(Self.display(cloneParent ?? model.repositoriesFolder)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+                Button("Choose…", action: chooseCloneParent)
+            }
+        }
+        if !repoURL.trimmingCharacters(in: .whitespaces).isEmpty, parsed == nil {
+            Text(validationMessage).font(.caption).foregroundStyle(Palette.danger)
+        }
+    }
+
+    private var validationMessage: String {
+        do { _ = try GitHubSource(url: repoURL, branch: branch, subfolder: subfolder); return "" }
+        catch { return error.localizedDescription }
+    }
+
+    private static func display(_ url: URL) -> String { url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
+
+    private func create() {
+        let request = NewStackRequest(name: trimmedName, folder: folder ?? URL(fileURLWithPath: "/"), engine: engine, remoteState: remoteState)
+        guard source == .github else {
+            if folder != nil { onCreate(request) }
+            dismiss()
+            return
+        }
+        guard let repo = parsed else { return }
+        let target = StacksModel.cloneFolder(for: repo, in: cloneParent ?? model.repositoriesFolder)
+        let git = model.git
+        error = nil
+        progress = ""
+        cloning = Task {
+            do {
+                let stackFolder = try await git.clone(repo, into: target) { line in
+                    DispatchQueue.main.async { progress = line }
+                }
+                var r = request
+                r.folder = stackFolder
+                r.repository = repo
+                r.clone = target
+                onCreate(r)
+                dismiss()
+            } catch {
+                self.error = Task.isCancelled ? GitError.cancelled.localizedDescription : error.localizedDescription
+            }
+            cloning = nil
+        }
+    }
+
+    private func chooseCloneParent() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.message = "Choose where to clone the repository: Atlas creates a folder for it inside."
+        if panel.runModal() == .OK, let url = panel.url { cloneParent = url }
     }
 
     private func choose() {

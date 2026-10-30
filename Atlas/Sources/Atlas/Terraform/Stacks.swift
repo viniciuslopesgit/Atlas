@@ -5,7 +5,7 @@ import CryptoKit
 
 enum StackStatus: String, Codable, Sendable, CaseIterable { case ready, queued, running, finished, failed }
 enum StackRunType: String, Codable, Sendable {
-    case importResources = "import", initialize = "init", fix, plan, apply, fixDrift, setup, migrateState
+    case importResources = "import", initialize = "init", fix, plan, apply, fixDrift, setup, migrateState, pull
 
     /// The phase name of a run saved before phases were recorded.
     var phaseName: String {
@@ -17,6 +17,7 @@ enum StackRunType: String, Codable, Sendable {
         case .apply, .fixDrift: "Applying"
         case .setup: "Preparing"
         case .migrateState: "Moving state"
+        case .pull: "Pulling"
         }
     }
 }
@@ -167,6 +168,9 @@ struct StackEntry: Codable, Identifiable, Sendable {
     var autoFixOnDrift = false
     /// Optional so stacks saved before 2.5 still decode; nil is Terraform.
     var engineChoice: TerraformEngine?
+    /// The GitHub repository the stack was cloned from, and the clone's root (the stack's folder may be a subfolder).
+    var repository: GitHubSource?
+    var clonePath: String?
 
     var engine: TerraformEngine {
         get { engineChoice ?? .terraform }

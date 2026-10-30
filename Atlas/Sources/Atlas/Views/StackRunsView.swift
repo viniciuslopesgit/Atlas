@@ -251,6 +251,7 @@ extension StackRunType {
         case .fixDrift: "Fix drift"
         case .setup: "Container"
         case .migrateState: "Move state"
+        case .pull: "Pull"
         }
     }
 }
