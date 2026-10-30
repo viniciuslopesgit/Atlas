@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Atlas
 
@@ -41,5 +42,18 @@ struct StackRunLiveOutputTests {
         let done = try #require(model.stack(s.id)?.lastRun)
         #expect(done.status == .success)
         #expect(done.output.contains("successfully initialized"))
+    }
+}
+
+/// Regression: a run's output was wrapped at a few characters ("successfull / y / initialized") in the timeline's
+/// log box; terminal lines keep their length and the box scrolls sideways instead.
+struct TerminalLinesTests {
+    @Test @MainActor func linesDoNotWrapInANarrowWidth() {
+        let line = "OpenTofu has been successfully initialized!"
+        let one = NSHostingController(rootView: TerminalLines(lines: [IaCModel.Line(id: 0, text: line)]))
+            .sizeThatFits(in: CGSize(width: 1000, height: 1000))
+        let narrow = NSHostingController(rootView: TerminalLines(lines: [IaCModel.Line(id: 0, text: line)]))
+            .sizeThatFits(in: CGSize(width: 120, height: 1000))
+        #expect(narrow.height == one.height, "wrapped into \(narrow.height / one.height) lines")
     }
 }

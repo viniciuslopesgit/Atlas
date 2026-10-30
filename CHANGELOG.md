@@ -4,6 +4,13 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.7.1] - 2026-10-30
+
+Atlas 2.7.1 brings 1 fix.
+
+### Fixed
+- A stack run's output keeps each line whole in the timeline and scrolls sideways, instead of breaking lines every few characters
+
 ## [2.7.0] - 2026-10-23
 
 Atlas 2.7.0 makes stacks start faster and pages open instantly. A stack's container is now checked with a single
@@ -361,6 +368,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.7.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.1
 [2.7.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.0
 [2.6.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.6.0
 [2.5.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.1

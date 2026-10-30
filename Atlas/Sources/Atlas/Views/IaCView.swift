@@ -439,7 +439,9 @@ struct TerminalLines: View {
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 1) {
             ForEach(lines) { line in
+                // A terminal line is never wrapped: the panel scrolls sideways (wrapped, it broke inside words).
                 Text(line.text.isEmpty ? " " : line.text)
+                    .fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(TerminalPanel.color(line.text))
                     .id(line.id)
             }
