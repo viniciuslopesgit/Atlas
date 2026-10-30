@@ -486,6 +486,12 @@ private struct NewStackSheet: View {
     @State private var cloneParent: URL?
     @State private var engine: TerraformEngine = .terraform
     @State private var remoteState = true
+    /// A private repository: the user name and token for its server (kept in the Keychain after a clone that worked).
+    @State private var isPrivate = false
+    @State private var username = ""
+    @State private var token = ""
+    /// What the Keychain holds for the repository's server.
+    @State private var saved: GitCredentials?
     @State private var cloning: Task<Void, Never>?
     @State private var progress = ""
     @State private var error: String?
@@ -527,7 +533,7 @@ private struct NewStackSheet: View {
             Text("\(engine.label) runs with this account's credentials in this region, also for scheduled drift checks.")
                 .font(.caption).foregroundStyle(.secondary)
             if source == .git {
-                Text("Plan runs the repository's code with these credentials: only use repositories you trust. GitHub, Bitbucket, GitLab or your own server, over https. Private repositories use the credentials git already has (clone once in Terminal, or gh auth setup-git for GitHub); Atlas never stores a token.")
+                Text("Plan runs the repository's code with these credentials: only use repositories you trust. GitHub, Bitbucket, GitLab or your own server, over https; a page address copied from the browser works too.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if runtime == nil { RuntimeSetupHint() }
@@ -561,9 +567,27 @@ private struct NewStackSheet: View {
             repoURL = new
             if name.isEmpty || name == auto, let repo = parsed?.name { name = repo }
             error = nil
+            loadSaved()
         }), prompt: Text("https://bitbucket.org/workspace/repository"))
-        TextField("Branch", text: $branch, prompt: Text("default branch"))
-        TextField("Folder in repository", text: $subfolder, prompt: Text("the root, or infra/production"))
+        TextField("Branch", text: $branch, prompt: Text(parsed?.branch.map { "\($0) (from the address)" } ?? "default branch"))
+        TextField("Folder in repository", text: $subfolder,
+                  prompt: Text(parsed?.subfolder.map { "\($0) (from the address)" } ?? "the root, or infra/production"))
+        Toggle("Private repository", isOn: Binding(get: { isPrivate }, set: { isPrivate = $0; loadSaved() }))
+        if isPrivate {
+            if let saved, let host = parsed?.hostName {
+                LabeledRow("Saved token") {
+                    HStack {
+                        Text("\(saved.username) on \(host)").foregroundStyle(.secondary).lineLimit(1)
+                        Button("Forget") { model.forgetGitCredentials(for: host); loadSaved() }
+                    }
+                }
+            }
+            TextField("User name", text: $username,
+                      prompt: Text(parsed?.hostName == GitSource.bitbucket ? "your Bitbucket username" : "user name"))
+            SecureField("Token", text: $token, prompt: Text(saved == nil ? "API token, app password or access token" : "keep the saved token"))
+            Text("A token with read access to the repository: on Bitbucket an API token or app password, on GitHub or GitLab a personal access token. Atlas keeps it in the Keychain and sends it only to this server.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
         LabeledRow("Clone into") {
             HStack {
                 Text(Self.display(cloneParent ?? model.repositoriesFolder)).foregroundStyle(.secondary)
@@ -574,6 +598,18 @@ private struct NewStackSheet: View {
         if !repoURL.trimmingCharacters(in: .whitespaces).isEmpty, parsed == nil {
             Text(validationMessage).font(.caption).foregroundStyle(Palette.danger)
         }
+    }
+
+    private func loadSaved() {
+        saved = isPrivate ? parsed.flatMap { model.gitCredentials(for: $0.hostName) } : nil
+    }
+
+    /// The token typed in the sheet, or the one saved for the server.
+    private var credentials: GitCredentials? {
+        guard isPrivate else { return nil }
+        let typed = GitCredentials(username: username.trimmingCharacters(in: .whitespaces), token: token.trimmingCharacters(in: .whitespacesAndNewlines))
+        if !typed.token.isEmpty { return typed.username.isEmpty ? GitCredentials(username: saved?.username ?? "", token: typed.token) : typed }
+        return saved
     }
 
     private var validationMessage: String {
@@ -593,13 +629,15 @@ private struct NewStackSheet: View {
         guard let repo = parsed else { return }
         let target = StacksModel.cloneFolder(for: repo, in: cloneParent ?? model.repositoriesFolder)
         let git = model.git
+        let credentials = credentials
         error = nil
         progress = ""
         cloning = Task {
             do {
-                let stackFolder = try await git.clone(repo, into: target) { line in
+                let stackFolder = try await git.clone(repo, into: target, credentials: credentials) { line in
                     DispatchQueue.main.async { progress = line }
                 }
+                if let credentials, credentials != saved { try? model.saveGitCredentials(credentials, for: repo.hostName) }
                 var r = request
                 r.folder = stackFolder
                 r.repository = repo
@@ -608,6 +646,7 @@ private struct NewStackSheet: View {
                 dismiss()
             } catch {
                 self.error = Task.isCancelled ? GitError.cancelled.localizedDescription : error.localizedDescription
+                if error as? GitError == .authRequired { isPrivate = true; loadSaved() }
             }
             cloning = nil
         }

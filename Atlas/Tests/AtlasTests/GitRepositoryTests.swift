@@ -44,7 +44,7 @@ struct GitSourceTests {
     }
 
     @Test func refusesWhatIsNotARepositoryURL() {
-        for url in ["", "https://github.com/", "https://github.com/owner", "https://github.com/owner/repo/tree/main",
+        for url in ["", "https://github.com/", "https://github.com/owner", "https://github.com/owner/repo/pulls",
                     "https://bitbucket.org/workspace", "https://localhost/a/b", "bitbucket.org"] {
             #expect(throws: GitSource.Invalid.url, "\(url)") { try GitSource(url: url) }
         }
@@ -70,6 +70,62 @@ struct GitSourceTests {
         #expect(throws: GitSource.Invalid.credentialsInURL) { try GitSource(url: "https://jo@bitbucket.org/team/repo.git") }
         #expect(throws: GitSource.Invalid.credentialsInURL) { try GitSource(url: "https://jo:app-password@bitbucket.org/team/repo") }
         #expect(GitSource(host: "github.com", owner: "a", repo: "b").host == nil, "github.com is the default")
+    }
+
+    /// The address of a Bitbucket page (…/src/master/) was cloned as it was, and Bitbucket answered with a login.
+    @Test func pageAddressesCopiedFromTheBrowserGiveTheRepositoryBranchAndFolder() throws {
+        let bb = try GitSource(url: "https://bitbucket.org/product_admin/omnium-terraform/src/master/")
+        #expect(bb.cloneURL == "https://bitbucket.org/product_admin/omnium-terraform" && bb.branch == "master" && bb.subfolder == nil)
+        let folder = try GitSource(url: "https://bitbucket.org/team/infra/src/main/envs/prod%20eu/")
+        #expect(folder.branch == "main" && folder.subfolder == "envs/prod eu")
+        let commit = try GitSource(url: "https://bitbucket.org/team/infra/src/4f1c2ab9d0e1/envs?at=release%2F2.0")
+        #expect(commit.branch == "release/2.0" && commit.subfolder == "envs")
+        #expect(try GitSource(url: "https://bitbucket.org/team/infra/src/4f1c2ab9d0e1/").branch == nil, "a commit is not a branch")
+        #expect(try GitSource(url: "https://bitbucket.org/team/infra/src/feature/x/infra", branch: "feature/x").subfolder == "infra")
+        let typed = try GitSource(url: "https://bitbucket.org/team/infra/src/main/a", branch: "dev", subfolder: "b")
+        #expect(typed.branch == "dev" && typed.subfolder == "b", "what is typed wins")
+
+        let gh = try GitSource(url: "https://github.com/a/b/tree/main/modules/vpc")
+        #expect(gh.cloneURL == "https://github.com/a/b.git" && gh.branch == "main" && gh.subfolder == "modules/vpc")
+        #expect(try GitSource(url: "https://github.com/a/b/blob/main/infra/main.tf").subfolder == "infra")
+        let gl = try GitSource(url: "https://gitlab.com/group/sub/repo/-/tree/main/infra?ref_type=heads")
+        #expect(gl.owner == "group/sub" && gl.repo == "repo" && gl.branch == "main" && gl.subfolder == "infra")
+        #expect(try GitSource(url: "https://bitbucket.org/team/infra?at=main").cloneURL == "https://bitbucket.org/team/infra")
+        #expect(throws: GitSource.Invalid.url) { try GitSource(url: "https://bitbucket.org/team/infra/pull-requests") }
+    }
+
+    @Test func credentialsGoToGitAsAHeaderForTheServerOnly() async throws {
+        let calls = GitCalls()
+        let target = try tempFolder().appendingPathComponent("r")
+        let git = fakeGit(calls) { args in
+            try? FileManager.default.createDirectory(atPath: args.last!, withIntermediateDirectories: true)
+            return GitResult(exitCode: 0)
+        }
+        let creds = GitCredentials(username: "jo", token: "ATBB-secret-token")
+        _ = try await git.clone(try GitSource(url: "https://bitbucket.org/t/r"), into: target, credentials: creds)
+        let call = try #require(calls.all.first)
+        #expect(call.env["GIT_CONFIG_COUNT"] == "1" && call.env["GIT_CONFIG_KEY_0"] == "http.https://bitbucket.org/.extraHeader")
+        #expect(call.env["GIT_CONFIG_VALUE_0"] == "Authorization: Basic " + Data("jo:ATBB-secret-token".utf8).base64EncodedString())
+        #expect(!call.args.joined(separator: " ").contains("ATBB-secret-token"), "never on the command line")
+        #expect(call.args.starts(with: ["-c", "http.followRedirects=false"]))
+
+        _ = try await git.pull(target, host: "bitbucket.org", credentials: creds)
+        #expect(calls.all.last?.env["GIT_CONFIG_KEY_0"] == "http.https://bitbucket.org/.extraHeader")
+        _ = try await git.pull(target)
+        #expect(calls.all.last?.env["GIT_CONFIG_COUNT"] == nil, "no credentials, no header")
+        #expect(GitError.authRequired.errorDescription!.contains("Private repository"))
+    }
+
+    /// The real git reads the header from its environment, scoped to the server's address.
+    @Test(.enabled(if: Git().binary != nil)) func realGitReadsTheHeaderFromItsEnvironment() async throws {
+        let dir = try tempFolder()
+        let binary = try #require(Git().binary)
+        let env = Git.environment(base: ProcessInfo.processInfo.environment, credentials: GitCredentials(username: "u", token: "tok123"),
+                                  host: "bitbucket.org")
+        let r = await Git.runProcess(binary, ["config", "--get-urlmatch", "http.extraHeader", "https://bitbucket.org/t/r"], dir, env, 30, { _ in })
+        #expect(r.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == GitCredentials(username: "u", token: "tok123").header)
+        let other = await Git.runProcess(binary, ["config", "--get-urlmatch", "http.extraHeader", "https://evil.com/t/r"], dir, env, 30, { _ in })
+        #expect(other.stdout.isEmpty, "not sent to another server")
     }
 
     /// Stacks saved by 2.8.0 have no host: they are GitHub stacks.
@@ -268,6 +324,29 @@ struct GitStackTests {
         for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
         let run = try #require(model.stack(s.id)?.lastRun)
         #expect(run.status == .failed && run.output.contains("gh auth setup-git"))
+    }
+
+    @Test func tokensLiveInTheKeychainPerServerAndPullUsesThem() async throws {
+        let dir = try tempFolder()
+        let secrets = InMemorySecretStore()
+        let calls = GitCalls()
+        let model = StacksModel(store: StackStore(folder: dir.appendingPathComponent("support"), secrets: secrets),
+                                clientFor: { _ in nil }, git: fakeGit(calls))
+        #expect(model.gitCredentials(for: "bitbucket.org") == nil)
+        let creds = GitCredentials(username: "jo", token: "tok-123456")
+        try model.saveGitCredentials(creds, for: "bitbucket.org")
+        #expect(model.gitCredentials(for: "bitbucket.org") == creds && model.gitCredentials(for: "gitlab.com") == nil)
+        #expect(secrets.get(GitCredentials.keychainName("bitbucket.org"))?.contains("tok-123456") == true)
+
+        let s = model.create(name: "bb", folder: dir, accountId: "acc", region: "eu-west-1",
+                             repository: try GitSource(url: "https://bitbucket.org/t/r"))
+        model.pull(s.id)
+        for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(calls.all.last?.env["GIT_CONFIG_VALUE_0"] == creds.header)
+        #expect(!(try String(contentsOf: dir.appendingPathComponent("support/stacks.json"))).contains("tok-123456"))
+
+        model.forgetGitCredentials(for: "bitbucket.org")
+        #expect(model.gitCredentials(for: "bitbucket.org") == nil)
     }
 
     @Test func newClonesNeverReuseAFolder() throws {

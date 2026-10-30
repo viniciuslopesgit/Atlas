@@ -81,15 +81,16 @@ Atlas calls these only when you use the feature that needs them, and tells you h
 |---|---|---|
 | Infrastructure as Code, Stacks | `terraform` 1.5+ | `brew install terraform` |
 | Automatic updates | `gh`, signed in | `brew install gh && gh auth login` |
-| Stacks from a git repository | `git` (private repositories: your git credentials) | `xcode-select --install`; clone once in Terminal, or `gh auth login && gh auth setup-git` |
+| Stacks from a git repository | `git` (private repositories: a token, or your git credentials) | `xcode-select --install` |
 
 Credentials reach `terraform` only through the child process's environment; they are never written to `.tf`
 files or passed on a command line.
 
 Stacks from a git repository: Atlas only clones `https://host/path/repo` addresses (GitHub, Bitbucket, GitLab or a
 server of your own, by name; no other transport, no user or password in the address), runs `git` with an argument
-array, `GIT_TERMINAL_PROMPT=0`, https as the only protocol, no hooks and no submodules, and never stores a token; a
-private repository uses the credential helper git already has (clone it once in Terminal, or `gh auth setup-git`).
+array, `GIT_TERMINAL_PROMPT=0`, https as the only protocol, no hooks and no submodules. A private repository uses a
+user name and token typed in New Stack, kept in the Keychain per server and given to git as an `http.<server>.extraHeader`
+through `GIT_CONFIG_*` (never on a command line or in a file), or the credential helper git already has.
 
 EC2 › Connect needs nothing extra: Atlas speaks the Session Manager protocol itself and opens the shell in
 Terminal. KMS-encrypted sessions (a Session Manager preference) are not supported yet.

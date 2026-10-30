@@ -229,11 +229,25 @@ final class StacksModel: ObservableObject {
         return candidate
     }
 
+    /// The token saved for a server's private repositories, from the Keychain.
+    func gitCredentials(for host: String) -> GitCredentials? {
+        store.secrets.get(GitCredentials.keychainName(host)).flatMap { try? JSONDecoder().decode(GitCredentials.self, from: Data($0.utf8)) }
+    }
+
+    func saveGitCredentials(_ credentials: GitCredentials, for host: String) throws {
+        let json = String(decoding: try JSONEncoder().encode(credentials), as: UTF8.self)
+        try store.secrets.set(json, for: GitCredentials.keychainName(host))
+    }
+
+    func forgetGitCredentials(for host: String) { store.secrets.delete(GitCredentials.keychainName(host)) }
+
     /// Fast-forwards the clone of a stack created from a repository, as a run in its history. The saved plan was made from the old
     /// configuration, so it is dropped: the next Apply needs a new Plan.
     func pull(_ id: UUID) {
         guard let s = stack(id), let clonePath = s.clonePath, s.repository != nil, !busy.contains(id) else { return }
         let git = git
+        let host = s.repository?.hostName
+        let credentials = host.flatMap(gitCredentials(for:))
         let plan = planFiles(for: s).url(Self.planFile)
         let log: @Sendable (String) -> Void = { [weak self] line in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.append(.line(line), to: id) } }
@@ -247,7 +261,7 @@ final class StacksModel: ObservableObject {
             log("▶ git pull --ff-only (\(s.repository?.label ?? ""))")
             var ok = true
             do {
-                _ = try await git.pull(URL(fileURLWithPath: clonePath, isDirectory: true), onLine: log)
+                _ = try await git.pull(URL(fileURLWithPath: clonePath, isDirectory: true), host: host, credentials: credentials, onLine: log)
                 // Only Atlas's own saved plan, in its folder for this stack.
                 try? FileManager.default.removeItem(at: plan)
                 log("✔ The folder is up to date with the repository. Run Plan to see what the changes do.")

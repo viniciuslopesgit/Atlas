@@ -676,12 +676,12 @@ struct DiagramLinkTests {
 
     // MARK: Stacks from git repositories
 
-    @Test func onlyHttpsRepositoriesAreCloned() {
+    @Test func onlyHttpsRepositoriesAreCloned() throws {
         let attacks = [
             "file:///etc", "file://github.com/a/b", "ext::sh -c touch% /tmp/pwned", "ssh://git@bitbucket.org/a/b",
             "git@bitbucket.org:a/b.git", "git://github.com/a/b", "http://bitbucket.org/a/b", "https://evil..com/a/b",
             "https://-evil.com/a/b", "https://bitbucket.org:99999x/a/b", "https://127.0.0.1/a/b", "https://10.0.0.1:8443/a/b", "https://localhost/a/b",
-            "https://[::1]/a/b", "https://bitbucket.org/a/b?ref=x", "https://bitbucket.org/a/b#x", "https://github.com/-a/b",
+            "https://[::1]/a/b", "https://bitbucket.org/a/b#x", "https://bitbucket.org/a/b/c", "https://github.com/-a/b",
             "https://bitbucket.org/a/-b", "https://github.com/a/--upload-pack=touch", "https://bitbucket.org/a/../c",
             "https://bitbucket.org/a/..", "https://bitbucket.org/./a/b", "https://github.com/a/b\nhttps://evil.com/x/y",
             "https://bitbucket.org/a/$(touch x)", "https://bitbucket.org/a/b;rm", "https://bitbucket.org/a/`id`",
@@ -691,6 +691,13 @@ struct DiagramLinkTests {
         for url in attacks {
             #expect(throws: (any Error).self, "\(url)") { try GitSource(url: url) }
         }
+        // A page address only gives a branch and folder that pass the same checks.
+        for url in ["https://bitbucket.org/a/b/src/master/..%2F..%2Fetc", "https://bitbucket.org/a/b/src/x/?at=--upload-pack%3Dtouch",
+                    "https://github.com/a/b/tree/-b/infra", "https://bitbucket.org/a/b/src/main/~/x", "https://gitlab.com/a/b/-/tree/main/a\\b"] {
+            #expect(throws: (any Error).self, "\(url)") { try GitSource(url: url) }
+        }
+        // A query never reaches git: the address is rebuilt from the checked parts.
+        #expect(try GitSource(url: "https://bitbucket.org/a/b?at=main&x=--upload-pack").cloneURL == "https://bitbucket.org/a/b")
         // A user or password in the address would be saved with the stack, in plain text: refused.
         for url in ["https://user@bitbucket.org/a/b", "https://x-token-auth:secret@bitbucket.org/a/b", "https://:t@github.com/a/b"] {
             #expect(throws: GitSource.Invalid.credentialsInURL, "\(url)") { try GitSource(url: url) }
@@ -728,6 +735,23 @@ struct DiagramLinkTests {
         try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: clone.appendingPathComponent("x"), withDestinationURL: sibling)
         #expect(throws: GitError.noSubfolder("x")) { try GitSource(owner: "a", repo: "b", subfolder: "x").stackFolder(in: clone) }
+    }
+
+    @Test func aTokenCannotAddHeadersOrReachAnotherServer() async throws {
+        let calls = GitCalls()
+        let git = fakeGit(calls)
+        let dir = TestTemp.root.appendingPathComponent("gh-tok-\(UUID().uuidString)", isDirectory: true)
+        for bad in [GitCredentials(username: "jo", token: "tok\r\nX-Evil: 1"), GitCredentials(username: "jo:x", token: "tok"),
+                    GitCredentials(username: "", token: "tok"), GitCredentials(username: "jo", token: "")] {
+            #expect(!bad.isValid)
+            await #expect(throws: GitError.self) { _ = try await git.pull(dir, host: "bitbucket.org", credentials: bad) }
+        }
+        #expect(calls.all.isEmpty, "git never ran with a bad token")
+        // GIT_CONFIG_* from the caller is dropped; only Atlas's own header, for the repository's server.
+        let env = Git.environment(base: ["GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.sshCommand", "GIT_CONFIG_VALUE_0": "touch x"],
+                                  credentials: GitCredentials(username: "u", token: "t"), host: "bitbucket.org")
+        #expect(env["GIT_CONFIG_KEY_0"] == "http.https://bitbucket.org/.extraHeader")
+        #expect(Git.environment(base: ["GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.sshCommand"])["GIT_CONFIG_KEY_0"] == nil)
     }
 
     @Test func gitRunsWithoutPromptsHooksOrTheCallersGitVariables() {

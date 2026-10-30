@@ -34,15 +34,28 @@ struct GitSource: Codable, Sendable, Equatable {
 
     static let github = "github.com"
 
+    static let bitbucket = "bitbucket.org"
+
     /// Only `https://host[:port]/path/to/repo` (`https://` may be left out): no other scheme or transport (`http`,
     /// `file://`, `ssh://`, `git@…:`, `ext::`), no user or password, query or fragment. The host is a DNS name with a dot;
-    /// each part of the path is letters, digits and `. _ ~ -`, never `.`, `..` or starting with `-`. On github.com the
-    /// path is exactly owner/repository.
+    /// each part of the path is letters, digits and `. _ ~ -`, never `.`, `..` or starting with `-`. On github.com and
+    /// bitbucket.org the path is exactly owner/repository. A page address copied from the browser (a branch or folder
+    /// on GitHub, Bitbucket or GitLab) gives the repository, and its branch and folder when those fields are empty.
     init(url: String, branch: String = "", subfolder: String = "") throws {
         var text = url.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.contains("://"), text.wholeMatch(#"[a-z0-9.-]+\.[a-z]{2,}(:[0-9]{1,5})?/\S+"#) != nil { text = "https://" + text }
+        if text.firstMatch(#"^https://[^/?#]*@"#) != nil { throw Invalid.credentialsInURL }
+        var urlBranch: String?, urlFolder: String?
+        if let page = text.wholeMatch(#"(https://[^/?#\s]+)(/[^?#\s]*)(\?[^#\s]*)?(#\S*)?"#) {
+            let host = String(page[1].dropFirst("https://".count))
+            let path = page[2].split(separator: "/").map(String.init)
+            if let parts = Self.browserPage(path, host: host, query: String(page[3]), branchHint: branch.trimmingCharacters(in: .whitespaces)) {
+                text = "https://\(host)/" + parts.repo.joined(separator: "/")
+                urlBranch = parts.branch
+                urlFolder = parts.folder
+            }
+        }
         while text.hasSuffix("/") { text.removeLast() }
-        if text.firstMatch(#"^https://[^/]*@"#) != nil { throw Invalid.credentialsInURL }
         let label = #"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"#
         guard let m = text.wholeMatch("https://(\(label)(?:\\.\(label))+(?::[0-9]{1,5})?)((?:/[A-Za-z0-9._~-]{1,100}){2,10})")
         else { throw Invalid.url }
@@ -51,6 +64,7 @@ struct GitSource: Codable, Sendable, Equatable {
         guard host.split(separator: ":")[0].split(separator: ".").last?.first?.isLetter == true else { throw Invalid.url }
         var parts = m[2].split(separator: "/").map(String.init)
         guard parts.allSatisfy({ $0 != "." && $0 != ".." && !$0.hasPrefix("-") }) else { throw Invalid.url }
+        if host == Self.bitbucket { guard parts.count == 2 else { throw Invalid.url } }
         if host == Self.github {
             guard parts.count == 2 else { throw Invalid.url }
             if parts[1].hasSuffix(".git") { parts[1].removeLast(4) }
@@ -60,14 +74,52 @@ struct GitSource: Codable, Sendable, Equatable {
         repo = parts.removeLast()
         owner = parts.joined(separator: "/")
 
-        let b = branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        var b = branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        if b.isEmpty, let urlBranch { b = urlBranch }
         if b.isEmpty {
             self.branch = nil
         } else {
             guard Self.isValidBranch(b) else { throw Invalid.branch }
             self.branch = b
         }
-        self.subfolder = try Self.normalized(subfolder: subfolder)
+        let folder = subfolder.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.subfolder = try Self.normalized(subfolder: folder.isEmpty ? urlFolder ?? "" : folder)
+    }
+
+    /// The repository, branch and folder of a page address: GitHub `owner/repo/tree/<branch>/<folder>`, Bitbucket
+    /// `workspace/repo/src/<branch or commit>/<folder>` (with `?at=<branch>`), GitLab `group/repo/-/tree/<branch>/<folder>`.
+    /// A branch with slashes is only recognised when it is typed in the Branch field. nil when it is not such a page.
+    static func browserPage(_ path: [String], host: String, query: String, branchHint: String)
+        -> (repo: [String], branch: String?, folder: String?)? {
+        var repo: [String], rest: [String], isFile: Bool
+        if let i = path.firstIndex(of: "-"), i >= 2, i + 1 < path.count, ["tree", "blob"].contains(path[i + 1]) {
+            repo = Array(path[..<i]); rest = Array(path[(i + 2)...]); isFile = path[i + 1] == "blob"
+        } else if host == github, path.count > 2, ["tree", "blob"].contains(path[2]) {
+            repo = Array(path[..<2]); rest = Array(path[3...]); isFile = path[2] == "blob"
+        } else if host == bitbucket, path.count > 2, path[2] == "src" {
+            repo = Array(path[..<2]); rest = Array(path[3...]); isFile = false
+        } else if query.isEmpty {
+            return nil
+        } else {
+            return (path, nil, nil)
+        }
+        var folder = rest.map { $0.removingPercentEncoding ?? $0 }
+        if isFile, !folder.isEmpty { folder.removeLast() }
+        var branch: String?
+        let joined = folder.joined(separator: "/")
+        if !branchHint.isEmpty, joined == branchHint || joined.hasPrefix(branchHint + "/") {
+            branch = branchHint
+            folder = Array(folder.dropFirst(branchHint.split(separator: "/").count))
+        } else if !folder.isEmpty {
+            let ref = folder.removeFirst()
+            // A commit (Bitbucket links to one) is not a branch: the default branch, unless ?at= names one.
+            branch = ref.wholeMatch("[0-9a-f]{7,40}") == nil ? ref : nil
+        }
+        if host == bitbucket, let at = query.firstMatch(#"[?&]at=([^&]+)"#) {
+            let name = String(at[1]).removingPercentEncoding ?? String(at[1])
+            branch = name.hasPrefix("refs/heads/") ? String(name.dropFirst("refs/heads/".count)) : name
+        }
+        return (repo, branch, folder.isEmpty ? nil : folder.joined(separator: "/"))
     }
 
     /// A conservative subset of git's ref names: it can never read as an option, a revision range or a path outside.
@@ -113,6 +165,26 @@ struct GitSource: Codable, Sendable, Equatable {
     }
 }
 
+/// A user name and token (an API token, app password or personal access token) for a private repository on one
+/// server. Kept in the Keychain only; git gets it through its environment as an Authorization header for that server's
+/// https address, never on a command line, in a file or in the clone's configuration.
+struct GitCredentials: Codable, Sendable, Equatable {
+    var username: String
+    var token: String
+
+    static func keychainName(_ host: String) -> String { "atlas-git:\(host)" }
+
+    /// Both filled, no control characters (a line break would add a header) and no ":" in the user name.
+    var isValid: Bool {
+        let ok: (String) -> Bool = { s in
+            !s.isEmpty && s.count <= 1000 && s.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+        }
+        return ok(username) && ok(token) && !username.contains(":")
+    }
+
+    var header: String { "Authorization: Basic " + Data("\(username):\(token)".utf8).base64EncodedString() }
+}
+
 enum GitError: LocalizedError, Equatable {
     case notInstalled, authRequired, notFound, branchNotFound(String), network, folderNotEmpty(String), noSubfolder(String),
          timedOut, cancelled, failed(String)
@@ -122,7 +194,7 @@ enum GitError: LocalizedError, Equatable {
         case .notInstalled:
             "Git isn't installed. Install Apple's Command Line Tools with: xcode-select --install"
         case .authRequired:
-            "The server asked for credentials: the repository is private or doesn't exist. Atlas uses the credentials git already has and never stores a token: clone the repository once in Terminal so git saves them in the Keychain (on Bitbucket, with an app password or API token), or for GitHub run gh auth login and gh auth setup-git, then try again."
+            "The server asked for credentials: the repository is private, doesn't exist, or the token was refused. Turn on Private repository and enter your user name and a token with read access to it (on Bitbucket an API token or app password, on GitHub or GitLab a personal access token); Atlas keeps it in the Keychain. Credentials git already has (gh auth setup-git, the Keychain) work too."
         case .notFound:
             "The repository was not found, or your git credentials can't see it."
         case .branchNotFound(let b):
@@ -176,7 +248,9 @@ struct Git: Sendable {
 
     /// The app's environment without any GIT_* variable (GIT_DIR, GIT_SSH_COMMAND, GIT_CONFIG_PARAMETERS… would change
     /// what git runs or where it writes) or askpass program, and with prompts turned off: git fails instead of waiting.
-    static func environment(base: [String: String]) -> [String: String] {
+    /// With credentials, git gets them as an Authorization header for `https://<host>/` only, through
+    /// GIT_CONFIG_COUNT/KEY/VALUE: not in its arguments (visible to other processes) or in any file.
+    static func environment(base: [String: String], credentials: GitCredentials? = nil, host: String? = nil) -> [String: String] {
         var env = base.filter { !$0.key.hasPrefix("GIT_") && $0.key != "SSH_ASKPASS" && $0.key != "GCM_INTERACTIVE" }
         var seen = Set<String>()
         env["PATH"] = ((env["PATH"].map { $0.split(separator: ":").map(String.init) } ?? []) + TerraformCLI.searchPaths)
@@ -184,6 +258,11 @@ struct Git: Sendable {
         env["GIT_TERMINAL_PROMPT"] = "0"
         env["GIT_ASKPASS"] = ""
         env["GCM_INTERACTIVE"] = "never"
+        if let credentials, credentials.isValid, let host {
+            env["GIT_CONFIG_COUNT"] = "1"
+            env["GIT_CONFIG_KEY_0"] = "http.https://\(host)/.extraHeader"
+            env["GIT_CONFIG_VALUE_0"] = credentials.header
+        }
         return env
     }
 
@@ -197,28 +276,34 @@ struct Git: Sendable {
 
     /// Clones the repository into `folder` (which must not exist or be empty) and returns the stack's folder in it.
     /// `remote` replaces the repository's address in tests only, together with `protocols`.
-    func clone(_ source: GitSource, into folder: URL, remote: String? = nil,
+    func clone(_ source: GitSource, into folder: URL, remote: String? = nil, credentials: GitCredentials? = nil,
                onLine: @escaping @Sendable (String) -> Void = { _ in }) async throws -> URL {
         if let items = try? FileManager.default.contentsOfDirectory(atPath: folder.path), !items.isEmpty {
             throw GitError.folderNotEmpty(folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
         }
         try FileManager.default.createDirectory(at: folder.deletingLastPathComponent(), withIntermediateDirectories: true)
         let r = try await run(cloneArguments(source, remote: remote ?? source.cloneURL, into: folder),
-                              in: folder.deletingLastPathComponent(), onLine: onLine)
+                              in: folder.deletingLastPathComponent(), credentials: credentials, host: source.hostName, onLine: onLine)
         if r.exitCode != 0 { throw Self.error(r, branch: source.branch) }
         return try source.stackFolder(in: folder)
     }
 
     /// Fast-forwards the clone to its remote branch; it never merges or rewrites local changes.
-    func pull(_ clone: URL, onLine: @escaping @Sendable (String) -> Void = { _ in }) async throws -> GitResult {
-        let r = try await run(pullArguments, in: clone, onLine: onLine)
+    func pull(_ clone: URL, host: String? = nil, credentials: GitCredentials? = nil,
+              onLine: @escaping @Sendable (String) -> Void = { _ in }) async throws -> GitResult {
+        let r = try await run(pullArguments, in: clone, credentials: credentials, host: host, onLine: onLine)
         if r.exitCode != 0 { throw Self.error(r, branch: nil) }
         return r
     }
 
-    private func run(_ args: [String], in dir: URL, onLine: @escaping @Sendable (String) -> Void) async throws -> GitResult {
+    private func run(_ args: [String], in dir: URL, credentials: GitCredentials? = nil, host: String? = nil,
+                     onLine: @escaping @Sendable (String) -> Void) async throws -> GitResult {
         guard let binary, FileManager.default.isExecutableFile(atPath: binary) else { throw GitError.notInstalled }
-        let r = await runner(binary, args, dir, Self.environment(base: ProcessInfo.processInfo.environment), timeout, onLine)
+        if let credentials, !credentials.isValid { throw GitError.failed("The user name or token is not valid (empty, or with a line break).") }
+        // The header must not follow a redirect to another server.
+        let args = credentials == nil ? args : ["-c", "http.followRedirects=false"] + args
+        let env = Self.environment(base: ProcessInfo.processInfo.environment, credentials: credentials, host: host)
+        let r = await runner(binary, args, dir, env, timeout, onLine)
         if let e = r.error { throw e }
         return r
     }

@@ -4,6 +4,25 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.10.0] - 2026-10-30
+
+Atlas 2.10.0 clones private repositories and understands addresses copied from the browser. New Stack's Git repository
+has a Private repository switch: enter your user name and a token with read access (a Bitbucket API token or app
+password, a GitHub or GitLab personal access token) and Atlas keeps it in the Keychain, one per server, for the clone
+and for every Pull. git gets it as a header for that server's address only, through its environment: never on a
+command line, in a file or in the clone. The address of a page on Bitbucket (`…/src/master/envs/prod`), GitHub
+(`…/tree/main/infra`) or GitLab (`…/-/tree/main/infra`) now gives the repository, its branch and its folder, instead of
+being cloned as it was and answered with a login.
+
+### Added
+- New Stack can clone a private repository with a user name and token, kept in the Keychain for its server and used by
+  Pull; the saved token can be forgotten from the sheet
+- A page address copied from Bitbucket, GitHub or GitLab fills in the repository, branch and folder
+
+### Fixed
+- A Bitbucket page address such as https://bitbucket.org/workspace/repository/src/master/ is cloned from the
+  repository, instead of failing with "The server asked for credentials"
+
 ## [2.9.0] - 2026-10-30
 
 Atlas 2.9.0 clones stacks from any git server, not only GitHub. New Stack's Git repository takes the https address of
@@ -405,6 +424,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.10.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.0
 [2.9.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.9.0
 [2.8.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.8.0
 [2.7.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.1
