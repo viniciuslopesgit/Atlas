@@ -674,30 +674,36 @@ struct DiagramLinkTests {
         #expect(TerraformConfig.graph(folder: folder).nodes.isEmpty)
     }
 
-    // MARK: Stacks from GitHub
+    // MARK: Stacks from git repositories
 
-    @Test func onlyGitHubOverHttpsIsCloned() {
+    @Test func onlyHttpsRepositoriesAreCloned() {
         let attacks = [
-            "file:///etc", "file://github.com/a/b", "ext::sh -c touch% /tmp/pwned", "ssh://git@github.com/a/b",
-            "git@github.com:a/b.git", "git://github.com/a/b", "http://github.com/a/b", "https://github.com.evil.com/a/b",
-            "https://evil.com/github.com/a/b", "https://user:pw@github.com/a/b", "https://github.com:22/a/b",
-            "https://github.com/a/b?ref=x", "https://github.com/a/b#x", "https://github.com/-a/b", "https://github.com/a/-b",
-            "https://github.com/a/--upload-pack=touch", "https://github.com/a/b/../c", "https://github.com/a/..",
-            "https://github.com/a/b\nhttps://evil.com/x/y", "https://github.com/a/$(touch x)", "https://github.com/a/b;rm",
-            "-uhttps://github.com/a/b", "--upload-pack=touch /tmp/x", "https://GITHUB.com/a/b", "https://github.com/a/b c",
+            "file:///etc", "file://github.com/a/b", "ext::sh -c touch% /tmp/pwned", "ssh://git@bitbucket.org/a/b",
+            "git@bitbucket.org:a/b.git", "git://github.com/a/b", "http://bitbucket.org/a/b", "https://evil..com/a/b",
+            "https://-evil.com/a/b", "https://bitbucket.org:99999x/a/b", "https://127.0.0.1/a/b", "https://10.0.0.1:8443/a/b", "https://localhost/a/b",
+            "https://[::1]/a/b", "https://bitbucket.org/a/b?ref=x", "https://bitbucket.org/a/b#x", "https://github.com/-a/b",
+            "https://bitbucket.org/a/-b", "https://github.com/a/--upload-pack=touch", "https://bitbucket.org/a/../c",
+            "https://bitbucket.org/a/..", "https://bitbucket.org/./a/b", "https://github.com/a/b\nhttps://evil.com/x/y",
+            "https://bitbucket.org/a/$(touch x)", "https://bitbucket.org/a/b;rm", "https://bitbucket.org/a/`id`",
+            "-uhttps://github.com/a/b", "--upload-pack=touch /tmp/x", "https://GITHUB.com/a/b", "https://bitbucket.org/a/b c",
+            "https://bitbucket.org/a%2F..%2Fb/c", "https://bitbucket.org\\@evil.com/a/b", "https://github.com/a/b/c",
         ]
         for url in attacks {
-            #expect(throws: GitHubSource.Invalid.url, "\(url)") { try GitHubSource(url: url) }
+            #expect(throws: (any Error).self, "\(url)") { try GitSource(url: url) }
+        }
+        // A user or password in the address would be saved with the stack, in plain text: refused.
+        for url in ["https://user@bitbucket.org/a/b", "https://x-token-auth:secret@bitbucket.org/a/b", "https://:t@github.com/a/b"] {
+            #expect(throws: GitSource.Invalid.credentialsInURL, "\(url)") { try GitSource(url: url) }
         }
     }
 
     @Test func branchesCannotBecomeGitOptions() {
         for branch in ["--upload-pack=touch /tmp/x", "-b", "-", "main..dev", "../../x", "a;rm -rf ~", "$(touch x)", "`x`",
                        "a b", "a\nb", "@{-1}", "~1", "refs/../x", ".hidden", "a/.b", "a//b", "x.lock", "a/"] {
-            #expect(throws: GitHubSource.Invalid.branch, "\(branch)") { try GitHubSource(url: "https://github.com/a/b", branch: branch) }
+            #expect(throws: GitSource.Invalid.branch, "\(branch)") { try GitSource(url: "https://github.com/a/b", branch: branch) }
         }
         // A valid branch still reaches git bound to --branch=, before the "--" that ends the options.
-        let args = Git(binary: "/bin/echo").cloneArguments(GitHubSource(owner: "a", repo: "b", branch: "dev"), remote: "u",
+        let args = Git(binary: "/bin/echo").cloneArguments(GitSource(owner: "a", repo: "b", branch: "dev"), remote: "u",
                                                            into: URL(fileURLWithPath: "/x"))
         #expect(args.contains("--branch=dev") && !args.contains("dev"))
         #expect(args.suffix(3) == ["--", "u", "/x"])
@@ -705,7 +711,7 @@ struct DiagramLinkTests {
 
     @Test func theSubfolderStaysInsideTheClone() throws {
         for sub in ["..", "../..", "a/../../b", "./a", "a/./b", "~", "~/x", "a\\..\\b", "a\u{0}b", "a\nb"] {
-            #expect(throws: GitHubSource.Invalid.subfolder, "\(sub)") { try GitHubSource(url: "https://github.com/a/b", subfolder: sub) }
+            #expect(throws: GitSource.Invalid.subfolder, "\(sub)") { try GitSource(url: "https://github.com/a/b", subfolder: sub) }
         }
         // A symbolic link in the repository that points outside it is refused after the clone.
         let dir = TestTemp.root.appendingPathComponent("gh-sec-\(UUID().uuidString)", isDirectory: true)
@@ -715,13 +721,13 @@ struct DiagramLinkTests {
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: clone.appendingPathComponent("infra"), withDestinationURL: outside)
         #expect(throws: GitError.noSubfolder("infra")) {
-            try GitHubSource(owner: "a", repo: "b", subfolder: "infra").stackFolder(in: clone)
+            try GitSource(owner: "a", repo: "b", subfolder: "infra").stackFolder(in: clone)
         }
         // A clone folder whose name starts like the clone's (clone-evil) is outside too.
         let sibling = dir.appendingPathComponent("clone-evil")
         try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: clone.appendingPathComponent("x"), withDestinationURL: sibling)
-        #expect(throws: GitError.noSubfolder("x")) { try GitHubSource(owner: "a", repo: "b", subfolder: "x").stackFolder(in: clone) }
+        #expect(throws: GitError.noSubfolder("x")) { try GitSource(owner: "a", repo: "b", subfolder: "x").stackFolder(in: clone) }
     }
 
     @Test func gitRunsWithoutPromptsHooksOrTheCallersGitVariables() {

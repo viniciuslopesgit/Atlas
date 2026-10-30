@@ -168,8 +168,8 @@ struct StackEntry: Codable, Identifiable, Sendable {
     var autoFixOnDrift = false
     /// Optional so stacks saved before 2.5 still decode; nil is Terraform.
     var engineChoice: TerraformEngine?
-    /// The GitHub repository the stack was cloned from, and the clone's root (the stack's folder may be a subfolder).
-    var repository: GitHubSource?
+    /// The git repository the stack was cloned from, and the clone's root (the stack's folder may be a subfolder).
+    var repository: GitSource?
     var clonePath: String?
 
     var engine: TerraformEngine {

@@ -28,46 +28,76 @@ private func tempFolder() throws -> URL {
     return dir
 }
 
-struct GitHubSourceTests {
+struct GitSourceTests {
     @Test func acceptsTheWaysARepositoryIsCopiedFromGitHub() throws {
         for url in ["https://github.com/hashicorp/terraform-guides", "https://github.com/hashicorp/terraform-guides/",
                     "https://github.com/hashicorp/terraform-guides.git", "github.com/hashicorp/terraform-guides",
                     "  https://github.com/hashicorp/terraform-guides\n"] {
-            let s = try GitHubSource(url: url)
+            let s = try GitSource(url: url)
             #expect(s.owner == "hashicorp" && s.repo == "terraform-guides", "\(url)")
             #expect(s.branch == nil && s.subfolder == nil)
             #expect(s.cloneURL == "https://github.com/hashicorp/terraform-guides.git")
         }
-        let s = try GitHubSource(url: "https://github.com/a-b/repo.name_1", branch: " release/v1.2 ", subfolder: "/infra/prod/")
+        let s = try GitSource(url: "https://github.com/a-b/repo.name_1", branch: " release/v1.2 ", subfolder: "/infra/prod/")
         #expect(s.branch == "release/v1.2" && s.subfolder == "infra/prod")
         #expect(s.label == "a-b/repo.name_1 @ release/v1.2")
     }
 
     @Test func refusesWhatIsNotARepositoryURL() {
         for url in ["", "https://github.com/", "https://github.com/owner", "https://github.com/owner/repo/tree/main",
-                    "https://gitlab.com/owner/repo"] {
-            #expect(throws: GitHubSource.Invalid.url, "\(url)") { try GitHubSource(url: url) }
+                    "https://bitbucket.org/workspace", "https://localhost/a/b", "bitbucket.org"] {
+            #expect(throws: GitSource.Invalid.url, "\(url)") { try GitSource(url: url) }
         }
     }
 
+    @Test func acceptsBitbucketGitLabAndServersOfYourOwn() throws {
+        let bb = try GitSource(url: "https://bitbucket.org/my-team/infra-live.git", branch: "main")
+        #expect(bb.host == "bitbucket.org" && bb.owner == "my-team" && bb.repo == "infra-live.git" && bb.name == "infra-live")
+        #expect(bb.cloneURL == "https://bitbucket.org/my-team/infra-live.git", "the address as typed")
+        #expect(bb.webURL == "https://bitbucket.org/my-team/infra-live")
+        #expect(bb.label == "bitbucket.org/my-team/infra-live @ main" && bb.folderName == "my-team-infra-live")
+
+        let noGit = try GitSource(url: "bitbucket.org/my-team/infra-live/")
+        #expect(noGit.cloneURL == "https://bitbucket.org/my-team/infra-live")
+
+        let gl = try GitSource(url: "https://gitlab.com/group/sub-group/terraform")
+        #expect(gl.owner == "group/sub-group" && gl.repo == "terraform" && gl.folderName == "group-sub-group-terraform")
+
+        let server = try GitSource(url: "https://git.example.com:8443/scm/~jo/stack.git")
+        #expect(server.host == "git.example.com:8443" && server.owner == "scm/~jo")
+        #expect(server.cloneURL == "https://git.example.com:8443/scm/~jo/stack.git")
+
+        #expect(throws: GitSource.Invalid.credentialsInURL) { try GitSource(url: "https://jo@bitbucket.org/team/repo.git") }
+        #expect(throws: GitSource.Invalid.credentialsInURL) { try GitSource(url: "https://jo:app-password@bitbucket.org/team/repo") }
+        #expect(GitSource(host: "github.com", owner: "a", repo: "b").host == nil, "github.com is the default")
+    }
+
+    /// Stacks saved by 2.8.0 have no host: they are GitHub stacks.
+    @Test func repositoriesSavedBeforeOtherServersStillLoad() throws {
+        let old = try JSONDecoder().decode(GitSource.self, from: Data(#"{"owner":"a","repo":"b","branch":"main"}"#.utf8))
+        #expect(old.host == nil && old.cloneURL == "https://github.com/a/b.git" && old.branch == "main")
+        let bb = try GitSource(url: "https://bitbucket.org/t/r")
+        #expect(try JSONDecoder().decode(GitSource.self, from: JSONEncoder().encode(bb)) == bb)
+    }
+
     @Test func branchesAndFoldersAreChecked() throws {
-        #expect(GitHubSource.isValidBranch("main") && GitHubSource.isValidBranch("feature/x-1"))
-        #expect(!GitHubSource.isValidBranch("a.lock") && !GitHubSource.isValidBranch("a/") && !GitHubSource.isValidBranch("a/.b"))
-        #expect(throws: GitHubSource.Invalid.branch) { try GitHubSource(url: "github.com/a/b", branch: "a b") }
-        #expect(try GitHubSource.normalized(subfolder: " / ") == nil)
-        #expect(try GitHubSource.normalized(subfolder: "my stacks/prod") == "my stacks/prod")
-        #expect(throws: GitHubSource.Invalid.subfolder) { try GitHubSource.normalized(subfolder: "a//b") }
+        #expect(GitSource.isValidBranch("main") && GitSource.isValidBranch("feature/x-1"))
+        #expect(!GitSource.isValidBranch("a.lock") && !GitSource.isValidBranch("a/") && !GitSource.isValidBranch("a/.b"))
+        #expect(throws: GitSource.Invalid.branch) { try GitSource(url: "github.com/a/b", branch: "a b") }
+        #expect(try GitSource.normalized(subfolder: " / ") == nil)
+        #expect(try GitSource.normalized(subfolder: "my stacks/prod") == "my stacks/prod")
+        #expect(throws: GitSource.Invalid.subfolder) { try GitSource.normalized(subfolder: "a//b") }
     }
 
     @Test func theStackFolderMustExistInTheClone() throws {
         let clone = try tempFolder()
         try FileManager.default.createDirectory(at: clone.appendingPathComponent("infra/prod"), withIntermediateDirectories: true)
         try Data().write(to: clone.appendingPathComponent("README"))
-        #expect(try GitHubSource(owner: "a", repo: "b").stackFolder(in: clone) == clone)
-        let sub = try GitHubSource(owner: "a", repo: "b", subfolder: "infra/prod").stackFolder(in: clone)
+        #expect(try GitSource(owner: "a", repo: "b").stackFolder(in: clone) == clone)
+        let sub = try GitSource(owner: "a", repo: "b", subfolder: "infra/prod").stackFolder(in: clone)
         #expect(sub.path.hasSuffix("/infra/prod"))
-        #expect(throws: GitError.noSubfolder("missing")) { try GitHubSource(owner: "a", repo: "b", subfolder: "missing").stackFolder(in: clone) }
-        #expect(throws: GitError.noSubfolder("README")) { try GitHubSource(owner: "a", repo: "b", subfolder: "README").stackFolder(in: clone) }
+        #expect(throws: GitError.noSubfolder("missing")) { try GitSource(owner: "a", repo: "b", subfolder: "missing").stackFolder(in: clone) }
+        #expect(throws: GitError.noSubfolder("README")) { try GitSource(owner: "a", repo: "b", subfolder: "README").stackFolder(in: clone) }
     }
 }
 
@@ -82,7 +112,7 @@ struct GitTests {
             return GitResult(exitCode: 0, stderr: "Cloning into 'a-b'...")
         }
         let lines = GitCalls()
-        let folder = try await git.clone(GitHubSource(owner: "a", repo: "b", branch: "dev", subfolder: "envs/prod"), into: target) {
+        let folder = try await git.clone(GitSource(owner: "a", repo: "b", branch: "dev", subfolder: "envs/prod"), into: target) {
             lines.add(.init(args: [$0], dir: parent, env: [:]))
         }
         #expect(folder.path.hasSuffix("/a-b/envs/prod"))
@@ -101,11 +131,11 @@ struct GitTests {
         let target = try tempFolder()
         try Data("x".utf8).write(to: target.appendingPathComponent("main.tf"))
         let calls = GitCalls()
-        await #expect(throws: GitError.self) { try await fakeGit(calls).clone(GitHubSource(owner: "a", repo: "b"), into: target) }
+        await #expect(throws: GitError.self) { try await fakeGit(calls).clone(GitSource(owner: "a", repo: "b"), into: target) }
         #expect(calls.all.isEmpty, "git never ran")
         let missing = Git(binary: nil)
         await #expect(throws: GitError.notInstalled) {
-            try await missing.clone(GitHubSource(owner: "a", repo: "b"), into: target.appendingPathComponent("new"))
+            try await missing.clone(GitSource(owner: "a", repo: "b"), into: target.appendingPathComponent("new"))
         }
     }
 
@@ -138,9 +168,10 @@ struct GitTests {
             #expect(!(e.errorDescription ?? "").isEmpty)
         }
         #expect(GitError.authRequired.errorDescription!.contains("gh auth setup-git"))
+        #expect(GitError.authRequired.errorDescription!.contains("Bitbucket"))
     }
 
-    /// A real git: a local repository stands in for GitHub (file transport, allowed in this test only).
+    /// A real git: a local repository stands in for the server (file transport, allowed in this test only).
     @Test(.enabled(if: Git().binary != nil)) func clonesAndPullsARealRepository() async throws {
         let dir = try tempFolder()
         let origin = dir.appendingPathComponent("origin")
@@ -159,7 +190,7 @@ struct GitTests {
 
         var git = Git(binary: binary)
         git.protocols = ["file"]
-        let source = GitHubSource(owner: "a", repo: "b", subfolder: "infra")
+        let source = GitSource(owner: "a", repo: "b", subfolder: "infra")
         let clone = dir.appendingPathComponent("clone")
         let folder = try await git.clone(source, into: clone, remote: "file://\(origin.path)")
         #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("main.tf").path))
@@ -190,7 +221,7 @@ struct GitTests {
 }
 
 @MainActor
-struct GitHubStackTests {
+struct GitStackTests {
     @Test func aStackRemembersItsRepositoryAndPullsIt() async throws {
         let dir = try tempFolder()
         let clone = dir.appendingPathComponent("a-b")
@@ -201,7 +232,7 @@ struct GitHubStackTests {
         let model = StacksModel(store: store, clientFor: { _ in nil }, git: fakeGit(calls) { _ in
             GitResult(exitCode: 0, stdout: "Updating 1..2\nFast-forward")
         })
-        let repo = GitHubSource(owner: "a", repo: "b", subfolder: "infra")
+        let repo = GitSource(owner: "a", repo: "b", subfolder: "infra")
         let s = model.create(name: "gh", folder: folder, accountId: "acc", region: "eu-west-1", repository: repo, clone: clone)
         #expect(s.repository == repo && s.clonePath == clone.path)
         #expect(StackStore(folder: dir.appendingPathComponent("support"), secrets: InMemorySecretStore()).load().first?.repository == repo)
@@ -232,7 +263,7 @@ struct GitHubStackTests {
             GitResult(exitCode: 128, stderr: "fatal: could not read Username for 'https://github.com': terminal prompts disabled")
         })
         let s = model.create(name: "gh", folder: dir, accountId: "acc", region: "eu-west-1",
-                             repository: GitHubSource(owner: "a", repo: "b"))
+                             repository: GitSource(owner: "a", repo: "b"))
         model.pull(s.id)
         for _ in 0..<300 where model.busy.contains(s.id) { try await Task.sleep(nanoseconds: 20_000_000) }
         let run = try #require(model.stack(s.id)?.lastRun)
@@ -241,7 +272,7 @@ struct GitHubStackTests {
 
     @Test func newClonesNeverReuseAFolder() throws {
         let parent = try tempFolder()
-        let source = GitHubSource(owner: "a", repo: "b")
+        let source = GitSource(owner: "a", repo: "b")
         #expect(StacksModel.cloneFolder(for: source, in: parent).lastPathComponent == "a-b")
         try FileManager.default.createDirectory(at: parent.appendingPathComponent("a-b"), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: parent.appendingPathComponent("a-b-2"), withIntermediateDirectories: true)

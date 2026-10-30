@@ -203,7 +203,7 @@ private struct StackDetail: View {
                 Group {
                     if stack.repository != nil {
                         Button("Pull") { start { model.pull(stack.id) } }
-                            .help("Updates the folder from GitHub (fast-forward only). The saved plan is dropped: run Plan again.")
+                            .help("Updates the folder from its repository (fast-forward only). The saved plan is dropped: run Plan again.")
                     }
                     Button("Init") { start { model.initialize(stack.id) } }
                         .keyboardShortcut("i", modifiers: [.command, .shift])
@@ -455,19 +455,19 @@ private struct RuntimeSetupHint: View {
     }
 }
 
-/// What the New Stack sheet asks for. A GitHub stack also has its repository and the clone's root.
+/// What the New Stack sheet asks for. A stack cloned from git also has its repository and the clone's root.
 struct NewStackRequest {
     var name: String
     var folder: URL
     var engine: TerraformEngine
     var remoteState: Bool
-    var repository: GitHubSource?
+    var repository: GitSource?
     var clone: URL?
 }
 
 private struct NewStackSheet: View {
     enum Source: String, CaseIterable, Identifiable {
-        case folder = "Local folder", github = "GitHub repository"
+        case folder = "Local folder", git = "Git repository"
         var id: String { rawValue }
     }
 
@@ -491,7 +491,7 @@ private struct NewStackSheet: View {
     @State private var error: String?
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
-    private var parsed: GitHubSource? { try? GitHubSource(url: repoURL, branch: branch, subfolder: subfolder) }
+    private var parsed: GitSource? { try? GitSource(url: repoURL, branch: branch, subfolder: subfolder) }
     private var canCreate: Bool {
         guard !trimmedName.isEmpty, cloning == nil else { return false }
         return source == .folder ? folder != nil : parsed != nil
@@ -513,7 +513,7 @@ private struct NewStackSheet: View {
                         }
                     }
                 } else {
-                    github
+                    gitFields
                 }
                 LabeledRow("Account", value: state.activeAccount?.name ?? "—")
                 LabeledRow("Region", value: state.region)
@@ -526,8 +526,8 @@ private struct NewStackSheet: View {
             .disabled(cloning != nil)
             Text("\(engine.label) runs with this account's credentials in this region, also for scheduled drift checks.")
                 .font(.caption).foregroundStyle(.secondary)
-            if source == .github {
-                Text("Plan runs the repository's code with these credentials: only use repositories you trust. Private repositories use your git credentials (gh auth login, then gh auth setup-git); Atlas never stores a token.")
+            if source == .git {
+                Text("Plan runs the repository's code with these credentials: only use repositories you trust. GitHub, Bitbucket, GitLab or your own server, over https. Private repositories use the credentials git already has (clone once in Terminal, or gh auth setup-git for GitHub); Atlas never stores a token.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if runtime == nil { RuntimeSetupHint() }
@@ -545,7 +545,7 @@ private struct NewStackSheet: View {
                     if let cloning { cloning.cancel() } else { dismiss() }
                 }
                 .keyboardShortcut(.cancelAction)
-                Button(source == .github ? "Clone and Create" : "Create", action: create)
+                Button(source == .git ? "Clone and Create" : "Create", action: create)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canCreate)
             }
@@ -554,14 +554,14 @@ private struct NewStackSheet: View {
         .frame(width: 520)
     }
 
-    @ViewBuilder private var github: some View {
+    @ViewBuilder private var gitFields: some View {
         TextField("Repository", text: Binding(get: { repoURL }, set: { new in
             // The name follows the repository until the user types one of their own.
-            let auto = parsed?.repo
+            let auto = parsed?.name
             repoURL = new
-            if name.isEmpty || name == auto, let repo = parsed?.repo { name = repo }
+            if name.isEmpty || name == auto, let repo = parsed?.name { name = repo }
             error = nil
-        }), prompt: Text("https://github.com/owner/repository"))
+        }), prompt: Text("https://bitbucket.org/workspace/repository"))
         TextField("Branch", text: $branch, prompt: Text("default branch"))
         TextField("Folder in repository", text: $subfolder, prompt: Text("the root, or infra/production"))
         LabeledRow("Clone into") {
@@ -577,7 +577,7 @@ private struct NewStackSheet: View {
     }
 
     private var validationMessage: String {
-        do { _ = try GitHubSource(url: repoURL, branch: branch, subfolder: subfolder); return "" }
+        do { _ = try GitSource(url: repoURL, branch: branch, subfolder: subfolder); return "" }
         catch { return error.localizedDescription }
     }
 
@@ -585,7 +585,7 @@ private struct NewStackSheet: View {
 
     private func create() {
         let request = NewStackRequest(name: trimmedName, folder: folder ?? URL(fileURLWithPath: "/"), engine: engine, remoteState: remoteState)
-        guard source == .github else {
+        guard source == .git else {
             if folder != nil { onCreate(request) }
             dismiss()
             return

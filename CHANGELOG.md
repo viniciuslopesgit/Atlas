@@ -4,6 +4,23 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.9.0] - 2026-10-30
+
+Atlas 2.9.0 clones stacks from any git server, not only GitHub. New Stack's Git repository takes the https address of
+a repository on Bitbucket (`https://bitbucket.org/workspace/repository`), GitLab (groups and subgroups included) or a
+server of your own (with its port, Bitbucket Server's `/scm/…` paths included), and Pull updates it the same way.
+Private repositories use the credentials git already has: clone the repository once in Terminal so git keeps them in
+the Keychain (on Bitbucket, with an app password or API token). Atlas never stores them: an address with a user name or
+password is refused. Stacks created from GitHub with 2.8.0 keep working as they are.
+
+### Added
+- New Stack clones from Bitbucket, GitLab and git servers of your own over https, as well as GitHub, with an optional
+  branch and folder; Pull updates those stacks too
+
+### Changed
+- "GitHub repository" in New Stack is now "Git repository"; messages about credentials explain how to set them up for
+  Bitbucket and GitHub
+
 ## [2.8.0] - 2026-10-30
 
 Atlas 2.8.0 creates stacks from GitHub. New Stack now offers a GitHub repository next to a local folder: enter
@@ -388,6 +405,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.9.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.9.0
 [2.8.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.8.0
 [2.7.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.1
 [2.7.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.0

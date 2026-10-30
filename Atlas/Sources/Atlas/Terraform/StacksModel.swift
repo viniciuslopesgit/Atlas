@@ -27,7 +27,7 @@ final class StacksModel: ObservableObject {
     /// Runs on this Mac when there is no container runtime.
     private let makeCLI: (TerraformEngine) -> TerraformCLI
     private let locateRuntime: () -> ContainerRuntime?
-    /// Clones and pulls stacks created from GitHub.
+    /// Clones and pulls stacks created from a git repository.
     let git: Git
 
     init(store: StackStore, clientFor: @escaping @MainActor (StackEntry) -> AWSClient?,
@@ -89,7 +89,7 @@ final class StacksModel: ObservableObject {
     /// stack keeps its state in the account's S3 state bucket (versioned, encrypted) instead of a file in its folder.
     @discardableResult
     func create(name: String, folder: URL, accountId: String, region: String, engine: TerraformEngine = .terraform,
-                remoteState: Bool = false, repository: GitHubSource? = nil, clone: URL? = nil) -> StackEntry {
+                remoteState: Bool = false, repository: GitSource? = nil, clone: URL? = nil) -> StackEntry {
         IaCModel.scaffoldIfEmpty(folder)
         var s = StackEntry(name: name, projectPath: folder.path, accountId: accountId, region: region)
         s.engine = engine
@@ -212,14 +212,14 @@ final class StacksModel: ObservableObject {
 
     func cancel(_ id: UUID) { tasks[id]?.cancel() }
 
-    // MARK: GitHub
+    // MARK: Git repositories
 
     /// Where repositories are cloned unless the user chooses another folder: Atlas's own data folder.
     var repositoriesFolder: URL { store.folder.appendingPathComponent("repositories", isDirectory: true) }
 
     /// A folder for a new clone of `source` in `parent` that does not exist yet: repo, repo-2, repo-3…
-    nonisolated static func cloneFolder(for source: GitHubSource, in parent: URL) -> URL {
-        let base = "\(source.owner)-\(source.repo)"
+    nonisolated static func cloneFolder(for source: GitSource, in parent: URL) -> URL {
+        let base = source.folderName
         var candidate = parent.appendingPathComponent(base, isDirectory: true)
         var n = 2
         while FileManager.default.fileExists(atPath: candidate.path) {
@@ -229,7 +229,7 @@ final class StacksModel: ObservableObject {
         return candidate
     }
 
-    /// Fast-forwards a GitHub stack's clone, as a run in its history. The saved plan was made from the old
+    /// Fast-forwards the clone of a stack created from a repository, as a run in its history. The saved plan was made from the old
     /// configuration, so it is dropped: the next Apply needs a new Plan.
     func pull(_ id: UUID) {
         guard let s = stack(id), let clonePath = s.clonePath, s.repository != nil, !busy.contains(id) else { return }
@@ -250,7 +250,7 @@ final class StacksModel: ObservableObject {
                 _ = try await git.pull(URL(fileURLWithPath: clonePath, isDirectory: true), onLine: log)
                 // Only Atlas's own saved plan, in its folder for this stack.
                 try? FileManager.default.removeItem(at: plan)
-                log("✔ The folder is up to date with GitHub. Run Plan to see what the changes do.")
+                log("✔ The folder is up to date with the repository. Run Plan to see what the changes do.")
             } catch {
                 log("✗ \(error.localizedDescription)")
                 ok = false

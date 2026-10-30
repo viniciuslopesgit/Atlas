@@ -1,42 +1,64 @@
 import Foundation
 
-/// The GitHub repository a stack was cloned from: https://github.com/owner/repo, an optional branch and the folder
-/// inside it that holds the .tf files. Every part is checked strictly, since it ends up in git's arguments and in a path.
-struct GitHubSource: Codable, Sendable, Equatable {
+/// The git repository a stack was cloned from: an https address on GitHub, Bitbucket, GitLab or a server of the user's
+/// own (by name, not IP address), an optional branch and the folder inside it that holds the .tf files. Every part is checked strictly, since it
+/// ends up in git's arguments and in a path.
+struct GitSource: Codable, Sendable, Equatable {
+    /// The server, with its port when it has one; nil is github.com (stacks saved by 2.8.0 have no host).
+    var host: String?
+    /// Everything before the repository's name: `owner` on GitHub, `workspace` on Bitbucket, `group/subgroup` on GitLab.
     var owner: String
+    /// The last part of the address, as typed (`repo` or `repo.git`); on GitHub always without `.git`.
     var repo: String
     var branch: String?
     /// Relative to the repository's root, without leading or trailing slashes.
     var subfolder: String?
 
     enum Invalid: LocalizedError, Equatable {
-        case url, branch, subfolder
+        case url, credentialsInURL, branch, subfolder
 
         var errorDescription: String? {
             switch self {
-            case .url: "Enter a GitHub repository as https://github.com/owner/repository."
+            case .url: "Enter the repository's https address, like https://bitbucket.org/workspace/repository or https://github.com/owner/repository."
+            case .credentialsInURL: "Remove the user name or password from the address: Atlas uses the credentials git already has and never saves them in a stack."
             case .branch: "The branch name is not valid (letters, digits, . _ - and /, not starting with - or .)."
             case .subfolder: "The folder must be a path inside the repository, like infra/production (no .. or ~)."
             }
         }
     }
 
-    init(owner: String, repo: String, branch: String? = nil, subfolder: String? = nil) {
+    init(host: String? = nil, owner: String, repo: String, branch: String? = nil, subfolder: String? = nil) {
+        self.host = host == Self.github ? nil : host
         self.owner = owner; self.repo = repo; self.branch = branch; self.subfolder = subfolder
     }
 
-    /// Only `https://github.com/owner/repo` (with or without `https://`, `.git` or a trailing slash): no other host,
-    /// scheme, user, port, query or transport (`file://`, `ssh://`, `ext::`), so nothing but GitHub is ever contacted.
+    static let github = "github.com"
+
+    /// Only `https://host[:port]/path/to/repo` (`https://` may be left out): no other scheme or transport (`http`,
+    /// `file://`, `ssh://`, `git@…:`, `ext::`), no user or password, query or fragment. The host is a DNS name with a dot;
+    /// each part of the path is letters, digits and `. _ ~ -`, never `.`, `..` or starting with `-`. On github.com the
+    /// path is exactly owner/repository.
     init(url: String, branch: String = "", subfolder: String = "") throws {
         var text = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.hasPrefix("github.com/") { text = "https://" + text }
-        if text.hasSuffix("/") { text.removeLast() }
-        if text.hasSuffix(".git") { text.removeLast(4) }
-        guard let m = text.wholeMatch(#"https://github\.com/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9._-]{1,100})"#),
-              ![".", ".."].contains(m[2]), !m[2].hasPrefix("-")
+        if !text.contains("://"), text.wholeMatch(#"[a-z0-9.-]+\.[a-z]{2,}(:[0-9]{1,5})?/\S+"#) != nil { text = "https://" + text }
+        while text.hasSuffix("/") { text.removeLast() }
+        if text.firstMatch(#"^https://[^/]*@"#) != nil { throw Invalid.credentialsInURL }
+        let label = #"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"#
+        guard let m = text.wholeMatch("https://(\(label)(?:\\.\(label))+(?::[0-9]{1,5})?)((?:/[A-Za-z0-9._~-]{1,100}){2,10})")
         else { throw Invalid.url }
-        owner = String(m[1])
-        repo = String(m[2])
+        let host = String(m[1])
+        // A name, not an IP address: the last label (the top-level domain) starts with a letter.
+        guard host.split(separator: ":")[0].split(separator: ".").last?.first?.isLetter == true else { throw Invalid.url }
+        var parts = m[2].split(separator: "/").map(String.init)
+        guard parts.allSatisfy({ $0 != "." && $0 != ".." && !$0.hasPrefix("-") }) else { throw Invalid.url }
+        if host == Self.github {
+            guard parts.count == 2 else { throw Invalid.url }
+            if parts[1].hasSuffix(".git") { parts[1].removeLast(4) }
+            guard !parts[1].isEmpty, parts[1] != ".", parts[1] != ".." else { throw Invalid.url }
+        }
+        self.host = host == Self.github ? nil : host
+        repo = parts.removeLast()
+        owner = parts.joined(separator: "/")
 
         let b = branch.trimmingCharacters(in: .whitespacesAndNewlines)
         if b.isEmpty {
@@ -68,10 +90,16 @@ struct GitHubSource: Codable, Sendable, Equatable {
         return trimmed
     }
 
-    var webURL: String { "https://github.com/\(owner)/\(repo)" }
-    var cloneURL: String { webURL + ".git" }
-    /// "owner/repo", with the branch when there is one.
-    var label: String { "\(owner)/\(repo)" + (branch.map { " @ \($0)" } ?? "") }
+    var hostName: String { host ?? Self.github }
+    /// The repository's name without `.git`.
+    var name: String { repo.hasSuffix(".git") && repo.count > 4 ? String(repo.dropLast(4)) : repo }
+    var webURL: String { "https://\(hostName)/\(owner)/\(name)" }
+    /// The address git clones: as typed, and with `.git` on GitHub.
+    var cloneURL: String { host == nil ? webURL + ".git" : "https://\(hostName)/\(owner)/\(repo)" }
+    /// "owner/repo" (with the server when it is not GitHub), and the branch when there is one.
+    var label: String { (host.map { "\($0)/" } ?? "") + "\(owner)/\(name)" + (branch.map { " @ \($0)" } ?? "") }
+    /// A folder name for a clone: owner-repo, the path's slashes as dashes.
+    var folderName: String { "\(owner)-\(name)".replacingOccurrences(of: "/", with: "-") }
 
     /// The stack's folder inside a clone: the subfolder, which must exist and, symbolic links resolved, stay inside it.
     func stackFolder(in clone: URL) throws -> URL {
@@ -94,13 +122,13 @@ enum GitError: LocalizedError, Equatable {
         case .notInstalled:
             "Git isn't installed. Install Apple's Command Line Tools with: xcode-select --install"
         case .authRequired:
-            "GitHub asked for credentials: the repository is private or doesn't exist. Atlas uses your own git credentials and never stores a token: sign in once in Terminal with gh auth login and gh auth setup-git (or any git credential helper), then try again."
+            "The server asked for credentials: the repository is private or doesn't exist. Atlas uses the credentials git already has and never stores a token: clone the repository once in Terminal so git saves them in the Keychain (on Bitbucket, with an app password or API token), or for GitHub run gh auth login and gh auth setup-git, then try again."
         case .notFound:
-            "The repository was not found on GitHub, or your git credentials can't see it."
+            "The repository was not found, or your git credentials can't see it."
         case .branchNotFound(let b):
             "The repository has no branch named \(b)."
         case .network:
-            "Could not reach github.com. Check the internet connection."
+            "Could not reach the repository's server. Check the address and the internet connection."
         case .folderNotEmpty(let path):
             "\(path) already exists and is not empty. Choose another folder."
         case .noSubfolder(let f):
@@ -123,7 +151,7 @@ struct GitResult: Sendable {
     var error: GitError?
 }
 
-/// Runs git for GitHub stacks: argument arrays only (no shell), no prompts, https only, no hooks or submodules.
+/// Runs git for stacks cloned from a repository: argument arrays only (no shell), no prompts, https only, no hooks or submodules.
 struct Git: Sendable {
     typealias Runner = @Sendable (_ binary: String, _ args: [String], _ dir: URL, _ env: [String: String],
                                   _ timeout: TimeInterval, _ onLine: @escaping @Sendable (String) -> Void) async -> GitResult
@@ -160,7 +188,7 @@ struct Git: Sendable {
     }
 
     /// The arguments of `git clone`: shallow, no submodules, `--` before the URL and the folder.
-    func cloneArguments(_ source: GitHubSource, remote: String, into folder: URL) -> [String] {
+    func cloneArguments(_ source: GitSource, remote: String, into folder: URL) -> [String] {
         hardening + ["clone", "--depth=1", "--no-recurse-submodules"]
             + (source.branch.map { ["--branch=\($0)", "--single-branch"] } ?? []) + ["--", remote, folder.path]
     }
@@ -168,8 +196,8 @@ struct Git: Sendable {
     var pullArguments: [String] { hardening + ["pull", "--ff-only", "--no-recurse-submodules"] }
 
     /// Clones the repository into `folder` (which must not exist or be empty) and returns the stack's folder in it.
-    /// `remote` replaces the GitHub URL in tests only, together with `protocols`.
-    func clone(_ source: GitHubSource, into folder: URL, remote: String? = nil,
+    /// `remote` replaces the repository's address in tests only, together with `protocols`.
+    func clone(_ source: GitSource, into folder: URL, remote: String? = nil,
                onLine: @escaping @Sendable (String) -> Void = { _ in }) async throws -> URL {
         if let items = try? FileManager.default.contentsOfDirectory(atPath: folder.path), !items.isEmpty {
             throw GitError.folderNotEmpty(folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))

@@ -66,7 +66,7 @@ Sources/Atlas/
   also adds it, with its import block, to the active project.
 - **Stacks**: run history, scheduled drift checks (interval or cron) with notifications, Fix Drift with the
   saved plan, optional auto-fix, import into an S3 remote state (`atlas-tfstate-<account>`), variables in
-  the Keychain; a stack starts from a local folder or a GitHub repository (cloned by Atlas, updated with Pull)
+  the Keychain; a stack starts from a local folder or a git repository on GitHub, Bitbucket, GitLab or your own server (cloned by Atlas, updated with Pull)
 - **Feedback**: opens Mail with the message ready, or copies it as a GitHub issue
 - **⌘K search** across pages, EC2, S3 and IAM
 - **Updates**: Help › Check for Updates… and the status in Accounts (see below)
@@ -81,14 +81,15 @@ Atlas calls these only when you use the feature that needs them, and tells you h
 |---|---|---|
 | Infrastructure as Code, Stacks | `terraform` 1.5+ | `brew install terraform` |
 | Automatic updates | `gh`, signed in | `brew install gh && gh auth login` |
-| Stacks from GitHub | `git` (private repositories: your git credentials) | `xcode-select --install`; `gh auth login && gh auth setup-git` |
+| Stacks from a git repository | `git` (private repositories: your git credentials) | `xcode-select --install`; clone once in Terminal, or `gh auth login && gh auth setup-git` |
 
 Credentials reach `terraform` only through the child process's environment; they are never written to `.tf`
 files or passed on a command line.
 
-Stacks from GitHub: Atlas only clones `https://github.com/owner/repo` (no other host or transport), runs `git` with an
-argument array, `GIT_TERMINAL_PROMPT=0`, https as the only protocol, no hooks and no submodules, and never stores a
-GitHub token; a private repository uses the credential helper git already has (for example `gh auth setup-git`).
+Stacks from a git repository: Atlas only clones `https://host/path/repo` addresses (GitHub, Bitbucket, GitLab or a
+server of your own, by name; no other transport, no user or password in the address), runs `git` with an argument
+array, `GIT_TERMINAL_PROMPT=0`, https as the only protocol, no hooks and no submodules, and never stores a token; a
+private repository uses the credential helper git already has (clone it once in Terminal, or `gh auth setup-git`).
 
 EC2 › Connect needs nothing extra: Atlas speaks the Session Manager protocol itself and opens the shell in
 Terminal. KMS-encrypted sessions (a Session Manager preference) are not supported yet.
