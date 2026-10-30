@@ -4,6 +4,20 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.10.1] - 2026-10-30
+
+Atlas 2.10.1 clones private Bitbucket repositories with an API token. Bitbucket only takes an API token with the
+account's exact username (case-sensitive, not the email) or its token user `x-bitbucket-api-token-auth`: Atlas now
+tries that user when Bitbucket refuses the one typed, the user name can stay empty, and when the token is still refused
+the message says what Bitbucket needs (the `read:repository:bitbucket` scope) and what it answered.
+
+### Fixed
+- A Bitbucket API token is accepted when the user name typed is not the account's exact username: Atlas tries
+  Bitbucket's token user and saves the user name that worked; the user name can be left empty
+
+### Changed
+- A refused token shows what the server answered and, on Bitbucket, the username and scope its API tokens need
+
 ## [2.10.0] - 2026-10-30
 
 Atlas 2.10.0 clones private repositories and understands addresses copied from the browser. New Stack's Git repository
@@ -424,6 +438,7 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.10.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.1
 [2.10.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.0
 [2.9.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.9.0
 [2.8.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.8.0

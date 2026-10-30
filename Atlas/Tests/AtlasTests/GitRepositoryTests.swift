@@ -116,6 +116,52 @@ struct GitSourceTests {
         #expect(GitError.authRequired.errorDescription!.contains("Private repository"))
     }
 
+    /// Bitbucket refused "vinicius.lopes" with a valid API token: its git needs the exact username, or its token user.
+    @Test func bitbucketRetriesARefusedUsernameWithTheTokenUser() async throws {
+        let calls = GitCalls()
+        let refused = "remote: Invalid credentials\nfatal: Authentication failed for 'https://bitbucket.org/t/r/'"
+        let git = fakeGit(calls) { args in
+            let header = calls.all.last?.env["GIT_CONFIG_VALUE_0"] ?? ""
+            guard header == GitCredentials(username: GitCredentials.bitbucketTokenUser, token: "tok").header else {
+                return GitResult(exitCode: 128, stderr: refused)
+            }
+            if args.contains("clone") { try? FileManager.default.createDirectory(atPath: args.last!, withIntermediateDirectories: true) }
+            return GitResult(exitCode: 0)
+        }
+        let target = try tempFolder().appendingPathComponent("r")
+        let accepted = GitCalls()
+        let lines = GitCalls()
+        _ = try await git.clone(try GitSource(url: "https://bitbucket.org/t/r"), into: target,
+                                credentials: GitCredentials(username: "vinicius.lopes", token: "tok"),
+                                accepted: { accepted.add(.init(args: [$0.username], dir: target, env: [:])) },
+                                onLine: { lines.add(.init(args: [$0], dir: target, env: [:])) })
+        #expect(calls.all.count == 2)
+        #expect(accepted.all.map(\.args) == [[GitCredentials.bitbucketTokenUser]], "the user name that worked is the one saved")
+        #expect(lines.all.contains { $0.args[0].contains("trying the API token user") })
+
+        _ = try await git.pull(target, host: "bitbucket.org", credentials: GitCredentials(username: "someone", token: "tok"))
+        #expect(calls.all.count == 4, "pull retries too")
+
+        // Both refused: the message says what Bitbucket wants and what it answered.
+        await #expect(throws: GitError.authRefused(host: "bitbucket.org", server: "Invalid credentials")) {
+            _ = try await git.pull(target, host: "bitbucket.org", credentials: GitCredentials(username: "x", token: "wrong"))
+        }
+        let message = GitError.authRefused(host: "bitbucket.org", server: "Invalid credentials").errorDescription!
+        #expect(message.contains("read:repository:bitbucket") && message.contains("The server said: Invalid credentials"))
+        #expect(GitError.authRefused(host: "gitlab.com", server: "").errorDescription!.hasPrefix("gitlab.com refused"))
+
+        // No retry elsewhere, or without credentials (then it is "Private repository" to turn on).
+        let other = GitCalls()
+        let failing = fakeGit(other) { _ in GitResult(exitCode: 128, stderr: refused) }
+        await #expect(throws: GitError.authRefused(host: "gitlab.com", server: "Invalid credentials")) {
+            _ = try await failing.pull(target, host: "gitlab.com", credentials: GitCredentials(username: "x", token: "t"))
+        }
+        await #expect(throws: GitError.authRequired) { _ = try await failing.pull(target, host: "bitbucket.org") }
+        #expect(other.all.count == 2)
+        #expect(GitCredentials.defaultUsername(for: "bitbucket.org") == GitCredentials.bitbucketTokenUser)
+        #expect(GitCredentials.defaultUsername(for: "gitlab.com") == "")
+    }
+
     /// The real git reads the header from its environment, scoped to the server's address.
     @Test(.enabled(if: Git().binary != nil)) func realGitReadsTheHeaderFromItsEnvironment() async throws {
         let dir = try tempFolder()
@@ -219,7 +265,7 @@ struct GitTests {
         #expect(error("hint: something\nfatal: something odd") == .failed("fatal: something odd"))
         #expect(Git.error(GitResult(exitCode: 3), branch: nil) == .failed("git exited with code 3."))
         #expect(Git.error(GitResult(error: .timedOut), branch: nil) == .timedOut)
-        for e: GitError in [.notInstalled, .authRequired, .notFound, .branchNotFound("x"), .network, .folderNotEmpty("~/x"),
+        for e: GitError in [.notInstalled, .authRequired, .authRefused(host: "h", server: "s"), .notFound, .branchNotFound("x"), .network, .folderNotEmpty("~/x"),
                             .noSubfolder("x"), .timedOut, .cancelled, .failed("x")] {
             #expect(!(e.errorDescription ?? "").isEmpty)
         }

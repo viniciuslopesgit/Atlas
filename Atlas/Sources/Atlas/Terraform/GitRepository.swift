@@ -182,11 +182,17 @@ struct GitCredentials: Codable, Sendable, Equatable {
         return ok(username) && ok(token) && !username.contains(":")
     }
 
+    /// Bitbucket's fixed user name for API tokens: it works whatever the account's username is.
+    static let bitbucketTokenUser = "x-bitbucket-api-token-auth"
+
+    /// The user name to use when none is typed: Bitbucket's token user there, none elsewhere.
+    static func defaultUsername(for host: String) -> String { host == GitSource.bitbucket ? bitbucketTokenUser : "" }
+
     var header: String { "Authorization: Basic " + Data("\(username):\(token)".utf8).base64EncodedString() }
 }
 
 enum GitError: LocalizedError, Equatable {
-    case notInstalled, authRequired, notFound, branchNotFound(String), network, folderNotEmpty(String), noSubfolder(String),
+    case notInstalled, authRequired, authRefused(host: String, server: String), notFound, branchNotFound(String), network, folderNotEmpty(String), noSubfolder(String),
          timedOut, cancelled, failed(String)
 
     var errorDescription: String? {
@@ -195,6 +201,11 @@ enum GitError: LocalizedError, Equatable {
             "Git isn't installed. Install Apple's Command Line Tools with: xcode-select --install"
         case .authRequired:
             "The server asked for credentials: the repository is private, doesn't exist, or the token was refused. Turn on Private repository and enter your user name and a token with read access to it (on Bitbucket an API token or app password, on GitHub or GitLab a personal access token); Atlas keeps it in the Keychain. Credentials git already has (gh auth setup-git, the Keychain) work too."
+        case .authRefused(let host, let server):
+            (host == GitSource.bitbucket
+                ? "Bitbucket refused the user name and token. With an API token the user name must be exactly your Bitbucket username (Personal Bitbucket settings, case-sensitive; not your email), or leave it empty; the token needs the read:repository:bitbucket scope. An app password works with your Bitbucket username."
+                : "\(host) refused the user name and token. Check that the token is still valid and can read this repository.")
+                + (server.isEmpty ? "" : "\n\nThe server said: \(server)")
         case .notFound:
             "The repository was not found, or your git credentials can't see it."
         case .branchNotFound(let b):
@@ -276,24 +287,58 @@ struct Git: Sendable {
 
     /// Clones the repository into `folder` (which must not exist or be empty) and returns the stack's folder in it.
     /// `remote` replaces the repository's address in tests only, together with `protocols`.
+    /// `accepted` gets the credentials the server took (Bitbucket's token user when the typed username was refused).
     func clone(_ source: GitSource, into folder: URL, remote: String? = nil, credentials: GitCredentials? = nil,
+               accepted: (@Sendable (GitCredentials) -> Void)? = nil,
                onLine: @escaping @Sendable (String) -> Void = { _ in }) async throws -> URL {
         if let items = try? FileManager.default.contentsOfDirectory(atPath: folder.path), !items.isEmpty {
             throw GitError.folderNotEmpty(folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
         }
         try FileManager.default.createDirectory(at: folder.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let r = try await run(cloneArguments(source, remote: remote ?? source.cloneURL, into: folder),
-                              in: folder.deletingLastPathComponent(), credentials: credentials, host: source.hostName, onLine: onLine)
-        if r.exitCode != 0 { throw Self.error(r, branch: source.branch) }
+        let used = try await authenticated(credentials, host: source.hostName, branch: source.branch, onLine: onLine) { c in
+            try await run(cloneArguments(source, remote: remote ?? source.cloneURL, into: folder),
+                          in: folder.deletingLastPathComponent(), credentials: c, host: source.hostName, onLine: onLine)
+        }
+        if let used { accepted?(used) }
         return try source.stackFolder(in: folder)
     }
 
     /// Fast-forwards the clone to its remote branch; it never merges or rewrites local changes.
     func pull(_ clone: URL, host: String? = nil, credentials: GitCredentials? = nil,
               onLine: @escaping @Sendable (String) -> Void = { _ in }) async throws -> GitResult {
-        let r = try await run(pullArguments, in: clone, credentials: credentials, host: host, onLine: onLine)
-        if r.exitCode != 0 { throw Self.error(r, branch: nil) }
-        return r
+        var result = GitResult()
+        _ = try await authenticated(credentials, host: host ?? GitSource.github, branch: nil, onLine: onLine) { c in
+            result = try await run(pullArguments, in: clone, credentials: c, host: host, onLine: onLine)
+            return result
+        }
+        return result
+    }
+
+    /// Runs `attempt`; when Bitbucket refuses a typed username, once more with its token user (an API token works with
+    /// either, and the account's username is easy to get wrong). Returns the credentials that worked.
+    private func authenticated(_ credentials: GitCredentials?, host: String, branch: String?,
+                               onLine: @escaping @Sendable (String) -> Void,
+                               _ attempt: (GitCredentials?) async throws -> GitResult) async throws -> GitCredentials? {
+        var used = credentials
+        var r = try await attempt(used)
+        if r.exitCode != 0, Self.error(r, branch: branch) == .authRequired, host == GitSource.bitbucket,
+           let c = credentials, c.username != GitCredentials.bitbucketTokenUser {
+            onLine("Bitbucket refused \(c.username); trying the API token user \(GitCredentials.bitbucketTokenUser)…")
+            used = GitCredentials(username: GitCredentials.bitbucketTokenUser, token: c.token)
+            r = try await attempt(used)
+        }
+        guard r.exitCode != 0 else { return used }
+        let error = Self.error(r, branch: branch)
+        if error == .authRequired, credentials != nil { throw GitError.authRefused(host: host, server: Self.serverMessage(r)) }
+        throw error
+    }
+
+    /// What the server explained (git's `remote:` lines), for an error message.
+    static func serverMessage(_ r: GitResult) -> String {
+        let lines = (r.stderr + "\n" + r.stdout).split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("remote:") }.map { $0.dropFirst("remote:".count).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return String(lines.joined(separator: " ").prefix(400))
     }
 
     private func run(_ args: [String], in dir: URL, credentials: GitCredentials? = nil, host: String? = nil,

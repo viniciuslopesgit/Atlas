@@ -583,9 +583,11 @@ private struct NewStackSheet: View {
                 }
             }
             TextField("User name", text: $username,
-                      prompt: Text(parsed?.hostName == GitSource.bitbucket ? "your Bitbucket username" : "user name"))
+                      prompt: Text(parsed?.hostName == GitSource.bitbucket ? "optional with an API token" : "user name"))
             SecureField("Token", text: $token, prompt: Text(saved == nil ? "API token, app password or access token" : "keep the saved token"))
-            Text("A token with read access to the repository: on Bitbucket an API token or app password, on GitHub or GitLab a personal access token. Atlas keeps it in the Keychain and sends it only to this server.")
+            Text(parsed?.hostName == GitSource.bitbucket
+                 ? "A Bitbucket API token with the read:repository:bitbucket scope (the user name can stay empty), or an app password with your exact Bitbucket username. Atlas keeps it in the Keychain and sends it only to bitbucket.org."
+                 : "A token with read access to the repository: on GitHub or GitLab a personal access token. Atlas keeps it in the Keychain and sends it only to this server.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         LabeledRow("Clone into") {
@@ -608,8 +610,9 @@ private struct NewStackSheet: View {
     private var credentials: GitCredentials? {
         guard isPrivate else { return nil }
         let typed = GitCredentials(username: username.trimmingCharacters(in: .whitespaces), token: token.trimmingCharacters(in: .whitespacesAndNewlines))
-        if !typed.token.isEmpty { return typed.username.isEmpty ? GitCredentials(username: saved?.username ?? "", token: typed.token) : typed }
-        return saved
+        guard !typed.token.isEmpty else { return saved }
+        guard typed.username.isEmpty else { return typed }
+        return GitCredentials(username: saved?.username ?? GitCredentials.defaultUsername(for: parsed?.hostName ?? ""), token: typed.token)
     }
 
     private var validationMessage: String {
@@ -634,10 +637,11 @@ private struct NewStackSheet: View {
         progress = ""
         cloning = Task {
             do {
-                let stackFolder = try await git.clone(repo, into: target, credentials: credentials) { line in
+                let accepted = AcceptedCredentials()
+                let stackFolder = try await git.clone(repo, into: target, credentials: credentials, accepted: { accepted.set($0) }) { line in
                     DispatchQueue.main.async { progress = line }
                 }
-                if let credentials, credentials != saved { try? model.saveGitCredentials(credentials, for: repo.hostName) }
+                if let used = accepted.value, used != saved { try? model.saveGitCredentials(used, for: repo.hostName) }
                 var r = request
                 r.folder = stackFolder
                 r.repository = repo
@@ -708,4 +712,12 @@ struct ProminentWhen: PrimitiveButtonStyle {
 
 extension PrimitiveButtonStyle where Self == ProminentWhen {
     static func prominent(_ isOn: Bool) -> ProminentWhen { ProminentWhen(isOn: isOn) }
+}
+
+/// The credentials a clone was accepted with, handed back from git's task.
+private final class AcceptedCredentials: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: GitCredentials?
+    var value: GitCredentials? { lock.withLock { stored } }
+    func set(_ c: GitCredentials) { lock.withLock { stored = c } }
 }
