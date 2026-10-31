@@ -20,7 +20,7 @@ struct TerraformProjectStore {
     var folder: URL = AccountStore.defaultFolder
 
     private var file: URL {
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? PrivateFile.createFolder(folder)
         return folder.appendingPathComponent("terraform-projects.json")
     }
 
@@ -35,7 +35,12 @@ struct TerraformProjectStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let data = try? encoder.encode(contents) { try? data.write(to: file, options: [.atomic]) }
+        if let data = try? encoder.encode(contents) { try? PrivateFile.write(data, to: file) }
+    }
+
+    /// Where a project's saved plan lives: Atlas's own folder, not the project's (a plan holds values in plain text).
+    func planFolder(_ project: UUID) -> URL {
+        folder.appendingPathComponent("projects", isDirectory: true).appendingPathComponent(project.uuidString, isDirectory: true)
     }
 
     /// The active project, if its folder still exists.

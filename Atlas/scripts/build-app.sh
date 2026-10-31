@@ -18,8 +18,15 @@ if [ "$UNIVERSAL" = 1 ]; then
   # Apple silicon + Intel. Without full Xcode there is no multiple --arch: one build per triple, joined by lipo.
   BINS=()
   # A build folder per architecture: newer SwiftPM writes every triple to the same Products folder.
+  # macOS 12 needs the Swift 5.6 compatibility library; some Command Line Tools ship it without an Intel slice, and
+  # that slice then targets macOS 13, whose Swift runtime needs none. CI's Xcode builds both for macOS 12 (min-os.sh).
+  COMPAT56="$(dirname "$(xcrun -f swiftc)")/../lib/swift/macosx/libswiftCompatibility56.a"
   for ARCH in arm64 x86_64; do
-    ARGS=(-c release --triple "$ARCH-apple-macosx14.0" --scratch-path ".build/$ARCH")
+    MIN=12.0
+    if [ -f "$COMPAT56" ] && ! lipo -archs "$COMPAT56" | tr ' ' '\n' | grep -qx "$ARCH"; then
+      MIN=13.0; echo "warning: this toolchain cannot back-deploy $ARCH to macOS 12.0: that slice targets macOS $MIN" >&2
+    fi
+    ARGS=(-c release --triple "$ARCH-apple-macosx$MIN" --scratch-path ".build/$ARCH")
     [ "${SKIP_BUILD:-0}" = 1 ] || swift build "${ARGS[@]}"
     BINS+=("$(swift build "${ARGS[@]}" --show-bin-path)/Atlas")
   done
@@ -33,16 +40,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 lipo -create "${BINS[@]}" -output "$APP/Contents/MacOS/Atlas"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
-# App icon (.icns) from the PNG
-ICONSET="$(mktemp -d)/AppIcon.iconset"
-mkdir -p "$ICONSET"
-for size in 16 32 64 128 256 512; do
-  sips -z $size $size "$ROOT/Resources/AppIcon.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-  double=$((size * 2))
-  sips -z $double $double "$ROOT/Resources/AppIcon.png" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-rm -rf "$(dirname "$ICONSET")"
+# App icon (.icns) from the iconset, which has a drawing for each size (scripts/make-icon.swift draws it)
+iconutil -c icns Resources/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc signature (SIGN_IDENTITY="Developer ID Application: …" to distribute)
 codesign --force --deep --sign "${SIGN_IDENTITY:--}" "$APP"

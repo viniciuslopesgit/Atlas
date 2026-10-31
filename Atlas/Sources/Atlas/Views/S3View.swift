@@ -21,6 +21,7 @@ struct S3View: View {
     @State private var showNewFolder = false
     @State private var newFolderName = ""
     @State private var editing: S3Object?
+    @State private var settingsBucket: String?
     @State private var isDropTargeted = false
 
     private var service: S3Service? { state.client.map { S3Service(client: $0) } }
@@ -62,10 +63,13 @@ struct S3View: View {
         .sheet(isPresented: $showCreateBucket) {
             if let service {
                 CreateBucketSheet(service: service, defaultRegion: state.region) { options in
-                    Task { await loadBuckets() }
+                    Task { await loadBuckets(force: true) }
                     Task { if let message = await TerraformAware.record({ [TerraformAware.bucket(options)] }) { state.notice = message } }
                 }
             }
+        }
+        .sheet(isPresented: Binding(present: $settingsBucket)) {
+            if let service, let bucket = settingsBucket { S3BucketSettingsSheet(service: service, bucket: bucket) }
         }
         .sheet(item: $editing) { object in
             if let service, let bucket = selectedBucket {
@@ -95,6 +99,7 @@ struct S3View: View {
                 .contextMenu {
                     Button("Copy Name") { copy(b.name) }
                     Button("Copy ARN") { copy("arn:aws:s3:::\(b.name)") }
+                    Button("Settings…") { settingsBucket = b.name }
                     Divider()
                     Button("Delete Bucket…", role: .destructive) { pendingBucketDelete = b.name }
                 }
@@ -107,7 +112,7 @@ struct S3View: View {
                 .buttonStyle(.borderless)
         }
         .padding(12)
-        .onChange(of: selectedBucket) {
+        .onChange(of: selectedBucket) { _ in
             prefix = ""
             Task { await loadObjects() }
         }
@@ -123,6 +128,8 @@ struct S3View: View {
                 HStack {
                     TextField("Filter in this folder", text: $search).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
                     Spacer()
+                    Button { settingsBucket = bucket } label: { Label("Settings", systemImage: "slider.horizontal.3") }
+                        .help("Versioning, encryption, public access, tags, lifecycle and policy")
                     Button { showNewFolder = true } label: { Label("New Folder", systemImage: "folder.badge.plus") }
                     Button { pickAndUpload() } label: { Label("Upload", systemImage: "arrow.up.doc") }
                     Button { downloadSelected() } label: { Label("Download", systemImage: "arrow.down.doc") }
@@ -152,7 +159,7 @@ struct S3View: View {
                     TableColumn("Last modified") { o in Text(o.isFolder ? "" : Fmt.dt(o.lastModified)) }
                         .width(min: 130, ideal: 160)
                 }
-                .contextMenu(forSelectionType: String.self) { ids in
+                .selectionContextMenu(selection: selection) { ids in
                     let items = objects.filter { ids.contains($0.id) }
                     if items.count == 1, let o = items.first, !o.isFolder {
                         Button("Edit as Text…") { editing = o }.disabled(o.sizeBytes > 2_000_000)
@@ -211,12 +218,12 @@ struct S3View: View {
 
     // MARK: Loading
 
-    private func loadBuckets() async {
+    private func loadBuckets(force: Bool = false) async {
         guard let service else { return }
         isLoadingBuckets = true
         defer { isLoadingBuckets = false }
         do {
-            buckets = try await service.buckets()
+            try await state.cached("s3.buckets", force: force, show: { buckets = $0 }) { try await service.buckets() }
             if let sel = selectedBucket, !buckets.contains(where: { $0.name == sel }) { selectedBucket = nil }
             else if selectedBucket != nil { await loadObjects() }
             error = nil
@@ -245,8 +252,7 @@ struct S3View: View {
     // MARK: Actions
 
     private func copy(_ s: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
+        Clipboard.copy(s)
     }
 
     private func createFolder() async {
@@ -276,7 +282,7 @@ struct S3View: View {
         do {
             try await service.deleteBucket(name)
             if selectedBucket == name { selectedBucket = nil }
-            await loadBuckets()
+            await loadBuckets(force: true)
         } catch { self.error = "Bucket deletion failed: \(error.localizedDescription)" }
     }
 
@@ -421,7 +427,7 @@ private struct CreateBucketSheet: View {
                     }
                 }
             }
-            .formStyle(.grouped)
+            .groupedForm()
             if let error { ErrorBanner(message: error).padding(.horizontal) }
             Divider()
             HStack {
@@ -485,7 +491,7 @@ private struct S3TextEditorSheet: View {
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                TextEditor(text: $text).font(.body.monospaced()).scrollContentBackground(.hidden).padding(6)
+                TextEditor(text: $text).font(.body.monospaced()).hiddenScrollBackground().padding(6)
             }
             if let error { ErrorBanner(message: error).padding(.horizontal) }
             Divider()

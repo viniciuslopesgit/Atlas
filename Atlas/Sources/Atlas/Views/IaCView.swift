@@ -72,8 +72,9 @@ final class IaCModel: ObservableObject {
         status = .idle
     }
 
-    /// Forgets the project; its folder is left as it is.
+    /// Forgets the project and its saved plan; its folder is left as it is.
     func remove(_ id: UUID) {
+        try? FileManager.default.removeItem(at: store.planFolder(id))
         contents.projects.removeAll { $0.id == id }
         if contents.activeId == id { contents.activeId = contents.projects.first?.id }
         store.save(contents)
@@ -106,6 +107,14 @@ final class IaCModel: ObservableObject {
     func run(_ command: Command, client: AWSClient?) {
         guard let project = active, !isRunning else { return }
         let dir = project.url
+        let plans = store.planFolder(project.id)
+        let planPath = plans.appendingPathComponent(Self.planFile).path
+        do { try PrivateFile.createFolder(plans) } catch {
+            status = .failed(command, "Could not prepare the plan folder: \(error.localizedDescription)")
+            return
+        }
+        // Only Atlas's own plan file, which earlier versions saved in plain text in the project's folder.
+        try? FileManager.default.removeItem(at: dir.appendingPathComponent(Self.planFile))
         let credentials = client.map(TerraformCredentials.init)
         let cli = cli
         lines = []
@@ -121,10 +130,10 @@ final class IaCModel: ObservableObject {
             switch command {
             case .initialize: result = await cli.initialize(dir, credentials: credentials, onLine: onLine)
             case .validate: result = await cli.validate(dir, onLine: onLine)
-            case .plan: result = await cli.plan(dir, outFile: Self.planFile, credentials: credentials, onLine: onLine)
+            case .plan: result = await cli.plan(dir, outFile: planPath, credentials: credentials, onLine: onLine)
             case .apply:
-                result = await cli.apply(dir, planFile: Self.planFile, credentials: credentials, onLine: onLine)
-                try? FileManager.default.removeItem(at: dir.appendingPathComponent(Self.planFile))
+                result = await cli.apply(dir, planFile: planPath, credentials: credentials, onLine: onLine)
+                try? FileManager.default.removeItem(atPath: planPath)
             case .output: result = await cli.output(dir, onLine: onLine)
             case .generate: result = await generateConfig(cli, dir, credentials, onLine)
             }
@@ -186,10 +195,18 @@ final class IaCModel: ObservableObject {
 // MARK: - Page
 
 struct IaCView: View {
+    /// Where Import from AWS adds the resources: the open project, or a stack (which imports them in its container).
+    enum ImportTarget: Hashable, Identifiable {
+        case project, stack(UUID)
+        var id: Self { self }
+    }
+
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var stacks: StacksModel
     @StateObject private var model = IaCModel()
     @State private var confirmApply = false
-    @State private var showImport = false
+    @State private var importTarget: ImportTarget?
+    @State private var remoteState = true
     @State private var notice: String?
 
     var body: some View {
@@ -205,9 +222,13 @@ struct IaCView: View {
                     if case .failed(_, let message) = model.status { ErrorBanner(message: message) }
                     TerminalPanel(lines: model.lines)
                 } else {
+                    if let notice { NoticeBanner(message: notice) { self.notice = nil } }
                     EmptyStateView(icon: "chevron.left.forwardslash.chevron.right", title: "No Terraform project",
                                    message: "Add a folder with Terraform configuration, or an empty folder to start one.") {
-                        Button("Add Project…", action: chooseFolder).buttonStyle(.borderedProminent)
+                        HStack {
+                            Button("Add Project…", action: chooseFolder).buttonStyle(.borderedProminent)
+                            if !stacks.stacks.isEmpty { importMenu }
+                        }
                     }
                 }
             }
@@ -220,13 +241,53 @@ struct IaCView: View {
         } message: {
             Text("Terraform will change real resources in \(state.activeAccount?.name ?? "the active account") (\(state.region)) exactly as the last plan shows.")
         }
-        .sheet(isPresented: $showImport) {
+        .sheet(item: $importTarget) { target in importSheet(target) }
+    }
+
+    /// Import from AWS, into the open project or into one of the stacks.
+    private var importMenu: some View {
+        Menu {
+            if let project = model.active {
+                Button("Into project \(project.name)") { importTarget = .project }
+                    .disabled(model.isRunning || state.client == nil)
+            }
+            if !stacks.stacks.isEmpty {
+                Section("Into a stack") {
+                    ForEach(stacks.stacks) { s in
+                        Button(s.name) { importTarget = .stack(s.id) }
+                            .disabled(stacks.busy.contains(s.id) || state.client(accountId: s.accountId, region: s.region) == nil)
+                    }
+                }
+            }
+        } label: {
+            Label("Import from AWS…", systemImage: "square.and.arrow.down")
+        }
+        .fixedSize()
+        .disabled(model.active == nil && stacks.stacks.isEmpty)
+    }
+
+    @ViewBuilder
+    private func importSheet(_ target: ImportTarget) -> some View {
+        switch target {
+        case .project:
             if let client = state.client, let project = model.active {
                 ImportFromAwsSheet(client: client, region: state.region, targetName: project.name) { chosen, generate in
                     let files = try TerraformAware.adopt(chosen, into: project.url)
                     let names = files.map(\.lastPathComponent).joined(separator: ", ")
                     notice = "Added \(chosen.count) resource(s) to \(project.name)\(names.isEmpty ? "" : ": \(names)")."
                     if generate { model.run(.generate, client: state.client) }
+                }
+            }
+        case .stack(let id):
+            if let stack = stacks.stack(id), let client = state.client(accountId: stack.accountId, region: stack.region) {
+                VStack(spacing: 0) {
+                    ImportFromAwsSheet(client: client, region: stack.region, targetName: stack.name, offerGenerate: false) { chosen, _ in
+                        stacks.importResources(id, chosen, remoteState: remoteState)
+                        stacks.focus = id
+                        state.page = .stacks
+                    }
+                    Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
+                        .padding([.horizontal, .bottom], 20)
                 }
             }
         }
@@ -298,8 +359,7 @@ struct IaCView: View {
             }
             .disabled(model.isRunning)
             Divider().frame(height: 18)
-            Button { showImport = true } label: { Label("Import from AWS…", systemImage: "square.and.arrow.down") }
-                .disabled(model.isRunning || state.client == nil)
+            importMenu
             Button("Generate Config") { model.run(.generate, client: state.client) }
                 .disabled(model.isRunning)
                 .help("Runs terraform plan -generate-config-out for the import blocks in imports.tf, then fixes and splits the result")
@@ -360,7 +420,7 @@ struct TerminalPanel: View {
             ScrollView([.vertical, .horizontal]) {
                 TerminalLines(lines: lines)
             }
-            .onChange(of: lines.last?.id) { _, id in if let id { proxy.scrollTo(id, anchor: .bottom) } }
+            .onChange(of: lines.last?.id) { id in if let id { proxy.scrollTo(id, anchor: .bottom) } }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
@@ -379,7 +439,9 @@ struct TerminalLines: View {
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 1) {
             ForEach(lines) { line in
+                // A terminal line is never wrapped: the panel scrolls sideways (wrapped, it broke inside words).
                 Text(line.text.isEmpty ? " " : line.text)
+                    .fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(TerminalPanel.color(line.text))
                     .id(line.id)
             }
@@ -485,7 +547,7 @@ struct ImportFromAwsSheet: View {
                 Toggle("Include AWS-managed resources (default VPC and subnets, service-linked roles…)", isOn: $includeAwsManaged)
             }
         }
-        .formStyle(.grouped)
+        .groupedForm()
     }
 
     private func results(_ a: ImportAnalysis) -> some View {

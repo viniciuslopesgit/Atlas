@@ -102,7 +102,7 @@ struct LaunchInstanceSheet: View {
                     }
                 }
             }
-            .formStyle(.grouped)
+            .groupedForm()
 
             if let error { ErrorBanner(message: error).padding(.horizontal) }
 
@@ -123,7 +123,7 @@ struct LaunchInstanceSheet: View {
         }
         .frame(width: 620, height: 760)
         .task { await loadDiscovery() }
-        .onChange(of: o.vpcId) {
+        .onChange(of: o.vpcId) { _ in
             o.subnetId = ""
             o.existingSecurityGroupId = ""
             Task { await loadNetwork() }

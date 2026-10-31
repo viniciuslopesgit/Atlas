@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
-        if let folder = Snapshots.folder {
+        if let folder = Snapshots.folder, #available(macOS 13, *) {
             Snapshots.render(to: folder)
             exit(0)
         }

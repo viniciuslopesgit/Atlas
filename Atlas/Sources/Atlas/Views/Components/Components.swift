@@ -15,6 +15,8 @@ enum Palette {
     /// "Slate" — neutral or terminated states.
     static let neutral = adaptive(light: 0x6B7682, dark: 0x8D98A4)
     static let purple = adaptive(light: 0x6E5BB8, dark: 0xA594E8)
+    /// "Fjord" — networks, in the Terraform diagram.
+    static let blue = adaptive(light: 0x2F6DB5, dark: 0x6FA3E8)
 
     static func ec2State(_ state: String) -> Color {
         switch state {
@@ -46,8 +48,11 @@ enum Typo {
     static let pageTitle = Font.system(size: 20, weight: .medium)
     static let sectionTitle = Font.system(size: 12, weight: .regular)
     /// Titles of sheets, inspectors and side panels: a step below the page title, never bold or expanded.
-    static let panelTitle = Font.system(size: 15, weight: .medium)
-    static func figure(_ size: CGFloat, weight: Font.Weight = .light) -> Font {
+    /// Size and weight of panel titles and figures: Fonts themselves only compare equal on some macOS versions.
+    static let panelTitleStyle: (size: CGFloat, weight: Font.Weight) = (15, .medium)
+    static let figureWeight: Font.Weight = .light
+    static let panelTitle = Font.system(size: panelTitleStyle.size, weight: panelTitleStyle.weight)
+    static func figure(_ size: CGFloat, weight: Font.Weight = figureWeight) -> Font {
         .system(size: size, weight: weight).monospacedDigit()
     }
 }
@@ -147,31 +152,65 @@ struct DetailRow: View {
     let label: String
     let value: String
     var copyable = false
+    /// Copied as a secret (see `Clipboard`).
+    var secret = false
 
-    init(_ label: String, _ value: String, copyable: Bool = false) {
+    init(_ label: String, _ value: String, copyable: Bool = false, secret: Bool = false) {
         self.label = label
         self.value = value
         self.copyable = copyable
+        self.secret = secret
     }
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(label).foregroundStyle(.secondary).frame(width: 150, alignment: .leading)
             Text(value.isEmpty ? "—" : value).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-            if copyable && !value.isEmpty && value != "—" { CopyButton(value: value) }
+            if copyable && !value.isEmpty && value != "—" { CopyButton(value: value, secret: secret) }
         }
         .font(.callout)
     }
 }
 
+/// Copying to the pasteboard. A secret is marked concealed and transient, so clipboard managers and Universal
+/// Clipboard leave it out, and it is cleared after `secretLifetime` unless something else was copied meanwhile.
+enum Clipboard {
+    static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+    static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+    static let secretLifetime: TimeInterval = 60
+
+    @MainActor
+    static func copy(_ value: String, secret: Bool = false, to pasteboard: NSPasteboard = .general) {
+        pasteboard.clearContents()
+        guard secret else {
+            pasteboard.setString(value, forType: .string)
+            return
+        }
+        pasteboard.declareTypes([.string, concealedType, transientType], owner: nil)
+        pasteboard.setString(value, forType: .string)
+        pasteboard.setString("", forType: concealedType)
+        pasteboard.setString("", forType: transientType)
+        let count = pasteboard.changeCount
+        DispatchQueue.main.asyncAfter(deadline: .now() + secretLifetime) { clear(pasteboard, ifStill: count) }
+    }
+
+    /// Clears the pasteboard if nothing was copied since `count`.
+    @discardableResult
+    static func clear(_ pasteboard: NSPasteboard, ifStill count: Int) -> Bool {
+        guard pasteboard.changeCount == count else { return false }
+        pasteboard.clearContents()
+        return true
+    }
+}
+
 struct CopyButton: View {
     let value: String
+    var secret = false
     @State private var copied = false
 
     var body: some View {
         Button {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(value, forType: .string)
+            Clipboard.copy(value, secret: secret)
             copied = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copied = false }
         } label: {
@@ -239,6 +278,14 @@ enum Fmt {
     }()
 
     static func dt(_ d: Date?) -> String { d.map { dateTime.string(from: $0) } ?? "—" }
+    static let dateTimeSeconds: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .medium
+        return f
+    }()
+    /// Date and time to the second, for run history.
+    static func dts(_ d: Date?) -> String { d.map { dateTimeSeconds.string(from: $0) } ?? "—" }
     static func day(_ d: Date?) -> String { d.map { date.string(from: $0) } ?? "—" }
 
     static func money(_ v: Double, _ currency: String = "USD") -> String {

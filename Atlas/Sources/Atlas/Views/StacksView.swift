@@ -2,26 +2,41 @@ import SwiftUI
 import AppKit
 
 struct StacksView: View {
+    /// The figures at the top are also the filter: a figure counts exactly the stacks it shows.
     enum Filter: String, CaseIterable, Identifiable {
-        case all = "All", drifted = "Drifted", failed = "Failed", running = "Running"
+        case ready = "Ready", running = "Running", drifted = "Drifted", failed = "Failed"
         var id: String { rawValue }
+
+        var tint: Color {
+            switch self {
+            case .ready: Palette.success
+            case .running: Palette.accent
+            case .drifted: Palette.warning
+            case .failed: Palette.danger
+            }
+        }
+
+        func includes(_ s: StackEntry, busy: Set<UUID>) -> Bool {
+            switch self {
+            case .running: busy.contains(s.id)
+            case .drifted: s.driftStatus == .drifted && !s.driftAcknowledged
+            case .failed: s.status == .failed || s.driftStatus == .error
+            case .ready: !busy.contains(s.id) && [.ready, .finished].contains(s.status)
+                && !(s.driftStatus == .drifted && !s.driftAcknowledged) && s.driftStatus != .error
+            }
+        }
     }
 
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var model: StacksModel
     @State private var selection: UUID?
-    @State private var filter: Filter = .all
+    /// nil shows every stack.
+    @State private var filter: Filter?
     @State private var showNew = false
 
     private var visible: [StackEntry] {
-        model.stacks.filter { s in
-            switch filter {
-            case .all: true
-            case .drifted: s.driftStatus == .drifted
-            case .failed: s.status == .failed || s.driftStatus == .error
-            case .running: model.busy.contains(s.id)
-            }
-        }
+        guard let filter else { return model.stacks }
+        return model.stacks.filter { filter.includes($0, busy: model.busy) }
     }
 
     var body: some View {
@@ -30,25 +45,17 @@ struct StacksView: View {
                 Button { showNew = true } label: { Label("New Stack…", systemImage: "plus") }
                     .disabled(state.activeAccount == nil)
             }
-            HStack(spacing: 14) {
-                StatCard(title: "Ready", value: "\(model.stacks.filter { [.ready, .finished].contains($0.status) }.count)",
-                         icon: "checkmark.circle.fill", tint: Palette.success)
-                StatCard(title: "Running", value: "\(model.busy.count)", icon: "play.circle.fill", tint: Palette.accent)
-                StatCard(title: "Drifted", value: "\(model.stacks.filter { $0.driftStatus == .drifted && !$0.driftAcknowledged }.count)",
-                         icon: "arrow.triangle.branch", tint: Palette.warning)
-                StatCard(title: "Failed", value: "\(model.stacks.filter { $0.status == .failed }.count)",
-                         icon: "xmark.octagon.fill", tint: Palette.danger)
+            HStack(spacing: 8) {
+                ForEach(Filter.allCases) { f in
+                    FilterFigure(filter: f, count: model.stacks.filter { f.includes($0, busy: model.busy) }.count,
+                                 isOn: filter == f) { filter = filter == f ? nil : f }
+                }
             }
-            .frame(height: 74)
-            Picker("Show", selection: $filter) {
-                ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 360)
+            .frame(height: 78)
 
             if model.stacks.isEmpty {
                 EmptyStateView(icon: "square.stack.3d.up", title: "No stacks yet",
-                               message: "A stack is a Terraform folder that Atlas plans, applies and checks for drift. Start one from a folder, then import existing resources into it.") {
+                               message: "A stack is a Terraform folder that Atlas plans, applies and checks for drift. Start one from a folder, then import existing resources into it from Infrastructure as Code.") {
                     Button("New Stack…") { showNew = true }.buttonStyle(.borderedProminent).disabled(state.activeAccount == nil)
                 }
             } else {
@@ -57,7 +64,7 @@ struct StacksView: View {
                         .frame(minWidth: 230, idealWidth: 270, maxWidth: 360)
                     Group {
                         if let id = selection, let s = model.stack(id) {
-                            StackDetail(stack: s)
+                            StackDetail(stack: s).id(s.id)
                         } else {
                             EmptyStateView(icon: "sidebar.left", title: "Select a stack", message: "Its runs, drift and variables appear here.")
                         }
@@ -68,12 +75,37 @@ struct StacksView: View {
         }
         .padding(24)
         .sheet(isPresented: $showNew) {
-            NewStackSheet(runtime: model.runtime) { name, folder, engine in
+            NewStackSheet(runtime: model.runtime) { r in
                 guard let account = state.activeAccount else { return }
-                selection = model.create(name: name, folder: folder, accountId: account.id, region: state.region, engine: engine).id
+                selection = model.create(name: r.name, folder: r.folder, accountId: account.id, region: state.region, engine: r.engine,
+                                         remoteState: r.remoteState, repository: r.repository, clone: r.clone).id
             }
         }
-        .onAppear { if selection == nil { selection = model.stacks.first?.id } }
+        .onAppear {
+            if let focus = model.focus { selection = focus; model.focus = nil }
+            if selection == nil { selection = model.stacks.first?.id }
+        }
+    }
+}
+
+/// A figure that filters the list when clicked; clicking it again shows every stack.
+private struct FilterFigure: View {
+    let filter: StacksView.Filter
+    let count: Int
+    let isOn: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            StatCard(title: filter.rawValue, value: "\(count)", icon: "", tint: count == 0 ? Palette.neutral : filter.tint)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(isOn ? filter.tint.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: Radius.tile))
+                .overlay(RoundedRectangle(cornerRadius: Radius.tile).strokeBorder(isOn ? filter.tint.opacity(0.5) : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(isOn ? "Show every stack" : "Show only \(filter.rawValue.lowercased()) stacks")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 
@@ -90,6 +122,9 @@ private struct StackRow: View {
             }
             HStack(spacing: 6) {
                 StackBadges(stack: stack)
+                if StateBackend.hasLocalState(in: stack.url) && !StateBackend.hasBackend(in: stack.url) {
+                    Badge(text: "Local state", color: Palette.warning)
+                }
                 if let run = stack.lastRun { Text(Fmt.dt(run.startedAt)).font(.caption).foregroundStyle(.tertiary) }
             }
         }
@@ -115,22 +150,26 @@ struct StackBadges: View {
 
 // MARK: - Detail
 
+/// The views of a stack, in the same bar as its commands. History lists every run (Init, Plan, Apply, drift
+/// checks, imports) with what it changed.
+enum StackTab: String, CaseIterable, Identifiable {
+    case history = "History", diagram = "Diagram", drift = "Drift", variables = "Variables", settings = "Settings"
+    var id: String { rawValue }
+}
+
 private struct StackDetail: View {
-    enum Tab: String, CaseIterable, Identifiable {
-        case drift = "Drift", runs = "Runs", variables = "Variables", settings = "Settings"
-        var id: String { rawValue }
-    }
+    typealias Tab = StackTab
 
     let stack: StackEntry
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var model: StacksModel
-    @State private var tab: Tab = .drift
+    @State private var tab: Tab = .history
+    /// The run whose timeline is open in History.
+    @State private var openRun: UUID?
     @State private var confirm: Confirm?
-    @State private var showImport = false
-    @State private var remoteState = true
 
     enum Confirm: Identifiable {
-        case apply, fixDrift, delete
+        case apply, fixDrift, delete, moveState
         var id: Self { self }
     }
 
@@ -150,38 +189,62 @@ private struct StackDetail: View {
                 Button { NSWorkspace.shared.activateFileViewerSelecting([stack.url]) } label: { Image(systemName: "folder") }
                     .help("Reveal in Finder")
             }
+            // One bar: what to see on the left, what to run on the right.
             HStack(spacing: 8) {
-                Group {
-                    Button("Init") { model.initialize(stack.id) }
-                    Button("Plan") { model.plan(stack.id) }
-                    Button("Apply…") { confirm = .apply }.disabled(!model.hasSavedPlan(stack))
-                        .help("Applies the plan saved by the last Plan.")
-                    Button("Check Drift") { model.checkDrift(stack.id) }
-                    Button { showImport = true } label: { Label("Import from AWS…", systemImage: "square.and.arrow.down") }
-                        .disabled(state.client(accountId: stack.accountId, region: stack.region) == nil)
-                }
-                .disabled(busy)
-                Spacer()
+                Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                Spacer(minLength: 12)
                 if busy {
                     ProgressView().controlSize(.small)
                     Button("Cancel", role: .cancel) { model.cancel(stack.id) }
                 }
+                // The next step stands out: Apply once a plan is saved, Plan until then.
+                let planned = model.hasSavedPlan(stack)
+                Group {
+                    if stack.repository != nil {
+                        Button("Pull") { start { model.pull(stack.id) } }
+                            .help("Updates the folder from its repository (fast-forward only). The saved plan is dropped: run Plan again.")
+                    }
+                    Button("Init") { start { model.initialize(stack.id) } }
+                        .keyboardShortcut("i", modifiers: [.command, .shift])
+                    Button("Check Drift") { start { model.checkDrift(stack.id) } }
+                        .keyboardShortcut("d", modifiers: [.command, .shift])
+                    Button("Plan") { start { model.plan(stack.id) } }
+                        .keyboardShortcut("p", modifiers: [.command, .shift])
+                        .buttonStyle(.prominent(!planned))
+                    Button("Apply…") { confirm = .apply }.disabled(!planned)
+                        .keyboardShortcut("a", modifiers: [.command, .shift])
+                        .buttonStyle(.prominent(planned))
+                        .help("Applies the plan saved by the last Plan.")
+                }
+                .disabled(busy)
             }
-            Picker("", selection: $tab) { ForEach(Tab.allCases) { Text($0.rawValue).tag($0) } }
-                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 420)
-            switch tab {
-            case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
-            case .runs: RunsTab(stack: stack)
-            case .variables: VariablesTab(stack: stack)
-            case .settings: settings
+            if StateBackend.hasLocalState(in: stack.url) {
+                LocalStateWarning(isBusy: busy, hasBackend: StateBackend.hasBackend(in: stack.url)) { confirm = .moveState }
             }
+            Group {
+                switch tab {
+                case .history:
+                    if let id = openRun, let run = stack.runs.first(where: { $0.id == id }) {
+                        StackRunDetail(run: run, stackName: stack.name) { openRun = nil }
+                    } else {
+                        StackRunList(runs: stack.runs) { openRun = $0 }
+                    }
+                case .diagram: TerraformDiagramView(root: stack.url, title: stack.name).id(stack.id)
+                case .drift: DriftTab(stack: stack, onFix: { confirm = .fixDrift })
+                case .variables: VariablesTab(stack: stack)
+                case .settings: settings
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
         }
         .padding(.leading, 16)
         .confirmationDialog(title, isPresented: Binding(present: $confirm), presenting: confirm) { c in
             switch c {
-            case .apply: Button("Apply", role: .destructive) { model.apply(stack.id) }
-            case .fixDrift: Button("Fix Drift", role: .destructive) { model.fixDrift(stack.id) }
+            case .apply: Button("Apply", role: .destructive) { start { model.apply(stack.id) } }
+            case .fixDrift: Button("Fix Drift", role: .destructive) { start { model.fixDrift(stack.id) } }
             case .delete: Button("Remove Stack", role: .destructive) { model.delete(stack.id) }
+            case .moveState: Button("Move State to S3") { start { model.moveStateToS3(stack.id) } }
             }
         } message: { c in
             switch c {
@@ -189,20 +252,19 @@ private struct StackDetail: View {
                 Text("Terraform will change real resources in \(accountName) (\(stack.region)) as the saved plan shows.")
             case .delete:
                 Text("Atlas forgets the stack, its runs and its Keychain variables, and removes its container. The folder and the resources in AWS are not touched.")
+            case .moveState:
+                Text("Atlas copies the state to the atlas-tfstate bucket of \(accountName) (versioned, encrypted), checks it can be read there, then removes terraform.tfstate and its backup from the stack's folder. Resources in AWS are not changed.")
             }
         }
-        .sheet(isPresented: $showImport) {
-            if let client = state.client(accountId: stack.accountId, region: stack.region) {
-                VStack(spacing: 0) {
-                    ImportFromAwsSheet(client: client, region: stack.region, targetName: stack.name, offerGenerate: false) { chosen, _ in
-                        model.importResources(stack.id, chosen, remoteState: remoteState)
-                        tab = .runs
-                    }
-                    Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
-                        .padding([.horizontal, .bottom], 20)
-                }
-            }
-        }
+    }
+
+    /// Runs the action and, when it recorded a new run, opens that run's timeline in History.
+    private func start(_ action: () -> Void) {
+        let before = model.stack(stack.id)?.lastRun?.id
+        action()
+        guard let run = model.stack(stack.id)?.lastRun, run.id != before else { return }
+        tab = .history
+        openRun = run.id
     }
 
     private var title: String {
@@ -210,6 +272,7 @@ private struct StackDetail: View {
         case .apply: "Apply the saved plan to \(stack.name)?"
         case .fixDrift: "Fix the drift in \(stack.name)?"
         case .delete: "Remove \(stack.name) from Atlas?"
+        case .moveState: "Move the state of \(stack.name) to S3?"
         case nil: ""
         }
     }
@@ -217,6 +280,11 @@ private struct StackDetail: View {
     private var settings: some View {
         Form {
             DetailRow("Folder", stack.projectPath, copyable: true)
+            if let repo = stack.repository {
+                DetailRow("Repository", repo.webURL, copyable: true)
+                DetailRow("Branch", repo.branch ?? "Default branch")
+                if let sub = repo.subfolder { DetailRow("Folder in repository", sub) }
+            }
             DetailRow("Account", accountName)
             DetailRow("Region", stack.region)
             DetailRow("Created", Fmt.dt(stack.createdAt))
@@ -234,7 +302,7 @@ private struct StackDetail: View {
             }
             Button("Remove Stack…", role: .destructive) { confirm = .delete }.disabled(busy)
         }
-        .formStyle(.grouped)
+        .groupedForm()
     }
 }
 
@@ -335,54 +403,6 @@ private struct DriftTab: View {
     }
 }
 
-private struct RunsTab: View {
-    let stack: StackEntry
-    @State private var selected: UUID?
-
-    private var run: StackRun? { stack.runs.first { $0.id == selected } ?? stack.runs.first }
-
-    var body: some View {
-        if stack.runs.isEmpty {
-            EmptyStateView(icon: "clock", title: "No runs yet", message: "Init, Plan, Apply, drift checks and imports are recorded here.")
-        } else {
-            VSplitView {
-                Table(stack.runs, selection: $selected) {
-                    TableColumn("Status") { r in Badge(text: r.status.rawValue.capitalized, color: color(r.status)) }.width(90)
-                    TableColumn("Run") { r in Text(label(r.type)) }.width(min: 80, ideal: 100)
-                    TableColumn("Trigger", value: \.trigger)
-                    TableColumn("Started") { r in Text(Fmt.dt(r.startedAt)) }.width(min: 130, ideal: 150)
-                    TableColumn("Duration") { r in Text(r.durationText) }.width(70)
-                }
-                .frame(minHeight: 120, idealHeight: 170)
-                TerminalPanel(lines: (run?.output ?? "").components(separatedBy: "\n").enumerated()
-                    .map { IaCModel.Line(id: $0.offset, text: $0.element) })
-                    .frame(minHeight: 160)
-            }
-        }
-    }
-
-    private func label(_ t: StackRunType) -> String {
-        switch t {
-        case .importResources: "Import"
-        case .initialize: "Init"
-        case .fix: "Fix"
-        case .plan: "Plan"
-        case .apply: "Apply"
-        case .fixDrift: "Fix drift"
-        case .setup: "Container"
-        }
-    }
-
-    private func color(_ s: StackRunStatus) -> Color {
-        switch s {
-        case .running: Palette.accent
-        case .success: Palette.success
-        case .failed: Palette.danger
-        case .cancelled: Palette.neutral
-        }
-    }
-}
-
 private struct VariablesTab: View {
     let stack: StackEntry
     @EnvironmentObject private var model: StacksModel
@@ -416,7 +436,7 @@ private struct VariablesTab: View {
                     }
                 }
             }
-            .formStyle(.grouped)
+            .groupedForm()
         }
     }
 }
@@ -435,49 +455,215 @@ private struct RuntimeSetupHint: View {
     }
 }
 
+/// What the New Stack sheet asks for. A stack cloned from git also has its repository and the clone's root.
+struct NewStackRequest {
+    var name: String
+    var folder: URL
+    var engine: TerraformEngine
+    var remoteState: Bool
+    var repository: GitSource?
+    var clone: URL?
+}
+
 private struct NewStackSheet: View {
+    enum Source: String, CaseIterable, Identifiable {
+        case folder = "Local folder", git = "Git repository"
+        var id: String { rawValue }
+    }
+
     let runtime: ContainerRuntime?
-    let onCreate: (String, URL, TerraformEngine) -> Void
+    let onCreate: (NewStackRequest) -> Void
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var model: StacksModel
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @State private var source: Source = .folder
     @State private var folder: URL?
+    @State private var repoURL = ""
+    @State private var branch = ""
+    @State private var subfolder = ""
+    /// Where the clone goes; nil is Atlas's own folder.
+    @State private var cloneParent: URL?
     @State private var engine: TerraformEngine = .terraform
+    @State private var remoteState = true
+    /// A private repository: the user name and token for its server (kept in the Keychain after a clone that worked).
+    @State private var isPrivate = false
+    @State private var username = ""
+    @State private var token = ""
+    /// What the Keychain holds for the repository's server.
+    @State private var saved: GitCredentials?
+    @State private var cloning: Task<Void, Never>?
+    @State private var progress = ""
+    @State private var error: String?
+
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
+    private var parsed: GitSource? { try? GitSource(url: repoURL, branch: branch, subfolder: subfolder) }
+    private var canCreate: Bool {
+        guard !trimmedName.isEmpty, cloning == nil else { return false }
+        return source == .folder ? folder != nil : parsed != nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New Stack").font(Typo.pageTitle)
+            Picker("", selection: $source) { ForEach(Source.allCases) { Text($0.rawValue).tag($0) } }
+                .pickerStyle(.segmented).labelsHidden().disabled(cloning != nil)
             Form {
                 TextField("Name", text: $name, prompt: Text("production-network"))
-                LabeledContent("Folder") {
-                    HStack {
-                        Text(folder?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "None").foregroundStyle(.secondary)
-                            .lineLimit(1).truncationMode(.middle)
-                        Button("Choose…", action: choose)
+                if source == .folder {
+                    LabeledRow("Folder") {
+                        HStack {
+                            Text(folder.map(Self.display) ?? "None").foregroundStyle(.secondary)
+                                .lineLimit(1).truncationMode(.middle)
+                            Button("Choose…", action: choose)
+                        }
                     }
+                } else {
+                    gitFields
                 }
-                LabeledContent("Account", value: state.activeAccount?.name ?? "—")
-                LabeledContent("Region", value: state.region)
+                LabeledRow("Account", value: state.activeAccount?.name ?? "—")
+                LabeledRow("Region", value: state.region)
                 Picker("Engine", selection: $engine) { ForEach(TerraformEngine.allCases) { Text($0.label).tag($0) } }
-                LabeledContent("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
+                LabeledRow("Runs in", value: runtime.map { "Its own container (\($0.kind.rawValue))" } ?? "This Mac")
+                Toggle("Keep the state in S3 (atlas-tfstate-<account>, versioned and encrypted)", isOn: $remoteState)
+                    .help("The state holds every resource's values in plain text; in S3 it is encrypted and never in the stack's folder.")
             }
-            .formStyle(.grouped)
+            .groupedForm()
+            .disabled(cloning != nil)
             Text("\(engine.label) runs with this account's credentials in this region, also for scheduled drift checks.")
                 .font(.caption).foregroundStyle(.secondary)
+            if source == .git {
+                Text("Plan runs the repository's code with these credentials: only use repositories you trust. GitHub, Bitbucket, GitLab or your own server, over https; a page address copied from the browser works too.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
             if runtime == nil { RuntimeSetupHint() }
+            if let error {
+                Label(error, systemImage: "exclamationmark.triangle.fill").font(.callout).foregroundStyle(Palette.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create") {
-                    if let folder { onCreate(name.trimmingCharacters(in: .whitespaces), folder, engine) }
-                    dismiss()
+                if cloning != nil {
+                    ProgressView().controlSize(.small)
+                    Text(progress.isEmpty ? "Cloning…" : progress).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || folder == nil)
+                Spacer()
+                Button("Cancel") {
+                    if let cloning { cloning.cancel() } else { dismiss() }
+                }
+                .keyboardShortcut(.cancelAction)
+                Button(source == .git ? "Clone and Create" : "Create", action: create)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canCreate)
             }
         }
         .padding(20)
-        .frame(width: 480)
+        .frame(width: 520)
+    }
+
+    @ViewBuilder private var gitFields: some View {
+        TextField("Repository", text: Binding(get: { repoURL }, set: { new in
+            // The name follows the repository until the user types one of their own.
+            let auto = parsed?.name
+            repoURL = new
+            if name.isEmpty || name == auto, let repo = parsed?.name { name = repo }
+            error = nil
+            loadSaved()
+        }), prompt: Text("https://bitbucket.org/workspace/repository"))
+        TextField("Branch", text: $branch, prompt: Text(parsed?.branch.map { "\($0) (from the address)" } ?? "default branch"))
+        TextField("Folder in repository", text: $subfolder,
+                  prompt: Text(parsed?.subfolder.map { "\($0) (from the address)" } ?? "the root, or infra/production"))
+        Toggle("Private repository", isOn: Binding(get: { isPrivate }, set: { isPrivate = $0; loadSaved() }))
+        if isPrivate {
+            if let saved, let host = parsed?.hostName {
+                LabeledRow("Saved token") {
+                    HStack {
+                        Text("\(saved.username) on \(host)").foregroundStyle(.secondary).lineLimit(1)
+                        Button("Forget") { model.forgetGitCredentials(for: host); loadSaved() }
+                    }
+                }
+            }
+            TextField("User name", text: $username,
+                      prompt: Text(parsed?.hostName == GitSource.bitbucket ? "optional with an API token" : "user name"))
+            SecureField("Token", text: $token, prompt: Text(saved == nil ? "API token, app password or access token" : "keep the saved token"))
+            Text(parsed?.hostName == GitSource.bitbucket
+                 ? "A Bitbucket API token with the read:repository:bitbucket scope (the user name can stay empty), or an app password with your exact Bitbucket username. Atlas keeps it in the Keychain and sends it only to bitbucket.org."
+                 : "A token with read access to the repository: on GitHub or GitLab a personal access token. Atlas keeps it in the Keychain and sends it only to this server.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        LabeledRow("Clone into") {
+            HStack {
+                Text(Self.display(cloneParent ?? model.repositoriesFolder)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+                Button("Choose…", action: chooseCloneParent)
+            }
+        }
+        if !repoURL.trimmingCharacters(in: .whitespaces).isEmpty, parsed == nil {
+            Text(validationMessage).font(.caption).foregroundStyle(Palette.danger)
+        }
+    }
+
+    private func loadSaved() {
+        saved = isPrivate ? parsed.flatMap { model.gitCredentials(for: $0.hostName) } : nil
+    }
+
+    /// The token typed in the sheet, or the one saved for the server.
+    private var credentials: GitCredentials? {
+        guard isPrivate else { return nil }
+        let typed = GitCredentials(username: username.trimmingCharacters(in: .whitespaces), token: token.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !typed.token.isEmpty else { return saved }
+        guard typed.username.isEmpty else { return typed }
+        return GitCredentials(username: saved?.username ?? GitCredentials.defaultUsername(for: parsed?.hostName ?? ""), token: typed.token)
+    }
+
+    private var validationMessage: String {
+        do { _ = try GitSource(url: repoURL, branch: branch, subfolder: subfolder); return "" }
+        catch { return error.localizedDescription }
+    }
+
+    private static func display(_ url: URL) -> String { url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
+
+    private func create() {
+        let request = NewStackRequest(name: trimmedName, folder: folder ?? URL(fileURLWithPath: "/"), engine: engine, remoteState: remoteState)
+        guard source == .git else {
+            if folder != nil { onCreate(request) }
+            dismiss()
+            return
+        }
+        guard let repo = parsed else { return }
+        let target = StacksModel.cloneFolder(for: repo, in: cloneParent ?? model.repositoriesFolder)
+        let git = model.git
+        let credentials = credentials
+        error = nil
+        progress = ""
+        cloning = Task {
+            do {
+                let accepted = AcceptedCredentials()
+                let stackFolder = try await git.clone(repo, into: target, credentials: credentials, accepted: { accepted.set($0) }) { line in
+                    DispatchQueue.main.async { progress = line }
+                }
+                if let used = accepted.value, used != saved { try? model.saveGitCredentials(used, for: repo.hostName) }
+                var r = request
+                r.folder = stackFolder
+                r.repository = repo
+                r.clone = target
+                onCreate(r)
+                dismiss()
+            } catch {
+                self.error = Task.isCancelled ? GitError.cancelled.localizedDescription : error.localizedDescription
+                if error as? GitError == .authRequired { isPrivate = true; loadSaved() }
+            }
+            cloning = nil
+        }
+    }
+
+    private func chooseCloneParent() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.message = "Choose where to clone the repository: Atlas creates a folder for it inside."
+        if panel.runModal() == .OK, let url = panel.url { cloneParent = url }
     }
 
     private func choose() {
@@ -492,4 +678,46 @@ private struct NewStackSheet: View {
             if name.isEmpty { name = url.lastPathComponent }
         }
     }
+}
+
+/// The stack's state is a plain-text file in its folder: every resource's values, readable by anything that can read it.
+/// With a backend (an S3 bucket of its own, say), the file is a leftover the engine no longer reads: Atlas does not move
+/// or delete it, it only says so.
+private struct LocalStateWarning: View {
+    let isBusy: Bool
+    let hasBackend: Bool
+    let onMove: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.shield.fill").foregroundStyle(Palette.warning)
+            Text(hasBackend
+                 ? "The configuration's backend keeps the state, but an old terraform.tfstate is still in the folder, in plain text. It is not used; check it and delete it."
+                 : "This stack keeps its state in terraform.tfstate, in plain text in its folder. It holds every resource's values, secrets included.")
+                .font(.callout).frame(maxWidth: .infinity, alignment: .leading)
+            if !hasBackend { Button("Move State to S3…", action: onMove).disabled(isBusy) }
+        }
+        .padding(10)
+        .card(radius: Radius.tile)
+    }
+}
+
+/// `.borderedProminent` for the step to take next, `.bordered` otherwise.
+struct ProminentWhen: PrimitiveButtonStyle {
+    let isOn: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        if isOn { Button(configuration).buttonStyle(.borderedProminent) } else { Button(configuration).buttonStyle(.bordered) }
+    }
+}
+
+extension PrimitiveButtonStyle where Self == ProminentWhen {
+    static func prominent(_ isOn: Bool) -> ProminentWhen { ProminentWhen(isOn: isOn) }
+}
+
+/// The credentials a clone was accepted with, handed back from git's task.
+private final class AcceptedCredentials: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: GitCredentials?
+    var value: GitCredentials? { lock.withLock { stored } }
+    func set(_ c: GitCredentials) { lock.withLock { stored = c } }
 }

@@ -4,8 +4,8 @@ import Foundation
 enum HclLine {
     /// `name` from `name = value`, or "" when the line is not an attribute.
     static func attrName(_ trimmed: String) -> String {
-        guard let m = trimmed.firstMatch(of: #/^(\w+)\s*=/#) else { return "" }
-        return String(m.1)
+        guard let m = trimmed.firstMatch(#"^(\w+)\s*="#) else { return "" }
+        return String(m[1])
     }
 
     /// The value of `attr = value` (trimmed), or nil when the line sets another attribute.
@@ -39,8 +39,8 @@ enum HclLine {
 
     /// The type of `resource "<type>" "<name>" {`, or nil.
     static func resourceType(_ trimmed: String) -> String? {
-        guard let m = trimmed.firstMatch(of: #/^resource\s+"([^"]+)"/#) else { return nil }
-        return String(m.1)
+        guard let m = trimmed.firstMatch(#"^resource\s+"([^"]+)""#) else { return nil }
+        return String(m[1])
     }
 
     /// Splits a file into top-level resource blocks and the text between them.
@@ -154,7 +154,7 @@ enum GeneratedHclFixer {
         var inBlock = false, d = 0
         for l in lines {
             let t = HclLine.trimmedStart(l)
-            if !inBlock, t.firstMatch(of: #/^tags_all\s*=\s*\{/#) != nil {
+            if !inBlock, t.firstMatch(#"^tags_all\s*=\s*\{"#) != nil {
                 let x = HclLine.depth(l)
                 if x <= 0 { s.tagsAll += 1 } else { inBlock = true; d = x }
                 continue
@@ -274,7 +274,7 @@ enum GeneratedHclFixer {
         var listBuf: [String] = []
         for l in lines {
             let t = HclLine.trimmedStart(l)
-            if !inBlock && !inList, t.firstMatch(of: #/^route\s*\{/#) != nil {
+            if !inBlock && !inList, t.firstMatch(#"^route\s*\{"#) != nil {
                 inBlock = true; bd = HclLine.depth(l); hasDest = false; blockBuf = [l]
                 continue
             }
@@ -300,7 +300,7 @@ enum GeneratedHclFixer {
                 }
                 continue
             }
-            if !inList, t.firstMatch(of: #/^route\s*=\s*\[/#) != nil {
+            if !inList, t.firstMatch(#"^route\s*=\s*\["#) != nil {
                 ld = HclLine.depth(l, open: "[", close: "]")
                 listBuf = [l]
                 if ld <= 0 { fixed = true } else { inList = true }
@@ -328,12 +328,12 @@ enum GeneratedHclFixer {
         for l in raw {
             let t = HclLine.trimmedStart(l)
             let pad = String(repeating: " ", count: HclLine.indent(l))
-            if t.firstMatch(of: #/\[\s*\{/#) != nil, let brace = l.lastIndex(of: "{") {
+            if t.firstMatch(#"\[\s*\{"#) != nil, let brace = l.lastIndex(of: "{") {
                 lines.append(String(l[..<brace]).trimmingTrailingWhitespace())
                 lines.append(pad + "{")
-            } else if t.firstMatch(of: #/^\}\s*,\s*\{/#) != nil {
+            } else if t.firstMatch(#"^\}\s*,\s*\{"#) != nil {
                 lines += [pad + "},", pad + "{"]
-            } else if t.firstMatch(of: #/^\}\s*\]/#) != nil, let bracket = l.firstIndex(of: "]") {
+            } else if t.firstMatch(#"^\}\s*\]"#) != nil, let bracket = l.firstIndex(of: "]") {
                 lines += [pad + "}", pad + String(l[bracket...])]
             } else {
                 lines.append(l)

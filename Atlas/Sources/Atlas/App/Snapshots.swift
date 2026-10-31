@@ -6,14 +6,20 @@ import AppKit
 enum Snapshots {
     static let folder = ProcessInfo.processInfo.environment["ATLAS_SNAPSHOT"].map { URL(fileURLWithPath: $0) }
 
+    @available(macOS 13, *) // ImageRenderer
     static func render(to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let pages: [(String, AnyView)] = [
+        var pages: [(String, AnyView)] = [
             ("dashboard", AnyView(DashboardBody(summary: fixture).padding(24).frame(width: 1100))),
             ("components", AnyView(components.padding(24).frame(width: 720))),
             ("iac", AnyView(iac.padding(24).frame(width: 900))),
             ("stacks", AnyView(stacks.padding(24).frame(width: 900))),
+            ("diagram", AnyView(diagram.padding(24))),
         ]
+        // ATLAS_SNAPSHOT_TF=<folder> also draws that Terraform folder's diagram, in the Architecture view.
+        if let tf = ProcessInfo.processInfo.environment["ATLAS_SNAPSHOT_TF"] {
+            pages.append(("diagram-folder", AnyView(diagram(folder: URL(fileURLWithPath: tf)).padding(24))))
+        }
         for (name, view) in pages {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                 NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
@@ -92,6 +98,50 @@ enum Snapshots {
                 .background(Color(nsColor: .textBackgroundColor))
                 .card(radius: Radius.tile)
         }
+    }
+
+    /// The diagram's blocks and links, laid out as the Diagram tab draws them (without pan and zoom).
+    private static var diagram: some View {
+        let hcl = """
+        data "aws_availability_zones" "all" {}
+        resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }
+        resource "aws_subnet" "private" {
+          count = 3
+          vpc_id = aws_vpc.main.id
+          availability_zone = data.aws_availability_zones.all.names[count.index]
+        }
+        resource "aws_security_group" "nodes" { vpc_id = aws_vpc.main.id }
+        resource "aws_iam_role" "cluster" { name = "cluster" }
+        module "cluster" {
+          source = "./cluster"
+          subnets = aws_subnet.private[*].id
+          role = aws_iam_role.cluster.arn
+          security_group = aws_security_group.nodes.id
+        }
+        resource "aws_s3_bucket" "logs" { bucket = "logs" }
+        resource "helm_release" "ingress" { depends_on = [module.cluster] }
+        resource "aws_cloudwatch_log_group" "app" { name = module.cluster.name }
+        """
+        let graph = TerraformConfig.link(TerraformConfig.blocks(in: hcl, file: "main.tf"))
+        let scene = DiagramScene(graph)
+        let cluster = TerraformModuleSummary(TerraformConfig.link(TerraformConfig.blocks(in: """
+        resource "aws_eks_cluster" "this" {}
+        resource "aws_eks_node_group" "this" {}
+        resource "aws_iam_role" "nodes" {}
+        """, file: "eks.tf")))
+        return DiagramContent(scene: scene, selection: "module.cluster", hovered: nil, matches: nil, modules: ["module.cluster": cluster])
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+            .card(radius: Radius.tile)
+    }
+
+    /// `ATLAS_SNAPSHOT_OPEN` opens a block (or `module:<path>`) as double-clicking it does.
+    private static func diagram(folder: URL) -> some View {
+        let env = ProcessInfo.processInfo.environment
+        let open = env["ATLAS_SNAPSHOT_OPEN"].map { $0.hasPrefix("module:") ? TerraformDiagramView.Focus.Target.module(String($0.dropFirst(7))) : .block($0) }
+        let scene = TerraformDiagramView.scene(mode: .architecture, stack: TerraformStack.load(root: folder), graph: nil, hidden: [], focus: open)!
+        return DiagramContent(scene: scene, selection: env["ATLAS_SNAPSHOT_SELECT"], hovered: nil, matches: nil, modules: [:])
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+            .card(radius: Radius.tile)
     }
 
     private static var stacks: some View {

@@ -1,11 +1,11 @@
 # Atlas for macOS
 
-Native macOS version of Atlas, written in **Swift + SwiftUI** (macOS 14+).
+Native macOS version of Atlas, written in **Swift + SwiftUI** (macOS 12+).
 It replaces the original WPF/.NET version for Windows, which has been removed from this repository.
 
 ## Requirements
 
-- macOS 14 Sonoma or later
+- macOS 12 Monterey or later
 - Swift 5.9+ (the Xcode Command Line Tools are enough; Xcode is optional)
 
 ## Build and run
@@ -66,7 +66,7 @@ Sources/Atlas/
   also adds it, with its import block, to the active project.
 - **Stacks**: run history, scheduled drift checks (interval or cron) with notifications, Fix Drift with the
   saved plan, optional auto-fix, import into an S3 remote state (`atlas-tfstate-<account>`), variables in
-  the Keychain
+  the Keychain; a stack starts from a local folder or a git repository on GitHub, Bitbucket, GitLab or your own server (cloned by Atlas, updated with Pull)
 - **Feedback**: opens Mail with the message ready, or copies it as a GitHub issue
 - **⌘K search** across pages, EC2, S3 and IAM
 - **Updates**: Help › Check for Updates… and the status in Accounts (see below)
@@ -81,9 +81,16 @@ Atlas calls these only when you use the feature that needs them, and tells you h
 |---|---|---|
 | Infrastructure as Code, Stacks | `terraform` 1.5+ | `brew install terraform` |
 | Automatic updates | `gh`, signed in | `brew install gh && gh auth login` |
+| Stacks from a git repository | `git` (private repositories: a token, or your git credentials) | `xcode-select --install` |
 
 Credentials reach `terraform` only through the child process's environment; they are never written to `.tf`
 files or passed on a command line.
+
+Stacks from a git repository: Atlas only clones `https://host/path/repo` addresses (GitHub, Bitbucket, GitLab or a
+server of your own, by name; no other transport, no user or password in the address), runs `git` with an argument
+array, `GIT_TERMINAL_PROMPT=0`, https as the only protocol, no hooks and no submodules. A private repository uses a
+user name and token typed in New Stack, kept in the Keychain per server and given to git as an `http.<server>.extraHeader`
+through `GIT_CONFIG_*` (never on a command line or in a file), or the credential helper git already has.
 
 EC2 › Connect needs nothing extra: Atlas speaks the Session Manager protocol itself and opens the shell in
 Terminal. KMS-encrypted sessions (a Session Manager preference) are not supported yet.

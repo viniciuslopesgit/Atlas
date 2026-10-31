@@ -219,6 +219,80 @@ struct CreateBucketOptions {
     var tags: [(String, String)] = []
 }
 
+/// A bucket's configuration as S3 reports it (GetBucketVersioning, -Encryption, -PublicAccessBlock, -Tagging,
+/// -LifecycleConfiguration and -Policy). A section S3 refused to read (e.g. AccessDenied) is in `errors`.
+struct S3BucketSettings: Equatable {
+    enum Versioning: String, CaseIterable, Identifiable {
+        case off = "Off", enabled = "Enabled", suspended = "Suspended"
+        var id: String { rawValue }
+    }
+
+    enum Encryption: String, CaseIterable, Identifiable {
+        case sseS3 = "AES256", sseKms = "aws:kms", dsseKms = "aws:kms:dsse"
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .sseS3: "SSE-S3"
+            case .sseKms: "SSE-KMS"
+            case .dsseKms: "DSSE-KMS"
+            }
+        }
+    }
+
+    struct PublicAccessBlock: Equatable {
+        var blockPublicAcls = false
+        var ignorePublicAcls = false
+        var blockPublicPolicy = false
+        var restrictPublicBuckets = false
+        var all: Bool { blockPublicAcls && ignorePublicAcls && blockPublicPolicy && restrictPublicBuckets }
+    }
+
+    struct Tag: Equatable, Identifiable {
+        var key: String
+        var value: String
+        var id: String { key }
+    }
+
+    /// The rules Atlas edits; anything else S3 allows (tag filters, dates, size filters…) is kept as `raw` XML
+    /// and sent back unchanged, so saving never drops part of a rule Atlas can't show.
+    struct LifecycleRule: Equatable, Identifiable {
+        struct Transition: Equatable {
+            var days: Int
+            var storageClass: String
+        }
+        var ruleId = ""
+        var enabled = true
+        var prefix = ""
+        var transitions: [Transition] = []
+        var expirationDays: Int?
+        var noncurrentExpirationDays: Int?
+        var abortMultipartDays: Int?
+        var raw: String?
+        var id: String { ruleId }
+
+        var summary: String {
+            if raw != nil { return "Advanced rule, kept as is" }
+            var parts: [String] = []
+            for t in transitions { parts.append("\(t.storageClass) after \(t.days) d") }
+            if let d = expirationDays { parts.append("expire after \(d) d") }
+            if let d = noncurrentExpirationDays { parts.append("old versions expire after \(d) d") }
+            if let d = abortMultipartDays { parts.append("abort uploads after \(d) d") }
+            return (prefix.isEmpty ? "Whole bucket" : "Prefix \(prefix)") + (parts.isEmpty ? "" : " · " + parts.joined(separator: ", "))
+        }
+    }
+
+    var versioning: Versioning = .off
+    var mfaDelete = false
+    var encryption: Encryption = .sseS3
+    var kmsKeyId = ""
+    var bucketKeyEnabled = false
+    var publicAccess = PublicAccessBlock()
+    var tags: [Tag] = []
+    var lifecycle: [LifecycleRule] = []
+    var policy = ""
+    var errors: [String: String] = [:]
+}
+
 enum ByteFormat {
     static func string(_ bytes: Int64) -> String {
         switch bytes {
@@ -316,6 +390,48 @@ struct CloudWatchAlarm: Identifiable, Hashable {
     var id: String { alarmArn.isEmpty ? name : alarmArn }
 }
 
+/// GuardDuty's severity levels, as its documentation defines them (guardduty_findings-severity).
+enum GuardDutySeverity: Int, CaseIterable, Identifiable, Comparable {
+    case low, medium, high, critical
+
+    init(score: Double) {
+        self = score >= 9 ? .critical : score >= 7 ? .high : score >= 4 ? .medium : .low
+    }
+
+    var id: Int { rawValue }
+    var label: String {
+        switch self {
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        case .critical: "Critical"
+        }
+    }
+    var range: String {
+        switch self {
+        case .low: "1.0–3.9"
+        case .medium: "4.0–6.9"
+        case .high: "7.0–8.9"
+        case .critical: "9.0–10.0"
+        }
+    }
+    var meaning: String {
+        switch self {
+        case .low: "Attempted suspicious activity that did not compromise the environment, such as a port scan."
+        case .medium: "Activity that deviates from normal behavior and may indicate a compromised resource."
+        case .high: "The resource is compromised and actively used for unauthorized purposes."
+        case .critical: "An attack sequence may be in progress or have recently happened."
+        }
+    }
+
+    static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+}
+
+struct GuardDutyDetail: Hashable {
+    let label: String
+    let value: String
+}
+
 struct GuardDutyFinding: Identifiable, Hashable {
     let id: String
     let title: String
@@ -323,11 +439,24 @@ struct GuardDutyFinding: Identifiable, Hashable {
     let severity: Double
     let type: String
     let resourceType: String
+    var resourceId = ""
     let region: String
     let accountId: String
+    var createdAt: Date?
     let updatedAt: Date?
+    var archived = false
+    var count = 1
+    var firstSeen: Date?
+    var lastSeen: Date?
+    var actionType = ""
+    var resource: [GuardDutyDetail] = []
+    var action: [GuardDutyDetail] = []
+    var actor: [GuardDutyDetail] = []
 
-    var severityLabel: String { severity >= 7 ? "HIGH" : severity >= 4 ? "MEDIUM" : "LOW" }
+    var level: GuardDutySeverity { GuardDutySeverity(score: severity) }
+    /// "Recon:EC2/PortProbeUnprotectedPort" → "Recon".
+    var threatPurpose: String { type.split(separator: ":").first.map(String.init) ?? type }
+    var resourceLabel: String { resourceId.isEmpty ? resourceType : "\(resourceType) · \(resourceId)" }
 }
 
 // MARK: - Security audit

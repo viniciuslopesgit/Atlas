@@ -7,12 +7,12 @@ It supports **AWS** today; more providers will follow.
 
 - **Costs at a glance** — month to date, end-of-month forecast and the services that cost the most, on the Dashboard and in Billing by month.
 - **EC2 without tabs** — start, stop, reboot or terminate several instances at once, see every detail with metrics, and launch new ones with a wizard.
-- **S3 like Finder** — browse folders, drag files to upload, follow upload and download progress, and edit text files in place.
-- **Security in one click** — IAM (users, roles, groups, policies and access keys), GuardDuty findings, CloudWatch alarms and a quick audit: root MFA, password policy, old keys, IMDSv1 and public S3 buckets.
+- **S3 like Finder** — browse folders, drag files to upload, follow upload and download progress, edit text files in place, and change a bucket's versioning, encryption, public access, tags, lifecycle and policy.
+- **Security in one click** — IAM (users, roles, groups, policies and access keys), GuardDuty findings by severity with desktop notifications for new ones, CloudWatch alarms and a quick audit: root MFA, password policy, old keys, IMDSv1 and public S3 buckets.
 - **Terraform without leaving the app** — import existing resources into a project, plan and apply what you reviewed, and keep stacks under watch for drift.
 - **Multiple accounts, instant switching** — change account or region from the toolbar, and find any resource with ⌘K.
 
-> Requires macOS 14 Sonoma or later. Terraform features need `terraform` 1.5+.
+> Requires macOS 12 Monterey or later. Terraform features need `terraform` 1.5+.
 
 ---
 
@@ -41,7 +41,7 @@ How tests, versions and releases work: [docs/development.md](docs/development.md
 
 ```
 change ──► ship.sh: new version + CHANGELOG ──► full check ──► commit ──► push dev
-                                                                    │  CI: full check on macOS 14 and 15
+                                                                    │  CI: full check on macOS 14 and 15, app on 12
                                                                     ▼
                                                       beta Release X.Y.Z (pre-release, zip + SHA256SUMS)
                                                                     │  approved automatically: 24 h (72 h for a major),
@@ -50,7 +50,7 @@ change ──► ship.sh: new version + CHANGELOG ──► full check ──►
                                     promote.yml: verified again ──► Pull Request ──► main + stable Release "Latest"
 ```
 
-- **`dev`** receives every change. [`ci.yml`](.github/workflows/ci.yml) runs [`check.sh --full`](Atlas/scripts/check.sh) on macOS 14 and 15 and publishes a version that has no Release yet as a beta, with the notes from its [`CHANGELOG.md`](CHANGELOG.md) section.
+- **`dev`** receives every change. [`ci.yml`](.github/workflows/ci.yml) runs [`check.sh --full`](Atlas/scripts/check.sh) on macOS 14 and 15, starts the checked app on macOS 12, and publishes a version that has no Release yet as a beta, with the notes from its [`CHANGELOG.md`](CHANGELOG.md) section.
 - **`main`** only has the stable version, without tests or development scripts ([`.mainignore`](.mainignore)). [`promote.yml`](.github/workflows/promote.yml) runs every 6 hours, approves the newest beta that meets the [release criteria](docs/RELEASE_CRITERIA.md) and publishes it as the stable Release. To stop one, open an issue labelled `hold-release`.
 - **Versions** live in [`Atlas/Resources/Info.plist`](Atlas/Resources/Info.plist) and are created automatically when the app changes: the kind comes from the Conventional Commits (`feat:` → minor, `fix:` → patch, `feat!:` → major) and the CHANGELOG section is written from them (`bump_version.sh --auto`). A published version never changes: the full check refuses it.
 

@@ -35,7 +35,7 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
         case .securityAudit: ["audit", "mfa", "password policy", "imds", "public"]
         case .billing: ["costs", "spend", "invoice", "forecast"]
         case .iac: ["terraform", "iac", "infrastructure", "code", "init", "plan", "apply", "import", "hcl"]
-        case .stacks: ["stacks", "terraform", "runs", "drift", "import", "plan", "apply", "history", "cron"]
+        case .stacks: ["stacks", "terraform", "runs", "drift", "plan", "apply", "history", "cron"]
         case .settings: ["settings", "config", "accounts", "preferences", "keys", "updates"]
         case .feedback: ["contact", "feedback", "bug", "report", "suggestion", "help", "issue"]
         }
@@ -59,20 +59,29 @@ enum Page: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// The sidebar's three fixed menus. Resources opens a submenu to its right with its pages;
+/// The sidebar's fixed menus. Resources opens a submenu to its right with its pages;
 /// Accounts and Feedback live in the sidebar footer.
 enum SidebarMenu: String, CaseIterable, Identifiable {
-    case dashboard, resources, stacks
+    case dashboard, resources, stacks, iac
 
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    var title: String { self == .iac ? Page.iac.title : rawValue.capitalized }
     var hasSubmenu: Bool { pages.count > 1 }
+    var icon: String {
+        switch self {
+        case .dashboard: Page.dashboard.icon
+        case .resources: "cube"
+        case .stacks: Page.stacks.icon
+        case .iac: Page.iac.icon
+        }
+    }
 
     var pages: [Page] {
         switch self {
         case .dashboard: [.dashboard]
-        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing, .iac]
+        case .resources: [.ec2, .s3, .iam, .cloudWatch, .guardDuty, .securityAudit, .billing]
         case .stacks: [.stacks]
+        case .iac: [.iac]
         }
     }
 }
@@ -114,6 +123,8 @@ final class AppState: ObservableObject {
     @Published var notice: String?
     /// Bumped to ask the visible page to reload.
     @Published var refreshToken = 0
+    /// Page loads going on; the toolbar's Refresh shows them, also while a page shows its cached data.
+    @Published private(set) var loading = 0
 
     private let store: AccountStore
     private let secrets: SecretStore
@@ -133,23 +144,39 @@ final class AppState: ObservableObject {
     var sessionKey: String { "\(activeAccount?.id ?? "none")|\(region)|\(refreshToken)" }
 
     /// Client for the active account and region, or nil when no account is configured.
-    var client: AWSClient? {
-        guard let account = activeAccount else { return nil }
-        let key = "\(account.id)|\(region)"
-        if let cached = cachedClient, cached.key == key { return cached.client }
-        guard let secret = secrets.get(account.id) else { return nil }
-        let client = AWSClient(credentials: AWSCredentials(accessKeyId: account.accessKeyId, secretAccessKey: secret),
-                               region: region)
-        cachedClient = (key, client)
-        return client
-    }
+    var client: AWSClient? { activeAccount.flatMap { client(accountId: $0.id, region: region) } }
 
-    private var cachedClient: (key: String, client: AWSClient)?
+    /// Clients by account and region, so views can ask for one on every render without reading the Keychain.
+    private var clients: [String: AWSClient] = [:]
 
     /// Client for any configured account (stacks run against the account they were created with).
     func client(accountId: String, region: String) -> AWSClient? {
+        let key = "\(accountId)|\(region)"
+        if let cached = clients[key] { return cached }
         guard let account = accounts.first(where: { $0.id == accountId }), let secret = secrets.get(account.id) else { return nil }
-        return AWSClient(credentials: AWSCredentials(accessKeyId: account.accessKeyId, secretAccessKey: secret), region: region)
+        let client = AWSClient(credentials: AWSCredentials(accessKeyId: account.accessKeyId, secretAccessKey: secret), region: region)
+        clients[key] = client
+        return client
+    }
+
+    /// What the pages loaded, by account and region.
+    let cache = ResponseCache()
+
+    /// Page data for the active account and region: a cached value is shown at once, and `fetch` runs only when
+    /// there is none, it is older than the cache's ttl, after Refresh, or with `force` (after a change made on the page).
+    func cached<T>(_ key: String, force: Bool = false, show: (T) -> Void, fetch: () async throws -> T) async throws {
+        let full = "\(activeAccount?.id ?? "none")|\(region)|\(key)"
+        let token = refreshToken
+        if let value = cache.value(full, as: T.self) {
+            show(value)
+            if !force && cache.isFresh(full, token: token) { return }
+        }
+        loading += 1
+        defer { loading -= 1 }
+        let value = try await fetch()
+        guard !Task.isCancelled else { return }
+        cache.store(value, for: full, token: token)
+        show(value)
     }
 
     /// Stacks and their drift scheduler live as long as the app.
@@ -157,6 +184,12 @@ final class AppState: ObservableObject {
         store: StackStore(folder: store.folder, secrets: secrets),
         clientFor: { [unowned self] stack in self.client(accountId: stack.accountId, region: stack.region) },
         runtime: { ContainerRuntime.locate() })
+
+    /// GuardDuty desktop notifications for the active account and region, while the app is open.
+    private(set) lazy var guardDutyAlerts = GuardDutyAlerts(folder: store.folder) { [unowned self] in
+        guard let account = self.activeAccount, let client = self.client else { return nil }
+        return GuardDutyAlerts.Context(key: "\(account.id)|\(self.region)", client: client)
+    }
 
     func refresh() { refreshToken += 1 }
 
@@ -178,6 +211,8 @@ final class AppState: ObservableObject {
     func removeAccount(_ id: String) {
         let wasActive = activeAccount?.id == id
         secrets.delete(id)
+        clients = clients.filter { !$0.key.hasPrefix("\(id)|") }
+        cache.removeAll(prefix: "\(id)|")
         accounts.removeAll { $0.id == id }
         if wasActive, let first = accounts.first {
             setActive(first.id)

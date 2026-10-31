@@ -60,10 +60,8 @@ struct Ec2View: View {
             if !selection.isEmpty { actionBar }
         }
         .padding(24)
-        .inspector(isPresented: .constant(selection.count == 1)) {
-            if let instance = selectedInstances.first {
-                InstanceDetail(instance: instance).inspectorColumnWidth(min: 340, ideal: 400, max: 520)
-            }
+        .sideInspector(isPresented: selection.count == 1, min: 340, ideal: 400, max: 520) {
+            if let instance = selectedInstances.first { InstanceDetail(instance: instance) }
         }
         .task(id: state.sessionKey) { await load() }
         .confirmationDialog(pendingAction.map { "\($0.title) \(selection.count) instance(s)?" } ?? "",
@@ -79,7 +77,7 @@ struct Ec2View: View {
         .sheet(isPresented: $showLaunch) {
             if let client = state.client {
                 LaunchInstanceSheet(service: Ec2Service(client: client)) { ids in
-                    Task { await load() }
+                    Task { await load(force: true) }
                     Task {
                         if let message = await TerraformAware.record({ try await TerraformAware.instances(ids, client: client) }) {
                             state.notice = message
@@ -145,12 +143,14 @@ struct Ec2View: View {
         catch { self.error = error.localizedDescription }
     }
 
-    private func load() async {
+    private func load(force: Bool = false) async {
         guard let client = state.client else { return }
         isLoading = true
         defer { isLoading = false }
         do {
-            instances = try await Ec2Service(client: client).instances()
+            try await state.cached("ec2.instances", force: force, show: { instances = $0 }) {
+                try await Ec2Service(client: client).instances()
+            }
             selection = selection.filter { id in instances.contains { $0.id == id } }
             error = nil
         } catch {
@@ -170,7 +170,7 @@ struct Ec2View: View {
             case .terminate: try await svc.terminate(ids)
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
-            await load()
+            await load(force: true)
         } catch {
             self.error = "\(action.title) failed: \(error.localizedDescription)"
         }
@@ -270,12 +270,12 @@ private struct InstanceDetail: View {
         if instance.state != "running" {
             Text("Metrics are available for running instances.").font(.callout).foregroundStyle(.secondary)
         } else if let m = metrics {
-            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
-                GridRow {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
                     MiniChart(title: "CPU %", points: m.cpu, format: { String(format: "%.1f%%", $0) })
                     MiniChart(title: "Disk write", points: m.diskWrite, format: { ByteFormat.string(Int64($0)) })
                 }
-                GridRow {
+                HStack(spacing: 10) {
                     MiniChart(title: "Network in", points: m.networkIn, format: { ByteFormat.string(Int64($0)) })
                     MiniChart(title: "Network out", points: m.networkOut, format: { ByteFormat.string(Int64($0)) })
                 }
@@ -298,17 +298,24 @@ private struct MiniChart: View {
                 Spacer()
                 Text(points.last.map { format($0.value) } ?? "—").font(.caption.monospacedDigit())
             }
-            Chart(points) { p in
-                AreaMark(x: .value("t", p.timestamp), y: .value("v", p.value))
-                    .foregroundStyle(Palette.accent.opacity(0.18))
-                LineMark(x: .value("t", p.timestamp), y: .value("v", p.value))
-                    .foregroundStyle(Palette.accent)
+            Group {
+                if #available(macOS 13, *) {
+                    Chart(points) { p in
+                        AreaMark(x: .value("t", p.timestamp), y: .value("v", p.value))
+                            .foregroundStyle(Palette.accent.opacity(0.18))
+                        LineMark(x: .value("t", p.timestamp), y: .value("v", p.value))
+                            .foregroundStyle(Palette.accent)
+                    }
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                } else {
+                    SparklineShape(values: points.map(\.value)).stroke(Palette.accent, lineWidth: 1.5)
+                }
             }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
             .frame(height: 50)
         }
         .padding(8)
+        .frame(maxWidth: .infinity)
         .card()
     }
 }

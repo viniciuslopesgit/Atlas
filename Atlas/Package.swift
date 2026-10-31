@@ -15,7 +15,7 @@ if FileManager.default.fileExists(atPath: Context.packageDirectory + "/Tests/Atl
 
 let package = Package(
     name: "Atlas",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v12)],
     products: [
         .executable(name: "Atlas", targets: ["Atlas"])
     ],

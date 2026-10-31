@@ -4,6 +4,207 @@ Notable changes in each version of Atlas. Format [Keep a Changelog](https://keep
 Each version is first published as a beta and becomes stable when it meets the [release criteria](docs/RELEASE_CRITERIA.md).
 Versions up to 1.0.1 are the Windows app.
 
+## [2.10.1] - 2026-10-30
+
+Atlas 2.10.1 clones private Bitbucket repositories with an API token. Bitbucket only takes an API token with the
+account's exact username (case-sensitive, not the email) or its token user `x-bitbucket-api-token-auth`: Atlas now
+tries that user when Bitbucket refuses the one typed, the user name can stay empty, and when the token is still refused
+the message says what Bitbucket needs (the `read:repository:bitbucket` scope) and what it answered.
+
+### Fixed
+- A Bitbucket API token is accepted when the user name typed is not the account's exact username: Atlas tries
+  Bitbucket's token user and saves the user name that worked; the user name can be left empty
+
+### Changed
+- A refused token shows what the server answered and, on Bitbucket, the username and scope its API tokens need
+
+## [2.10.0] - 2026-10-30
+
+Atlas 2.10.0 clones private repositories and understands addresses copied from the browser. New Stack's Git repository
+has a Private repository switch: enter your user name and a token with read access (a Bitbucket API token or app
+password, a GitHub or GitLab personal access token) and Atlas keeps it in the Keychain, one per server, for the clone
+and for every Pull. git gets it as a header for that server's address only, through its environment: never on a
+command line, in a file or in the clone. The address of a page on Bitbucket (`…/src/master/envs/prod`), GitHub
+(`…/tree/main/infra`) or GitLab (`…/-/tree/main/infra`) now gives the repository, its branch and its folder, instead of
+being cloned as it was and answered with a login.
+
+### Added
+- New Stack can clone a private repository with a user name and token, kept in the Keychain for its server and used by
+  Pull; the saved token can be forgotten from the sheet
+- A page address copied from Bitbucket, GitHub or GitLab fills in the repository, branch and folder
+
+### Fixed
+- A Bitbucket page address such as https://bitbucket.org/workspace/repository/src/master/ is cloned from the
+  repository, instead of failing with "The server asked for credentials"
+
+## [2.9.0] - 2026-10-30
+
+Atlas 2.9.0 clones stacks from any git server, not only GitHub. New Stack's Git repository takes the https address of
+a repository on Bitbucket (`https://bitbucket.org/workspace/repository`), GitLab (groups and subgroups included) or a
+server of your own (with its port, Bitbucket Server's `/scm/…` paths included), and Pull updates it the same way.
+Private repositories use the credentials git already has: clone the repository once in Terminal so git keeps them in
+the Keychain (on Bitbucket, with an app password or API token). Atlas never stores them: an address with a user name or
+password is refused. Stacks created from GitHub with 2.8.0 keep working as they are.
+
+### Added
+- New Stack clones from Bitbucket, GitLab and git servers of your own over https, as well as GitHub, with an optional
+  branch and folder; Pull updates those stacks too
+
+### Changed
+- "GitHub repository" in New Stack is now "Git repository"; messages about credentials explain how to set them up for
+  Bitbucket and GitHub
+
+## [2.8.0] - 2026-10-30
+
+Atlas 2.8.0 creates stacks from GitHub. New Stack now offers a GitHub repository next to a local folder: enter
+`https://github.com/owner/repository`, optionally a branch and the folder inside it that holds the `.tf` files, and
+Atlas clones it into its own data folder (or a folder you choose) and opens the stack like any other. Pull updates a
+stack created from GitHub, fast-forward only, and drops the saved plan so the next Apply follows a new Plan. Public
+repositories work as they are; private ones use your own git credentials (`gh auth login`, then `gh auth setup-git`),
+and Atlas never asks for or stores a token. Git runs with no prompts, no hooks and no submodules, over https to
+github.com only.
+
+### Added
+- New Stack can clone a GitHub repository (https://github.com/owner/repository, an optional branch and folder) into
+  Atlas's data folder or a folder you choose, and creates the stack in it; a bad address, a missing repository or
+  branch, git not being installed or a private repository without credentials each get a clear message
+- Pull, in a stack created from GitHub, updates its folder from the repository (fast-forward only) as a run in its
+  History; its Settings show the repository, branch and folder
+
+### Fixed
+- A stack run's output keeps each line whole in the timeline and scrolls sideways, instead of breaking lines every few characters
+
+## [2.7.1] - 2026-10-30
+
+Atlas 2.7.1 brings 1 fix.
+
+### Fixed
+- A stack run's output keeps each line whole in the timeline and scrolls sideways, instead of breaking lines every few characters
+
+## [2.7.0] - 2026-10-23
+
+Atlas 2.7.0 makes stacks start faster and pages open instantly. A stack's container is now checked with a single
+call before each run instead of three, and the Terraform and OpenTofu providers are downloaded once and shared by
+every stack of the same engine, so Init in a new stack no longer downloads the AWS provider again. Pages keep what
+they loaded from AWS for each account and region: going back to EC2, S3, IAM, CloudWatch, GuardDuty, Billing or
+the Dashboard shows it at once and loads it again after 3 minutes, after a change made on the page, or with Refresh
+(⌘R). Infrastructure as Code is now its own menu in the sidebar, below Stacks, and Import from AWS lives there: it
+adds the resources to the open project or to a stack. A stack's runs open as a timeline of their phases. Atlas also
+has a new icon, which the Dock and Finder show in full, and it now runs on macOS 12 Monterey and macOS 13 Ventura,
+not only macOS 14 or later.
+
+### Added
+- Import from AWS, in Infrastructure as Code, can add the resources to a stack: the stack imports them in its
+  container (state in S3, generated configuration, variables in the Keychain) and Stacks opens on it
+- A stack has one bar with its views (History, Drift, Variables, Settings) and its commands (Init, Plan, Apply,
+  Check Drift); History lists every run, and a run opens as a timeline of its phases (preparing, init, plan, apply,
+  verify) with date, time and duration, and output that can be collapsed, enlarged or downloaded; every finished
+  run keeps its whole log, encrypted
+- A stack's Diagram shows its Terraform configuration in two views. Architecture draws the whole stack, its
+  modules included, the way AWS is organised: global services such as IAM beside the region, the region's own
+  services, the VPC (one created by the stack or an existing one given as `vpc_id`), its availability zones with
+  their public and private subnets, and each resource in the subnet it runs in; resources spread over several
+  subnets, like node groups, sit across them, and the EKS cluster holds its Kubernetes and Helm resources. To place
+  each resource, references are followed through module inputs, outputs and locals, down to a map's entry. Policy
+  attachments, route table associations and bucket settings are folded into the block they belong to. Dependencies
+  draws what each block of a folder uses, from left to right, starting with the network. In both views, click a
+  card or a box title to see its file and line, what it uses and what uses it (lit up on the diagram), its code and
+  its page in the Terraform Registry documentation. Move with two fingers or by dragging, zoom with a pinch,
+  ⌘-scroll or ⌘+ / ⌘−, fit with ⌘0 or a double-click, follow the cards with the arrow keys, find a block by name,
+  and jump around a large stack with the overview in the corner
+- In the Architecture view, double-click any block (or select it and press Return or Open) to see only that block
+  with what it uses, what uses it and what is inside it: opening the EKS cluster shows its node groups in their
+  subnets, its security group, its IAM role and its Kubernetes and Helm resources. Open any block from there to go
+  further, open a block's module from its Module row to see all of the module, and go back with Back (⌘[) or the path
+  above the diagram
+
+### Changed
+- Atlas runs on macOS 12 Monterey or later (it needed macOS 14). On macOS 12 the cost charts are replaced by a note
+  (Swift Charts needs macOS 13), EC2 metrics are drawn as simple lines, the S3 and GuardDuty tables show Open and
+  Actions buttons for the selected rows instead of a right-click menu and double-click, and the side panels have a
+  fixed width; everything else works the same
+- A new app icon: the Atlas star on a Meridian squircle, over the meridians and parallels of an atlas page. It has
+  the macOS icon shape, so the Dock and Finder show it in full instead of inside a grey frame, and each size is
+  drawn on its own, sharp from 16 to 1024 pixels
+- Stacks: the providers are downloaded once per engine and shared by all stacks (Terraform checks them against
+  each stack's lock file); existing containers are recreated once to use the shared cache
+- Stacks: a run in a container that is already running starts right away, without asking Docker whether it is up
+  and starting the container again
+- Pages show what they loaded from AWS at once when you come back to them, and refresh it after 3 minutes, after a
+  change, or with Refresh (⌘R)
+- Infrastructure as Code moved out of Resources to its own menu in the sidebar, below Stacks
+- The sidebar shows an icon for each menu, and Stacks shows how many stacks need attention (drift or a failure)
+- In Stacks, the Ready, Running, Drifted and Failed figures are the filter: click one to show only those stacks,
+  click it again to show all; each figure counts exactly the stacks it shows
+- A stack's next step stands out: Plan until a plan is saved, then Apply…; Init ⇧⌘I, Check Drift ⇧⌘D, Plan ⇧⌘P
+  and Apply ⇧⌘A from the keyboard
+- The toolbar's Refresh shows when a page is updating from AWS, also while it shows the data it already had
+- Import from AWS moved from each stack to Infrastructure as Code
+- A run's output is shown in its timeline in History instead of a bar at the bottom of the stack
+
+### Security
+- New stacks keep their Terraform state in S3 by default (atlas-tfstate-<account>, versioned, encrypted, private),
+  each in its own object, instead of a plain-text terraform.tfstate in the stack's folder; a folder that already has
+  a backend or a local state is left as it is
+- A stack whose state is a local terraform.tfstate shows a warning and a "Local state" badge; Move State to S3 copies
+  it to the state bucket, reads it back from there, and only then removes terraform.tfstate and its backup
+- Plan files (which hold the configuration and variable values in plain text) are saved in Atlas's private folder,
+  readable only by you, instead of the stack's or project's folder; plan files left there by earlier versions are removed
+- The AWS secret key, session token and stack variable values are masked in all Terraform/OpenTofu output: on screen,
+  in saved run logs, in drift reports and in error messages
+- stacks.json and terraform-projects.json are readable only by you, and a stack's drift summary and diff are encrypted
+  like its run logs
+- Terraform's debug logs (TF_LOG, TF_LOG_PATH) are never turned on from the environment Atlas was started with
+- A copied secret access key is marked concealed, so clipboard managers and Universal Clipboard leave it out, and is
+  cleared after 60 seconds unless you copied something else
+- A downloaded run log is readable only by you, and errors in the system log no longer show AWS error details
+
+### Fixed
+- A stack's Diagram tab stayed empty, with no zoom controls and no response to clicks, when the stack was larger than
+  the window: the diagram pushed the whole view out of sight. It now shows the stack fitted to the window
+- Double-clicking a block in the stack diagram did nothing: the second click never reached it. Double-clicks and
+  scrolling now take the point under the pointer from the click itself, so they work as soon as the tab opens
+- Moving the pointer over a large stack's diagram no longer redraws every block, the diagram is built away from the
+  main thread, and the blocks are drawn flat
+- The stack diagram read files saved with Windows line endings (CR LF) as one line and left out every block in
+  them
+- Import into a stack whose configuration already sets up the AWS provider or a backend (for example state in an S3
+  bucket of its own, declared in 01-providers.tf) no longer writes a providers.tf that declared them twice; the
+  stack's files and its state bucket are left as they are
+- Backends written in .tf.json files are recognized; a stack with its own backend and an old terraform.tfstate left in
+  its folder is told the file is unused, without offering to move it
+- Stacks with many variables or runs no longer slow the app down: saving a stack only writes to the Keychain and
+  disk what changed, and Keychain credentials are read once per account instead of on every screen update
+- Stacks with EKS clusters plan and apply in their container: 'aws eks get-token', used by the kubernetes and helm
+  providers, now works there with the stack's Atlas account, without the AWS CLI
+- Stack Init works with Docker Desktop opened from Finder (the image pull finds Docker's credential helper), and
+  each stack's container keeps its own Terraform/OpenTofu data folder, so a .terraform made on the Mac no longer
+  breaks init with "Backend configuration changed"
+
+## [2.6.0] - 2026-10-23
+
+Atlas 2.6.0 lets you change an S3 bucket's settings and keeps a closer watch on GuardDuty. S3 › Settings shows
+and edits a bucket's versioning, default encryption, Block Public Access, tags, lifecycle rules and policy; each
+change is described and confirmed before it reaches AWS. While Atlas is open it checks GuardDuty in the active
+account and region every 2 minutes and posts a desktop notification for each new finding, or a summary when
+there are several. The GuardDuty page uses AWS's four severity levels, filters by severity, type and resource,
+shows each finding's resource, action, actor, count and first and last seen, and archives and unarchives findings.
+
+### Added
+- S3 › Settings (also in a bucket's context menu): versioning, default encryption (SSE-S3, SSE-KMS, DSSE-KMS),
+  Block Public Access, tags, lifecycle rules and bucket policy, each saved only after you confirm the change
+- Lifecycle rules Atlas can't edit (tag or size filters, dates…) are kept exactly as they are when you save
+- GuardDuty desktop notifications for new findings in the active account and region, checked every 2 minutes;
+  what was already announced is remembered, so nothing repeats after a restart. Turn them off in Accounts › Notifications
+- GuardDuty: filter by severity, finding type and resource type; archive and unarchive findings; see archived findings
+
+### Changed
+- GuardDuty severities follow AWS: Low 1.0–3.9, Medium 4.0–6.9, High 7.0–8.9 and Critical 9.0–10.0
+- A GuardDuty finding shows its resource (instance, access key, bucket, cluster…), its action (API call,
+  connection, port probe, DNS request…), the actor (remote IP, location, organization, threat list), count and
+  first and last seen
+- The GuardDuty page says when GuardDuty is not enabled, or is suspended, in the region
+
 ## [2.5.1] - 2026-10-23
 
 Atlas 2.5.1 brings 1 fix.
@@ -237,6 +438,13 @@ _No changes._
 - Delete atlas_v1.0.0.exe
 - 0.0.1
 
+[2.10.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.1
+[2.10.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.10.0
+[2.9.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.9.0
+[2.8.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.8.0
+[2.7.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.1
+[2.7.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.7.0
+[2.6.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.6.0
 [2.5.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.1
 [2.5.0]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.5.0
 [2.4.1]: https://github.com/viniciuslopesgit/Atlas/releases/tag/2.4.1

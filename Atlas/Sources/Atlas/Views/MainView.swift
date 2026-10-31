@@ -6,20 +6,43 @@ struct MainView: View {
     @State private var showDockerSetup = false
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: Binding(get: { state.page?.menu }, set: { if let menu = $0 { state.open(menu) } })) {
-                ForEach(SidebarMenu.allCases) { menu in
-                    HStack {
-                        Text(menu.title)
-                        Spacer()
-                        if menu.hasSubmenu { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
-                    }
-                    .tag(menu)
-                }
+        split
+        .sheet(isPresented: $state.showSearch) { SearchSheet() }
+        .environmentObject(state.stacks)
+        .sheet(isPresented: $showDockerSetup, onDismiss: { dockerPrompted = true }) { DockerSetupSheet() }
+        .onAppear {
+            state.stacks.startScheduler()
+            state.guardDutyAlerts.start()
+            // First launch: with Docker there is nothing to say; without it, offer Docker Desktop once.
+            if !dockerPrompted && !SmokeTest.isEnabled && state.stacks.runtime == nil { showDockerSetup = true }
+        }
+    }
+
+    /// The sidebar and the page: NavigationSplitView from macOS 13, NavigationView on macOS 12.
+    @ViewBuilder
+    private var split: some View {
+        if #available(macOS 13, *) {
+            NavigationSplitView {
+                sidebar.navigationSplitViewColumnWidth(min: 190, ideal: 210)
+            } detail: {
+                detail
             }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 210)
-            .safeAreaInset(edge: .bottom) { AccountFooter() }
-        } detail: {
+        } else {
+            NavigationView {
+                sidebar.frame(minWidth: 190, idealWidth: 210)
+                detail
+            }
+        }
+    }
+
+    private var sidebar: some View {
+        List(selection: Binding(get: { state.page?.menu }, set: { if let menu = $0 { state.open(menu) } })) {
+            ForEach(SidebarMenu.allCases) { menu in SidebarRow(menu: menu).tag(menu) }
+        }
+        .safeAreaInset(edge: .bottom) { AccountFooter() }
+    }
+
+    private var detail: some View {
             Group {
                 if state.activeAccount == nil && state.page != .settings && state.page != .feedback {
                     EmptyStateView(icon: "person.crop.circle.badge.questionmark",
@@ -55,15 +78,6 @@ struct MainView: View {
                 }
             }
             .animation(.easeOut(duration: 0.2), value: state.notice)
-        }
-        .sheet(isPresented: $state.showSearch) { SearchSheet() }
-        .environmentObject(state.stacks)
-        .sheet(isPresented: $showDockerSetup, onDismiss: { dockerPrompted = true }) { DockerSetupSheet() }
-        .onAppear {
-            state.stacks.startScheduler()
-            // First launch: with Docker there is nothing to say; without it, offer Docker Desktop once.
-            if !dockerPrompted && !SmokeTest.isEnabled && state.stacks.runtime == nil { showDockerSetup = true }
-        }
     }
 
     @ViewBuilder
@@ -85,6 +99,21 @@ struct MainView: View {
     }
 }
 
+/// A sidebar menu; Stacks counts the stacks that need attention (drift or a failure).
+private struct SidebarRow: View {
+    @EnvironmentObject private var stacks: StacksModel
+    let menu: SidebarMenu
+
+    var body: some View {
+        HStack {
+            Label(menu.title, systemImage: menu.icon)
+            Spacer()
+            if menu.hasSubmenu { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
+        }
+        .badge(menu == .stacks ? stacks.needingAttention : 0)
+    }
+}
+
 /// The pages of a sidebar menu, in a column to the right of the sidebar.
 private struct Submenu: View {
     @EnvironmentObject private var state: AppState
@@ -100,7 +129,7 @@ private struct Submenu: View {
     }
 }
 
-/// Accounts and Feedback, outside the three sidebar menus.
+/// Accounts and Feedback, outside the sidebar menus.
 private struct AccountFooter: View {
     @EnvironmentObject private var state: AppState
 
@@ -176,8 +205,10 @@ private struct MainToolbar: ToolbarContent {
 
             Button { state.showSearch = true } label: { Label("Search", systemImage: "magnifyingglass") }
                 .help("Search resources (⌘K)")
-            Button { state.refresh() } label: { Label("Refresh", systemImage: "arrow.clockwise") }
-                .help("Refresh (⌘R)")
+            Button { state.refresh() } label: {
+                if state.loading > 0 { ProgressView().controlSize(.small) } else { Label("Refresh", systemImage: "arrow.clockwise") }
+            }
+            .help(state.loading > 0 ? "Updating from AWS…" : "Refresh (⌘R)")
         }
     }
 }

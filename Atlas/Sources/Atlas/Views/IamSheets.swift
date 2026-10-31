@@ -97,7 +97,7 @@ struct CreateUserSheet: View {
                 Toggle("Create an access key for programmatic access", isOn: $o.createAccessKey)
             }
         }
-        .formStyle(.grouped)
+        .groupedForm()
     }
 
     private func result(_ c: CreatedUser) -> some View {
@@ -106,7 +106,7 @@ struct CreateUserSheet: View {
             if let key = c.accessKey {
                 Text("Save the secret now: AWS shows it only once.").foregroundStyle(.secondary)
                 DetailRow("Access key ID", key.id, copyable: true)
-                DetailRow("Secret access key", key.secret, copyable: true)
+                DetailRow("Secret access key", key.secret, copyable: true, secret: true)
             }
             Spacer()
         }
